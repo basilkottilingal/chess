@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>8x8 Grid with JavaScript</title>
+  <link rel="stylesheet" href="board.css">
+</head>
+<body>
+  <div class="grid-container" id="grid-container">
+    <!-- The grid items will be dynamically added here by JavaScript "board.js"-->
+  </div>
+
+  <!-- Initial board structure -->
+  <!--script src="board.js">  </script-->
+
+  <!-- Overlay for blocking interaction -->
+  <div class="overlay" id="board-overlay"></div>
+  <!-- Promotion -->
+  <div class="promotion-overlay" id="promotion-overlay">
+    <div class="promotion-option" data-piece="q">
+      <img src="chesspieces/q.png" alt="Queen">
+    </div>
+    <div class="promotion-option" data-piece="r">
+      <img src="chesspieces/r.png" alt="Rook">
+    </div>
+    <div class="promotion-option" data-piece="b">
+      <img src="chesspieces/b.png" alt="Bishop">
+    </div>
+    <div class="promotion-option" data-piece="n">
+      <img src="chesspieces/n.png" alt="Knight">
+    </div>
+  </div>
+
+  <!-- How pieces can be dragged to another squares -->
+  <script type="module" src="game.js"> </script>
+</body>
+</html>
+
