@@ -1,3 +1,9 @@
+/* ToDo. 1) Get board (rather) from chess.js
+2) player can be any color. 
+   BUt toggle between 'w' and 'b' while 'play again'
+3) check fen v/s board validity.
+4) Replay, undo, play again button
+*/
 import {Chess} from "./chess.js";
 
 
