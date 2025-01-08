@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <assert.h>
+#include <string.h>
 
 #define WHITE 1
 #define BLACK 0
@@ -19,7 +20,20 @@
 #define BKING (6<<1) 
 #define WKING ((6<<1) | WHITE)
 #define PIECE_COLOR(PIECE) (PIECE & WHITE)
-#define PIECE_TYPE(PIECE) (PIECE & 30)
+
+#define MOVE_NORMAL 1
+#define MOVE_CAPTURE 2
+#define MOVE_PROMOTION 4
+#define MOVE_KCASTLE 8
+#define MOVE_QCASTLE 16
+#define MOVE_ENPASSANTE 32
+
+const int BPAWN_MOVES[4][3] = {
+    {1,0}, {2,0}, {1,-1}, {1,1}
+  };
+const int WPAWN_MOVES[4][3] = {
+    {-1,0}, {-2,0}, {-1,-1}, {-1,1}
+  };
 
 static inline unsigned int SQUARE64(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
@@ -45,12 +59,61 @@ unsigned int MAPPING2[58] =
     'u', 'v', 'w', 'x', 'y', 'z'
   };
 
+//Array is used to allocate, reallocate memory ..
+//.. without any memory mismanagement.
+typedef struct {
+  void * p;
+  long max, len;
+} Array;
+
+Array * array_new()
+{
+  Array * a = (Array *)malloc (sizeof(Array));
+  a->p = NULL;
+  a->max = a->len = 0;
+  return a;
+}
+
+void array_free (Array * a)
+{
+  free (a->p);
+  free (a);
+}
+
+void array_append (Array * a, void * elem, size_t size)
+{
+  if (a->len + size >= a->max) {
+    a->max += size >4096 ? size : 4096;
+    a->p = realloc (a->p, a->max);
+  }
+  memcpy (((char *)a->p) + a->len, elem, size);
+  a->len += size;
+}
+
+void * array_shrink (Array * a)
+{
+  void * p = realloc (a->p, a->len);
+  free (a);
+  return p;
+}
+
+typedef struct {
+  unsigned int piece;
+  unsigned int from;
+  unsigned int to;
+  char SAN[12];
+  unsigned int flags;
+  unsigned int promotion;
+}_GameMove;
+
 typedef struct {
   unsigned int ** board;
   unsigned int enpassante, castling, color;
-  unsigned int nmove;
+  unsigned int halfclock, fullclock;
   char ** history;
   char fen[101];
+  Array * moves;
+  void * move;
 }_Game;
 
 void GamePushHistory(_Game * g){
@@ -63,22 +126,27 @@ void GamePopHistory(_Game * g){
 }
 
 void GamePrintBoard(_Game * g) {
-  unsigned int * pieces = g->board[0];
+  unsigned int ** board = g->board;
       
   fprintf(stdout,"\nBoard");
   for (int i=0; i<8; ++i){
   fprintf(stdout,"\n");
-    for (int j=0; j<8; ++j) 
-      fprintf(stdout," %c", MAPPING[*pieces++]);
+    for (int j=0; j<8; ++j) {
+      unsigned int piece = board[i][j];
+      fprintf(stdout," %c", MAPPING[piece]);
+    }
   }
   fprintf(stdout,"\nWhose Turn: %u", g->color);
   fprintf(stdout,"\nCastling: %u", g->castling);
-  fprintf(stdout,"\nEnpass: %u", g->enpassante);
+  fprintf(stdout,"\nEnpassante %u", g->enpassante);
+  fprintf(stdout,"\nHalfclock %u", g->halfclock);
+  fprintf(stdout,"\nFullclock %u", g->fullclock);
 }
 
 void GameBoard(_Game * g) {
   /* Set board from FEN */ 
-  unsigned int * square = g->board[0];
+  unsigned int ** rank = g->board;
+  unsigned int * square = rank[0];
   char * fen = g->fen;
   while(*fen != '\0') {
     char c = *fen;
@@ -90,20 +158,23 @@ void GameBoard(_Game * g) {
       for (int i=0; i<nempty; ++i)
         *square++ = 0;
     }
-    else if (c == '/') 
-      continue; 
-    else if (c == ' ')
+    else if (c == '/') {
+      //check all squares of this rank are covered
+      size_t nfiles = (size_t) (square - rank[0]);
+      assert(nfiles == 8);
+      ++rank;
+      square = rank[0];
+    } 
+    else if (c == ' '){
+      //check all ranks are covered
+      //size_t nranks = (size_t) (rank - g->board[0]);
+      //assert(nranks == 8);
       break;
+    }
     else 
       *square++ = MAPPING2[c - 'A'];
   }
 
-  size_t nsquares = (size_t) (square - g->board[0]);
-  if(nsquares != 64) {
-    fprintf(stderr, "Error: Wrong FEN Format (1)");
-    fflush(stderr);
-    exit(-1);
-  }
 
   //Let's see whose turn is now ('w'/'b')
   if(*fen == 'w')
@@ -144,12 +215,29 @@ void GameBoard(_Game * g) {
   }
 
   ++fen; 
+  assert(*fen == ' ');
 
+  ++fen;
+  assert(isdigit(*fen));
+  g->halfclock = *fen - '0'; 
+  //Halfmove clocks are reset during a capture/a pawn advance
+
+  ++fen;
+  assert(*fen == ' ');
+
+  ++fen;
+  assert(isdigit(*fen));
+  g->fullclock = *fen - '0'; 
+
+  ++fen;
+  assert(*fen == '\0');
+
+  return;
 }
 
 void GamePrintFEN(_Game * g){
   char * fen = g->fen;
-  fprintf(stdout, "\n", *fen);
+  fprintf(stdout, "\n");
   for (int i=0; fen[i] != '\0'; ++i, ++fen){
       fprintf(stdout, "%c", *fen);
   }
@@ -178,25 +266,85 @@ _Game * Game(char * _fen){
     }
   }
 
-  //two dimensional board
-  unsigned int ** board = 
-    (unsigned int **)malloc(8*sizeof(unsigned int *));
-  board[0] = (unsigned int *)malloc(64*sizeof(unsigned int));
-  for(int i=1; i<8; ++i)
-    board[i] = board[i-1] + 8;
+  //2-dimensional 8x8 board with 2 layer padding on each sides
+  //board[-2:9][-2:9]
+  //Valid part: board[0:7][0:7]
+  int b = 8, p = 2;
+  int tb = b + 2*p;
+  unsigned int ** board = (unsigned int **)
+    malloc(tb*sizeof(unsigned int *));
+  board[0] = (unsigned int *)
+    malloc(tb*tb*sizeof(unsigned int));
+  for(int i=1; i<tb; ++i)
+    board[i] = board[i-1] + tb;
+  for(int i=0; i<tb; ++i)
+    board[i] += p;
+  board += p;
   g->board = board;
   //Set the Chessboard
   GameBoard(g);
+
+  //Allocate memory for possible moves,
+  g->moves = array_new();
+  g->move  = NULL;
  
   return g; 
   
 } 
 
 void GameDestroy(_Game * g) {
-  free(g->board[0]);
-  free(g->board);
+  unsigned int ** board = g->board;
+  int p = 2;
+  board -= p;
+  board[0] -= p; 
+  free(board[0]);
+  free(board);
+
+  if(g->moves)
+    array_free(g->moves);
+
   free(g);
 }
+
+int GameAllMoves(_Game * g){
+  /* Find all moves by rule. 
+   If on check and no moves return 0. Game over 
+   If on check and there are atleast 1 move which nullify check.
+   If Not on check and there are no moves return 2. Stalemate.
+   If Not on check and there are some moves return 3 */ 
+  
+}
+
+int GameMove(_Game * g){
+
+  //move
+  unsigned int * board = g->board[0];
+  _GameMove * m = g->move;
+  if(!m) {
+    fprintf(stderr, "Error: Move not found");
+    fflush(stdout);
+    exit(-1);
+  }
+  board[m->to] = (m->flags & MOVE_PROMOTION) ?
+    m->promotion : m->piece;
+
+  m = NULL;
+   
+  //update_flags
+  
+
+  GameAllMoves(g);
+  if(!g->moves->len) {
+    fprintf(stdout, "Game Over!. %c wins",
+      g->color ? 'w' : 'b');
+  }
+  else {
+    g->fullclock += (!g->color);
+    // Swap Color
+    g->color = !g->color;
+    //update halfmove if CAPTURE or pawnmove
+  }
+} 
 
 int main(){
   _Game * g = Game(NULL);
