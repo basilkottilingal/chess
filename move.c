@@ -1,3 +1,4 @@
+/* Board reprint. , moves */
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -70,7 +71,13 @@ const char KNIGHT_MOVES[8][2] = {
   {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
 */
 const char KNIGHT_MOVES[8] = {
-  14, 25, 23, 10, -14, -25, -23, -10 }; 
+  14, 25, 23, 10, -14, -25, -23, -10 };
+const char QUEEN_MOVES[8] = {
+  1, 13, 12, 11, -1, -13, -12, -11 };
+const char ROOK_MOVES[4] = {
+  1, 12, -1, -12};
+const char BISHOP_MOVES[4] = {
+  13, 11, -13, -11 };
 
 static inline unsigned char SQUARE64(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
@@ -158,8 +165,23 @@ static inline void GameMovesFrom( _GameSquare * from,
       // Occupied by same color; 'break' moving along the ray
       if(PIECE_COLOR(*to) == PIECE_COLOR(*from)) 
         break;
-      fprintf(stdout, "\n\"%c\" moves along %d %d", 
-        MAPPING[piece], rays[i], j+1);  
+
+      unsigned char flags = 0;
+      //flags |= 
+      
+      _GameMove move = {
+        .piece = piece,
+        .from = from->square,
+        .to = to->square,
+        .flags = flags ? flags : 1,
+        .promotion = OUTSIDE
+      };
+  
+      if(flags & MOVE_CAPTURE)
+        break;
+
+      // Occupied by opponent ; 'break' moving along the ray
+
     }
   }
 }
