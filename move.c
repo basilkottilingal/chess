@@ -5,11 +5,10 @@
 #include <string.h>
 #include <limits.h>
 
-#define OUTSIDE 16
+#define OUTSIDE 15
 #define PIECE_SHIFT 1
 #define WHITE 1 
 #define BLACK 0
-#define TOGGLE_COLOR(PIECE) (PIECE^1)
 
 #define BPAWN ((1<<PIECE_SHIFT) | BLACK)
 #define WPAWN ((1<<PIECE_SHIFT) | WHITE)
@@ -23,7 +22,7 @@
 #define WQUEEN ((5<<PIECE_SHIFT) | WHITE)
 #define BKING ((6<<PIECE_SHIFT) | BLACK)
 #define WKING ((6<<PIECE_SHIFT) | WHITE)
-#define PIECE_COLOR(PIECE) (PIECE & 1)
+#define PIECE_COLOR(SQUARE) (PIECE(SQUARE) & 1)
 
 #define MOVE_NORMAL 1
 #define MOVE_CAPTURE 2
@@ -32,28 +31,13 @@
 #define MOVE_QCASTLE 16
 #define MOVE_ENPASSANTE 32
 
-const char QUEEN_MOVES[8][2] = {
-  {1,0}, {1,1}, {0,1}, {-1,1},
-  {-1,0}, {-1,-1}, {0,-1}, {1,-1} };
-const char BISHOP_MOVES[4][2] = {
-  {1,1}, {-1,1}, {-1,-1}, {1,-1} };
-const char ROOK_MOVES[4][2] = {
-  {1,0}, {0,1}, {-1,0}, {0,-1} };
-const char KNIGHT_MOVES[8][2] = {
-  {2,1}, {1,2}, {1,-2}, {2,-1},
-  {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
-
-static inline unsigned char SQUARE64(char * s){
-  return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
-}
-
-
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
-char MAPPING[14] = 
+char MAPPING[17] = 
   { '.', '.',
     'p', 'P', 'r', 'R', 'n', 'N',
-    'b', 'B', 'q', 'Q', 'k', 'K' 
+    'b', 'B', 'q', 'Q', 'k', 'K',
+    '.', '.', 'x' 
   };
 
 unsigned char MAPPING2[58] = 
@@ -65,6 +49,33 @@ unsigned char MAPPING2[58] =
     BKNIGHT, 'o', BPAWN, BQUEEN, BROOK, 's', 't', 
     'u', 'v', 'w', 'x', 'y', 'z'
   };
+
+#define PIECE(SQUARE) ((SQUARE).piece)
+#define BOARD_FILE(SQUARE) ('a' + (SQUARE).square%8)
+#define BOARD_RANK(SQUARE) ('0' + 8 - (SQUARE).square/8)
+#define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
+#define TOGGLE_COLOR(SQUARE) (PIECE(SQUARE)^1)
+
+
+/*
+const char QUEEN_MOVES[8][2] = {
+  {1,0}, {1,1}, {0,1}, {-1,1},
+  {-1,0}, {-1,-1}, {0,-1}, {1,-1} };
+const char BISHOP_MOVES[4][2] = {
+  {1,1}, {-1,1}, {-1,-1}, {1,-1} };
+const char ROOK_MOVES[4][2] = {
+  {1,0}, {0,1}, {-1,0}, {0,-1} };
+const char KNIGHT_MOVES[8][2] = {
+  {2,1}, {1,2}, {1,-2}, {2,-1},
+  {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
+*/
+const char KNIGHT_MOVES[8] = {
+  14, 25, 23, 10, -14, -25, -23, -10 }; 
+
+static inline unsigned char SQUARE64(char * s){
+  return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
+}
+
 
 //Array is used to allocate, reallocate memory ..
 //.. without any memory mismanagement.
@@ -106,40 +117,42 @@ void * array_shrink (Array * a)
 
 typedef struct {
   unsigned char piece;
+  unsigned char square;
+}_GameSquare;
+
+typedef struct {
+  unsigned char piece;
   unsigned char from;
   unsigned char to;
-  char SAN[12];
+  char SAN[8];
   unsigned char flags;
   unsigned char promotion;
 }_GameMove;
 
 typedef struct {
-  unsigned char ** board;
+  _GameSquare ** board;
   unsigned char enpassante, castling, color;
   unsigned char halfclock, fullclock;
-  char ** history;
   char fen[101];
-  Array * moves;
-  void * move;
+  Array * moves, * history;
+  _GameMove * move;
 }_Game;
 
-static inline void GameMovesFrom(unsigned char ** board,
-    unsigned char rank, unsigned char file, 
-    const char rays[][], int nrays,
-    int depth, Array * moves) {
-
-  unsigned char piece = board[rank][file];
+static inline void GameMovesFrom( _GameSquare * from, 
+    const char rays[], int nrays, int depth, Array * moves) {
+  
+  unsigned char piece = from->piece;
   //'from' square can be neither empty nor outside the box
   assert ( piece != OUTSIDE && piece );
 
   for(int i=0; i<nrays; ++i) {
 
-    unsigned char destination = squareboard[;
+    _GameSquare * to = from;
     for(int j=0; j<depth; ++j) {
       to += rays[i];
       
       // Cannot move along the ray, will end up outside board 
-      if(*to == OUTSIDE) 
+      if(to->piece == OUTSIDE) 
         break; 
         
       // Occupied by same color; 'break' moving along the ray
@@ -151,10 +164,9 @@ static inline void GameMovesFrom(unsigned char ** board,
   }
 }
 
-void GameQueenMove(_Game * g, unsigned char * from){
+void GameQueenMove(_Game * g, _GameSquare * from){
   if(g->color != PIECE_COLOR(*from))
     return;
-  
 }
 
 void GamePushHistory(_Game * g){
@@ -167,13 +179,13 @@ void GamePopHistory(_Game * g){
 }
 
 void GamePrintBoard(_Game * g) {
-  unsigned char ** board = g->board;
+  _GameSquare ** board = g->board;
       
   fprintf(stdout,"\nBoard");
   for (int i=0; i<8; ++i){
   fprintf(stdout,"\n");
     for (int j=0; j<8; ++j) {
-      unsigned char piece = board[i][j];
+      unsigned char piece = board[i][j].piece;
       fprintf(stdout," %c", MAPPING[piece]);
     }
   }
@@ -186,8 +198,9 @@ void GamePrintBoard(_Game * g) {
 
 void GameBoard(_Game * g) {
   /* Set board from FEN */ 
-  unsigned char ** rank = g->board;
-  unsigned char * square = rank[0];
+  _GameSquare ** rank = g->board;
+  _GameSquare * square = rank[0];
+  unsigned char sid = 0; // square id
   char * fen = g->fen;
   while(*fen != '\0') {
     char c = *fen;
@@ -196,24 +209,24 @@ void GameBoard(_Game * g) {
     if (isdigit(c)) {
       int nempty = c - '0';
       assert(nempty > 0 && nempty <= 8);
-      for (int i=0; i<nempty; ++i)
-        *square++ = 0;
+      for (int i=0; i<nempty; ++i) {
+        square->piece = 0; // EMpty piece
+        square++->square = sid++; //Square id [0:64)
+      }
     }
     else if (c == '/') {
       //check all squares of this rank are covered
-      size_t nfiles = (size_t) (square - rank[0]);
-      assert(nfiles == 8);
       ++rank;
       square = rank[0];
     } 
     else if (c == ' '){
-      //check all ranks are covered
-      //size_t nranks = (size_t) (rank - g->board[0]);
-      //assert(nranks == 8);
+      assert( sid == 64 ); //Make sure all squares are filled
       break;
     }
-    else 
-      *square++ = MAPPING2[c - 'A'];
+    else{
+        square->piece =  MAPPING2[c - 'A']; // EMpty piece
+        square++->square = sid++; //Square id [0:64)
+    }
   }
 
 
@@ -312,15 +325,15 @@ _Game * Game(char * _fen){
   //Valid part: board[0:7][0:7]
   int b = 8, p = 2;
   int tb = b + 2*p;
-  unsigned char ** board = (unsigned char **)
-    malloc(tb*sizeof(unsigned char *));
-  board[0] = (unsigned char *)
-    malloc(tb*tb*sizeof(unsigned char));
+  _GameSquare ** board = (_GameSquare **)
+    malloc(tb*sizeof(_GameSquare *));
+  board[0] = (_GameSquare *)
+    malloc(tb*tb*sizeof(_GameSquare));
   for(int i=1; i<tb; ++i)
     board[i] = board[i-1] + tb;
   for(int i=0; i<tb; ++i) {
     for(int j=0; j<tb; ++j)
-      board[i][j] = OUTSIDE; 
+      board[i][j].piece = OUTSIDE; 
     board[i] += p;
   }
   board += p;
@@ -337,7 +350,7 @@ _Game * Game(char * _fen){
 } 
 
 void GameDestroy(_Game * g) {
-  unsigned char ** board = g->board;
+  _GameSquare ** board = g->board;
   int p = 2;
   board -= p;
   board[0] -= p; 
@@ -362,15 +375,15 @@ int GameAllMoves(_Game * g){
 int GameMove(_Game * g){
 
   //move
-  unsigned char * board = g->board[0];
+  _GameSquare * board = g->board[0];
   _GameMove * m = g->move;
   if(!m) {
     fprintf(stderr, "Error: Move not found");
     fflush(stdout);
     exit(-1);
   }
-  board[m->to] = (m->flags & MOVE_PROMOTION) ?
-    m->promotion : m->piece;
+  //board[m->to] = (m->flags & MOVE_PROMOTION) ?
+  //  m->promotion : m->piece;
 
   m = NULL;
    
@@ -394,8 +407,9 @@ int main(){
   _Game * g = Game(NULL);
   GamePrintBoard(g);
 
-  unsigned char * from = g->board[7] + 1;
-  fprintf(stdout, "\n from: %u %c\n", *from,MAPPING[*from]);
+  _GameSquare * from = &(g->board[7][1]);
+  fprintf(stdout, "\n from: %c%c%c piece \n",
+    BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from));
 
   GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
 
