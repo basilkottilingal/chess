@@ -3,23 +3,27 @@
 #include <ctype.h>
 #include <assert.h>
 #include <string.h>
+#include <limits.h>
 
-#define WHITE 1
+#define OUTSIDE 16
+#define PIECE_SHIFT 1
+#define WHITE 1 
 #define BLACK 0
+#define TOGGLE_COLOR(PIECE) (PIECE^1)
 
-#define BPAWN (1<<1)
-#define WPAWN ((1<<1) | WHITE)
-#define BROOK (2<<1) 
-#define WROOK ((2<<1) | WHITE)
-#define BKNIGHT (3<<1) 
-#define WKNIGHT ((3<<1) | WHITE)
-#define BBISHOP (4<<1) 
-#define WBISHOP ((4<<1) | WHITE)
-#define BQUEEN (5<<1) 
-#define WQUEEN ((5<<1) | WHITE)
-#define BKING (6<<1) 
-#define WKING ((6<<1) | WHITE)
-#define PIECE_COLOR(PIECE) (PIECE & WHITE)
+#define BPAWN ((1<<PIECE_SHIFT) | BLACK)
+#define WPAWN ((1<<PIECE_SHIFT) | WHITE)
+#define BROOK ((2<<PIECE_SHIFT) | BLACK) 
+#define WROOK ((2<<PIECE_SHIFT) | WHITE)
+#define BKNIGHT ((3<<PIECE_SHIFT) | BLACK) 
+#define WKNIGHT ((3<<PIECE_SHIFT) | WHITE)
+#define BBISHOP ((4<<PIECE_SHIFT | BLACK)) 
+#define WBISHOP ((4<<PIECE_SHIFT) | WHITE)
+#define BQUEEN ((5<<PIECE_SHIFT) | BLACK)
+#define WQUEEN ((5<<PIECE_SHIFT) | WHITE)
+#define BKING ((6<<PIECE_SHIFT) | BLACK)
+#define WKING ((6<<PIECE_SHIFT) | WHITE)
+#define PIECE_COLOR(PIECE) (PIECE & 1)
 
 #define MOVE_NORMAL 1
 #define MOVE_CAPTURE 2
@@ -28,18 +32,21 @@
 #define MOVE_QCASTLE 16
 #define MOVE_ENPASSANTE 32
 
-const int BPAWN_MOVES[4][3] = {
-    {1,0}, {2,0}, {1,-1}, {1,1}
-  };
-const int WPAWN_MOVES[4][3] = {
-    {-1,0}, {-2,0}, {-1,-1}, {-1,1}
-  };
+const char QUEEN_MOVES[8][2] = {
+  {1,0}, {1,1}, {0,1}, {-1,1},
+  {-1,0}, {-1,-1}, {0,-1}, {1,-1} };
+const char BISHOP_MOVES[4][2] = {
+  {1,1}, {-1,1}, {-1,-1}, {1,-1} };
+const char ROOK_MOVES[4][2] = {
+  {1,0}, {0,1}, {-1,0}, {0,-1} };
+const char KNIGHT_MOVES[8][2] = {
+  {2,1}, {1,2}, {1,-2}, {2,-1},
+  {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
 
-static inline unsigned int SQUARE64(char * s){
+static inline unsigned char SQUARE64(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
 }
 
-//define VALIDMOVE(SQUARE,VECTOR) 
 
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
@@ -49,7 +56,7 @@ char MAPPING[14] =
     'b', 'B', 'q', 'Q', 'k', 'K' 
   };
 
-unsigned int MAPPING2[58] = 
+unsigned char MAPPING2[58] = 
   { 'A', WBISHOP, 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
     WKING, 'L', 'M', WKNIGHT, 'O', WPAWN, WQUEEN, 
     WROOK, 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
@@ -98,23 +105,57 @@ void * array_shrink (Array * a)
 }
 
 typedef struct {
-  unsigned int piece;
-  unsigned int from;
-  unsigned int to;
+  unsigned char piece;
+  unsigned char from;
+  unsigned char to;
   char SAN[12];
-  unsigned int flags;
-  unsigned int promotion;
+  unsigned char flags;
+  unsigned char promotion;
 }_GameMove;
 
 typedef struct {
-  unsigned int ** board;
-  unsigned int enpassante, castling, color;
-  unsigned int halfclock, fullclock;
+  unsigned char ** board;
+  unsigned char enpassante, castling, color;
+  unsigned char halfclock, fullclock;
   char ** history;
   char fen[101];
   Array * moves;
   void * move;
 }_Game;
+
+static inline void GameMovesFrom(unsigned char ** board,
+    unsigned char rank, unsigned char file, 
+    const char rays[][], int nrays,
+    int depth, Array * moves) {
+
+  unsigned char piece = board[rank][file];
+  //'from' square can be neither empty nor outside the box
+  assert ( piece != OUTSIDE && piece );
+
+  for(int i=0; i<nrays; ++i) {
+
+    unsigned char destination = squareboard[;
+    for(int j=0; j<depth; ++j) {
+      to += rays[i];
+      
+      // Cannot move along the ray, will end up outside board 
+      if(*to == OUTSIDE) 
+        break; 
+        
+      // Occupied by same color; 'break' moving along the ray
+      if(PIECE_COLOR(*to) == PIECE_COLOR(*from)) 
+        break;
+      fprintf(stdout, "\n\"%c\" moves along %d %d", 
+        MAPPING[piece], rays[i], j+1);  
+    }
+  }
+}
+
+void GameQueenMove(_Game * g, unsigned char * from){
+  if(g->color != PIECE_COLOR(*from))
+    return;
+  
+}
 
 void GamePushHistory(_Game * g){
   /** Add current FEN to history */
@@ -126,13 +167,13 @@ void GamePopHistory(_Game * g){
 }
 
 void GamePrintBoard(_Game * g) {
-  unsigned int ** board = g->board;
+  unsigned char ** board = g->board;
       
   fprintf(stdout,"\nBoard");
   for (int i=0; i<8; ++i){
   fprintf(stdout,"\n");
     for (int j=0; j<8; ++j) {
-      unsigned int piece = board[i][j];
+      unsigned char piece = board[i][j];
       fprintf(stdout," %c", MAPPING[piece]);
     }
   }
@@ -145,8 +186,8 @@ void GamePrintBoard(_Game * g) {
 
 void GameBoard(_Game * g) {
   /* Set board from FEN */ 
-  unsigned int ** rank = g->board;
-  unsigned int * square = rank[0];
+  unsigned char ** rank = g->board;
+  unsigned char * square = rank[0];
   char * fen = g->fen;
   while(*fen != '\0') {
     char c = *fen;
@@ -243,7 +284,7 @@ void GamePrintFEN(_Game * g){
   }
 }
 
-void GameFEN(char * fen, unsigned int ** board){
+void GameFEN(char * fen, unsigned char ** board){
   /* Get FEN from Board */
 }
 
@@ -271,14 +312,17 @@ _Game * Game(char * _fen){
   //Valid part: board[0:7][0:7]
   int b = 8, p = 2;
   int tb = b + 2*p;
-  unsigned int ** board = (unsigned int **)
-    malloc(tb*sizeof(unsigned int *));
-  board[0] = (unsigned int *)
-    malloc(tb*tb*sizeof(unsigned int));
+  unsigned char ** board = (unsigned char **)
+    malloc(tb*sizeof(unsigned char *));
+  board[0] = (unsigned char *)
+    malloc(tb*tb*sizeof(unsigned char));
   for(int i=1; i<tb; ++i)
     board[i] = board[i-1] + tb;
-  for(int i=0; i<tb; ++i)
+  for(int i=0; i<tb; ++i) {
+    for(int j=0; j<tb; ++j)
+      board[i][j] = OUTSIDE; 
     board[i] += p;
+  }
   board += p;
   g->board = board;
   //Set the Chessboard
@@ -293,7 +337,7 @@ _Game * Game(char * _fen){
 } 
 
 void GameDestroy(_Game * g) {
-  unsigned int ** board = g->board;
+  unsigned char ** board = g->board;
   int p = 2;
   board -= p;
   board[0] -= p; 
@@ -318,7 +362,7 @@ int GameAllMoves(_Game * g){
 int GameMove(_Game * g){
 
   //move
-  unsigned int * board = g->board[0];
+  unsigned char * board = g->board[0];
   _GameMove * m = g->move;
   if(!m) {
     fprintf(stderr, "Error: Move not found");
@@ -349,6 +393,11 @@ int GameMove(_Game * g){
 int main(){
   _Game * g = Game(NULL);
   GamePrintBoard(g);
+
+  unsigned char * from = g->board[7] + 1;
+  fprintf(stdout, "\n from: %u %c\n", *from,MAPPING[*from]);
+
+  GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
 
   GameDestroy(g);
 
