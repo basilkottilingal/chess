@@ -1,4 +1,3 @@
-/* Board reprint. , moves */
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -11,34 +10,39 @@
 #define WHITE 1 
 #define BLACK 0
 
-#define BPAWN ((1<<PIECE_SHIFT) | BLACK)
-#define WPAWN ((1<<PIECE_SHIFT) | WHITE)
-#define BROOK ((2<<PIECE_SHIFT) | BLACK) 
-#define WROOK ((2<<PIECE_SHIFT) | WHITE)
+#define BPAWN   ((1<<PIECE_SHIFT) | BLACK)
+#define WPAWN   ((1<<PIECE_SHIFT) | WHITE)
+#define BROOK   ((2<<PIECE_SHIFT) | BLACK) 
+#define WROOK   ((2<<PIECE_SHIFT) | WHITE)
 #define BKNIGHT ((3<<PIECE_SHIFT) | BLACK) 
 #define WKNIGHT ((3<<PIECE_SHIFT) | WHITE)
-#define BBISHOP ((4<<PIECE_SHIFT | BLACK)) 
+#define BBISHOP ((4<<PIECE_SHIFT) | BLACK) 
 #define WBISHOP ((4<<PIECE_SHIFT) | WHITE)
-#define BQUEEN ((5<<PIECE_SHIFT) | BLACK)
-#define WQUEEN ((5<<PIECE_SHIFT) | WHITE)
-#define BKING ((6<<PIECE_SHIFT) | BLACK)
-#define WKING ((6<<PIECE_SHIFT) | WHITE)
+#define BQUEEN  ((5<<PIECE_SHIFT) | BLACK)
+#define WQUEEN  ((5<<PIECE_SHIFT) | WHITE)
+#define BKING   ((6<<PIECE_SHIFT) | BLACK)
+#define WKING   ((6<<PIECE_SHIFT) | WHITE)
 #define PIECE_COLOR(SQUARE) (PIECE(SQUARE) & 1)
 
+// 8 bits of the flags (unsigned char)
 #define MOVE_NORMAL 1
 #define MOVE_CAPTURE 2
 #define MOVE_PROMOTION 4
-#define MOVE_KCASTLE 8
-#define MOVE_QCASTLE 16
-#define MOVE_ENPASSANTE 32
+#define MOVE_ENPASSANTE 8
+#define MOVE_KCASTLE 16
+#define MOVE_QCASTLE 32
+#define MOVE_kCASTLE 64
+#define MOVE_qCASTLE 128
+
+#define FEN_SIZE 80
 
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
-char MAPPING[17] = 
+char MAPPING[16] = 
   { '.', '.',
     'p', 'P', 'r', 'R', 'n', 'N',
     'b', 'B', 'q', 'Q', 'k', 'K',
-    '.', '.', 'x' 
+    '.', 'x' 
   };
 
 unsigned char MAPPING2[58] = 
@@ -57,7 +61,6 @@ unsigned char MAPPING2[58] =
 #define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
 #define TOGGLE_COLOR(SQUARE) (PIECE(SQUARE)^1)
 
-
 /*
 const char QUEEN_MOVES[8][2] = {
   {1,0}, {1,1}, {0,1}, {-1,1},
@@ -70,14 +73,14 @@ const char KNIGHT_MOVES[8][2] = {
   {2,1}, {1,2}, {1,-2}, {2,-1},
   {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
 */
-const char KNIGHT_MOVES[8] = {
-  14, 25, 23, 10, -14, -25, -23, -10 };
-const char QUEEN_MOVES[8] = {
-  1, 13, 12, 11, -1, -13, -12, -11 };
-const char ROOK_MOVES[4] = {
-  1, 12, -1, -12};
-const char BISHOP_MOVES[4] = {
-  13, 11, -13, -11 };
+const char KNIGHT_MOVES[8] = 
+  { 14, 25, 23, 10, -14, -25, -23, -10 };
+const char QUEEN_MOVES[8] =
+  { 1, 13, 12, 11, -1, -13, -12, -11 };
+const char ROOK_MOVES[4] = 
+  { 1, 12, -1, -12 };
+const char BISHOP_MOVES[4] = 
+  { 13, 11, -13, -11 };
 
 static inline unsigned char SQUARE64(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
@@ -128,12 +131,11 @@ typedef struct {
 }_GameSquare;
 
 typedef struct {
-  unsigned char piece;
-  unsigned char from;
-  unsigned char to;
+  /* In case of promotion (flags & PROMOTION == 1), 
+  .. to.piece will store the promoted piece */
+  _GameSquare from, to;
   char SAN[8];
   unsigned char flags;
-  unsigned char promotion;
 }_GameMove;
 
 typedef struct {
@@ -167,15 +169,19 @@ static inline void GameMovesFrom( _GameSquare * from,
         break;
 
       unsigned char flags = 0;
-      //flags |= 
+      flags |= to->piece ? MOVE_CAPTURE : 0;
       
       _GameMove move = {
-        .piece = piece,
-        .from = from->square,
-        .to = to->square,
-        .flags = flags ? flags : 1,
-        .promotion = OUTSIDE
+        .from.piece = from->piece,
+        .from.square = from->square,
+        .to.piece = from->piece,
+        .to.square = to->square,
+        .flags = flags ? flags : 1
       };
+  
+fprintf(stdout, "\n%c%c%c - %c%c",
+    BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from),
+    BOARD_FILE(*to), BOARD_RANK(*to));
   
       if(flags & MOVE_CAPTURE)
         break;
@@ -193,29 +199,38 @@ void GameQueenMove(_Game * g, _GameSquare * from){
 
 void GamePushHistory(_Game * g){
   /** Add current FEN to history */
+  array_append ( g->history, g->fen, FEN_SIZE); 
 }
 
 void GamePopHistory(_Game * g){
   /** Remove last move from history. ..
   .. In case of reverting a move */
+  g->history->len -= FEN_SIZE;
+  //char * fen = g->history->len ?
+  //  (char *) g->p + g->history;
+  //char fen = 
 }
 
 void GamePrintBoard(_Game * g) {
   _GameSquare ** board = g->board;
       
-  fprintf(stdout,"\nBoard");
+  fprintf(stdout,"\nBoard \
+    (move: %c, castle: %u en-p %u, nhalf %u, fullclock %u)",
+    g->color ? 'w' : 'c', g->castling,
+    g->enpassante, g->halfclock, g->fullclock);
+
   for (int i=0; i<8; ++i){
-  fprintf(stdout,"\n");
+    fprintf(stdout,"\n %c ", '0'+8-i);
     for (int j=0; j<8; ++j) {
       unsigned char piece = board[i][j].piece;
       fprintf(stdout," %c", MAPPING[piece]);
     }
   }
-  fprintf(stdout,"\nWhose Turn: %u", g->color);
-  fprintf(stdout,"\nCastling: %u", g->castling);
-  fprintf(stdout,"\nEnpassante %u", g->enpassante);
-  fprintf(stdout,"\nHalfclock %u", g->halfclock);
-  fprintf(stdout,"\nFullclock %u", g->fullclock);
+    
+  fprintf(stdout,"\n\n   ");
+  for (int j=0; j<8; ++j) {
+    fprintf(stdout," %c", 'a'+j);
+  }
 }
 
 void GameBoard(_Game * g) {
@@ -275,13 +290,13 @@ void GameBoard(_Game * g) {
     if (c == ' ')
       break;
     if (c == 'k')
-      g->castling |= 1;
+      g->castling |= MOVE_kCASTLE;
     if (c == 'q')
-      g->castling |= 2;
+      g->castling |= MOVE_qCASTLE;
     if (c == 'K')
-      g->castling |= 4;
+      g->castling |= MOVE_KCASTLE;
     if (c == 'Q')
-      g->castling |= 8;
+      g->castling |= MOVE_QCASTLE;
   }
 
   g->enpassante = 0;
@@ -366,6 +381,9 @@ _Game * Game(char * _fen){
   //Allocate memory for possible moves,
   g->moves = array_new();
   g->move  = NULL;
+
+  //Allocate memory for game history.
+  g->history = array_new();
  
   return g; 
   
@@ -430,8 +448,6 @@ int main(){
   GamePrintBoard(g);
 
   _GameSquare * from = &(g->board[7][1]);
-  fprintf(stdout, "\n from: %c%c%c piece \n",
-    BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from));
 
   GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
 
