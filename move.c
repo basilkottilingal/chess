@@ -22,7 +22,7 @@
 #define WQUEEN  ((5<<PIECE_SHIFT) | WHITE)
 #define BKING   ((6<<PIECE_SHIFT) | BLACK)
 #define WKING   ((6<<PIECE_SHIFT) | WHITE)
-#define PIECE_COLOR(SQUARE) (PIECE(SQUARE) & 1)
+#define PIECE_COLOR(SQUARE) ((SQUARE).piece & 1)
 
 // 8 bits of the flags (unsigned char)
 #define MOVE_NORMAL 1
@@ -55,11 +55,10 @@ unsigned char MAPPING2[58] =
     'u', 'v', 'w', 'x', 'y', 'z'
   };
 
-#define PIECE(SQUARE) ((SQUARE).piece)
 #define BOARD_FILE(SQUARE) ('a' + (SQUARE).square%8)
 #define BOARD_RANK(SQUARE) ('0' + 8 - (SQUARE).square/8)
 #define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
-#define TOGGLE_COLOR(SQUARE) (PIECE(SQUARE)^1)
+#define TOGGLE_COLOR(SQUARE) ((SQUARE).piece^1)
 
 /*
 const char QUEEN_MOVES[8][2] = {
@@ -179,36 +178,27 @@ static inline void GameMovesFrom( _GameSquare * from,
         .flags = flags ? flags : 1
       };
   
+      //Add to the list of possible moves.
+      array_append( moves, &move, sizeof(move) );
+  
 fprintf(stdout, "\n%c%c%c - %c%c",
     BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from),
     BOARD_FILE(*to), BOARD_RANK(*to));
   
+      // Cannot move further beyond a cpture.
       if(flags & MOVE_CAPTURE)
         break;
-
-      // Occupied by opponent ; 'break' moving along the ray
 
     }
   }
 }
 
 void GameQueenMove(_Game * g, _GameSquare * from){
-  if(g->color != PIECE_COLOR(*from))
-    return;
+  
 }
 
-void GamePushHistory(_Game * g){
-  /** Add current FEN to history */
-  array_append ( g->history, g->fen, FEN_SIZE); 
-}
-
-void GamePopHistory(_Game * g){
-  /** Remove last move from history. ..
-  .. In case of reverting a move */
-  g->history->len -= FEN_SIZE;
-  //char * fen = g->history->len ?
-  //  (char *) g->p + g->history;
-  //char fen = 
+static inline void GamePrintFEN(_Game * g){
+  fprintf(stdout, "\n%s", g->fen);
 }
 
 void GamePrintBoard(_Game * g) {
@@ -218,6 +208,7 @@ void GamePrintBoard(_Game * g) {
     (move: %c, castle: %u en-p %u, nhalf %u, fullclock %u)",
     g->color ? 'w' : 'c', g->castling,
     g->enpassante, g->halfclock, g->fullclock);
+  GamePrintFEN(g);
 
   for (int i=0; i<8; ++i){
     fprintf(stdout,"\n %c ", '0'+8-i);
@@ -233,12 +224,26 @@ void GamePrintBoard(_Game * g) {
   }
 }
 
-void GameBoard(_Game * g) {
+void GameBoard(_Game * g, char * _fen) {
+  //Set Current FEN
+  char _fen0[] = 
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  char * fen = _fen ? _fen : _fen0;
+  g->fen[0] = '\0';
+  for (int i=0; fen[i] != '\0'; ++i){
+    if(i == FEN_SIZE - 1){
+      fprintf(stderr, "Error: Very Long FEN");
+      fflush(stderr);
+      exit(-1);
+    }
+    g->fen[i] = fen[i];
+    g->fen[i+1] = '\0';  
+  }
+
   /* Set board from FEN */ 
   _GameSquare ** rank = g->board;
   _GameSquare * square = rank[0];
   unsigned char sid = 0; // square id
-  char * fen = g->fen;
   while(*fen != '\0') {
     char c = *fen;
     ++fen;
@@ -252,7 +257,6 @@ void GameBoard(_Game * g) {
       }
     }
     else if (c == '/') {
-      //check all squares of this rank are covered
       ++rank;
       square = rank[0];
     } 
@@ -261,7 +265,7 @@ void GameBoard(_Game * g) {
       break;
     }
     else{
-        square->piece =  MAPPING2[c - 'A']; // EMpty piece
+        square->piece =  MAPPING2[c - 'A']; // occupied square
         square++->square = sid++; //Square id [0:64)
     }
   }
@@ -326,39 +330,36 @@ void GameBoard(_Game * g) {
   return;
 }
 
-void GamePrintFEN(_Game * g){
-  char * fen = g->fen;
-  fprintf(stdout, "\n");
-  for (int i=0; fen[i] != '\0'; ++i, ++fen){
-      fprintf(stdout, "%c", *fen);
-  }
+void GamePushHistory(_Game * g){
+  /** Add current FEN to history */
+  array_append ( g->history, g->fen, FEN_SIZE); 
 }
 
-void GameFEN(char * fen, unsigned char ** board){
+void GamePopHistory(_Game * g){
+  /** Remove last move from history. ..
+  .. In case of reverting a move */
+  Array * h = g->history;
+  if(!h->len){
+    fprintf(stderr, "Warning: Empty history");
+    return;
+  }
+  h->len -= FEN_SIZE;
+  char * fen = (char *) (h->p) + h->len;
+  GameBoard(g, fen); 
+}
+
+void GameFEN(_Game * g){
   /* Get FEN from Board */
 }
 
-_Game * Game(char * _fen){
+_Game * Game(char * fen){
 
   //Game instance
   _Game * g = (_Game *) malloc (sizeof (_Game));
 
-  //Set Current FEN
-  char _fen0[] = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-  char * fen = _fen ? _fen : _fen0;
-  g->fen[0] = '\0';
-  for (int i=0; fen[i] != '\0'; ++i){
-    g->fen[i] = fen[i];
-    g->fen[i+1] = '\0';  
-    if(i == 100){
-      fprintf(stderr, "Error: Very Long FEN");
-      fflush(stderr);
-      exit(-1);
-    }
-  }
-
-  //2-dimensional 8x8 board with 2 layer padding on each sides
-  //board[-2:9][-2:9]
+  //Allocate mem for 2-D board (8x8) with ..
+  //.. 2 layer padding on each sides (12x12).
+  //accessible: board[-2:9][-2:9]
   //Valid part: board[0:7][0:7]
   int b = 8, p = 2;
   int tb = b + 2*p;
@@ -375,8 +376,6 @@ _Game * Game(char * _fen){
   }
   board += p;
   g->board = board;
-  //Set the Chessboard
-  GameBoard(g);
 
   //Allocate memory for possible moves,
   g->moves = array_new();
@@ -384,6 +383,9 @@ _Game * Game(char * _fen){
 
   //Allocate memory for game history.
   g->history = array_new();
+
+  //Set the Chessboard
+  GameBoard(g, fen);
  
   return g; 
   
@@ -397,8 +399,8 @@ void GameDestroy(_Game * g) {
   free(board[0]);
   free(board);
 
-  if(g->moves)
-    array_free(g->moves);
+  array_free(g->moves);
+  array_free(g->history);
 
   free(g);
 }
@@ -408,8 +410,28 @@ int GameAllMoves(_Game * g){
    If on check and no moves return 0. Game over 
    If on check and there are atleast 1 move which nullify check.
    If Not on check and there are no moves return 2. Stalemate.
-   If Not on check and there are some moves return 3 */ 
+   If Not on check and there are some moves return 3 */
   
+  //Empty the moves array.
+  Array * m = g->moves;
+  m->len = 0;
+
+  _GameSquare ** board = g->board;
+  for (int i=0; i<8; ++i)
+    for(int j=0; j<8; ++j) {
+      _GameSquare * from = &(board[i][j]);
+      unsigned char piece = from->piece;
+      if( !piece )
+  continue; //empty
+      if( piece & 1 != g->color )
+  continue; //Occupied by the other color
+      //func_pointer[piece](g);
+      }
+
+  if(!m->len) {
+    //Game Over
+  }
+    
 }
 
 int GameMove(_Game * g){
