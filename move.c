@@ -5,11 +5,26 @@
 #include <string.h>
 #include <limits.h>
 
+/* switch off en passante,
+reset half clock.
+When can a game draw
+  Stalemate:	Player has no legal moves but is not in check.
+  Insufficient Material:	Neither player can checkmate with the pieces remaining.
+  Threefold Repetition:	The same position appears three times.
+  Fifty-Move Rule:	50 moves without a pawn move or capture.
+  Agreement:	Players agree to end the game as a draw.
+  Dead Position:	No possible moves can lead to checkmate.
+  Draw by Time: A player's time runs out, but their opponent cannot deliver checkmate.
+*/
+
+// Square is either empty ('0')
+// .. Or occupied by a piece '2' : '13'
+// .. Outside ('15') the box
 #define OUTSIDE 15
-#define PIECE_SHIFT 1
+#define EMPTY 0
 #define WHITE 1 
 #define BLACK 0
-
+#define PIECE_SHIFT 1
 #define BPAWN   ((1<<PIECE_SHIFT) | BLACK)
 #define WPAWN   ((1<<PIECE_SHIFT) | WHITE)
 #define BROOK   ((2<<PIECE_SHIFT) | BLACK) 
@@ -22,17 +37,6 @@
 #define WQUEEN  ((5<<PIECE_SHIFT) | WHITE)
 #define BKING   ((6<<PIECE_SHIFT) | BLACK)
 #define WKING   ((6<<PIECE_SHIFT) | WHITE)
-#define PIECE_COLOR(SQUARE) ((SQUARE).piece & 1)
-
-// 8 bits of the flags (unsigned char)
-#define MOVE_NORMAL 1
-#define MOVE_CAPTURE 2
-#define MOVE_PROMOTION 4
-#define MOVE_ENPASSANTE 8
-#define MOVE_KCASTLE 16
-#define MOVE_QCASTLE 32
-#define MOVE_kCASTLE 64
-#define MOVE_qCASTLE 128
 
 #define FEN_SIZE 80
 
@@ -55,11 +59,6 @@ unsigned char MAPPING2[58] =
     'u', 'v', 'w', 'x', 'y', 'z'
   };
 
-#define BOARD_FILE(SQUARE) ('a' + (SQUARE).square%8)
-#define BOARD_RANK(SQUARE) ('0' + 8 - (SQUARE).square/8)
-#define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
-#define TOGGLE_COLOR(SQUARE) ((SQUARE).piece^1)
-
 /*
 const char QUEEN_MOVES[8][2] = {
   {1,0}, {1,1}, {0,1}, {-1,1},
@@ -72,6 +71,7 @@ const char KNIGHT_MOVES[8][2] = {
   {2,1}, {1,2}, {1,-2}, {2,-1},
   {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
 */
+
 const char KNIGHT_MOVES[8] = 
   { 14, 25, 23, 10, -14, -25, -23, -10 };
 const char QUEEN_MOVES[8] =
@@ -80,10 +80,48 @@ const char ROOK_MOVES[4] =
   { 1, 12, -1, -12 };
 const char BISHOP_MOVES[4] = 
   { 13, 11, -13, -11 };
+const char WPAWN_MOVES[4] = 
+  { -11, -13, -12, -24}; 
+const char BPAWN_MOVES[4] = 
+  { 11, 13, 12, 24};   
 
 static inline unsigned char SQUARE64(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
 }
+
+// 8 bits of the flags (unsigned char)
+#define MOVE_NORMAL 0
+#define MOVE_CAPTURE 1
+#define MOVE_PROMOTION 2
+#define MOVE_ENPASSANTE 4
+#define MOVE_KCASTLE 8
+#define MOVE_QCASTLE 16
+#define MOVE_kCASTLE 32
+#define MOVE_qCASTLE 64
+#define MOVE_CHECK 128
+
+//Identifying rank, file, piece color
+#define PIECE_COLOR(SQUARE) ((SQUARE).piece & 1)
+#define BOARD_FILE(SQUARE) ('a' + (SQUARE).square%8)
+#define BOARD_RANK(SQUARE) ('0' + 8 - (SQUARE).square/8)
+#define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
+
+//Some conditions
+#define IS_OUTSIDE(SQUARE) ((SQUARE).piece == OUTSIDE)
+#define IS_EMPTY(SQUARE) ((SQUARE).piece == EMPTY)
+#define IS_PIECE(SQUARE) (( (SQUARE).piece & 14 ) != 14 )
+#define IS_NORMAL(FROM,TO) ((TO).piece == EMPTY)
+#define IS_BLOCKED(FROM,TO) (IS_PIECE(TO) && \
+  PIECE_COLOR(FROM) == PIECE_COLOR(TO))
+#define IS_CAPTURE(FROM,TO) (IS_PIECE(TO) && \
+  PIECE_COLOR(FROM) != PIECE_COLOR(TO))
+#define IS_PROMOTION(FROM,TO)\
+  ( (( (FROM).piece == WPAWN) && (BOARD_RANK(TO) == '8')) || \
+    (( (FROM).piece == BPAWN) && (BOARD_RANK(TO) == '1')) )
+#define IS_ENPASSANTE(FROM,TO,GAME) \
+  ( ((FROM).piece == WPAWN || (FROM).piece == BPAWN) && \
+     (TO).square == (GAME).enpassante ) 
+  
 
 
 //Array is used to allocate, reallocate memory ..
@@ -151,50 +189,140 @@ static inline void GameMovesFrom( _GameSquare * from,
   
   unsigned char piece = from->piece;
   //'from' square can be neither empty nor outside the box
-  assert ( piece != OUTSIDE && piece );
+  assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
 
   for(int i=0; i<nrays; ++i) {
-
     _GameSquare * to = from;
     for(int j=0; j<depth; ++j) {
       to += rays[i];
-      
       // Cannot move along the ray, will end up outside board 
-      if(to->piece == OUTSIDE) 
+      if(IS_OUTSIDE(*to))
         break; 
-        
       // Occupied by same color; 'break' moving along the ray
-      if(PIECE_COLOR(*to) == PIECE_COLOR(*from)) 
+      if(IS_BLOCKED(*from, *to))
         break;
-
-      unsigned char flags = 0;
-      flags |= to->piece ? MOVE_CAPTURE : 0;
+      unsigned char flags = IS_EMPTY(*to)  
+        ? MOVE_NORMAL : MOVE_CAPTURE;
       
       _GameMove move = {
         .from.piece = from->piece,
         .from.square = from->square,
         .to.piece = from->piece,
         .to.square = to->square,
-        .flags = flags ? flags : 1
+        .flags = flags
       };
-  
       //Add to the list of possible moves.
       array_append( moves, &move, sizeof(move) );
-  
-fprintf(stdout, "\n%c%c%c - %c%c",
-    BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from),
-    BOARD_FILE(*to), BOARD_RANK(*to));
-  
-      // Cannot move further beyond a cpture.
+
+      // Cannot move further beyond a capture.
       if(flags & MOVE_CAPTURE)
         break;
-
     }
   }
 }
 
-void GameQueenMove(_Game * g, _GameSquare * from){
+// Returns 1, if the square "sq" is attacked by the ..
+// .. piece in "from". Returns 0, otherwise
+static inline int GameIsAttackedByPiece ( _GameSquare * from, 
+    const char rays[], int nrays, 
+    int depth, _GameSquare * sq) {
   
+  //'from' square can be neither empty nor outside the box
+  assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
+
+  for(int i=0; i<nrays; ++i) {
+    _GameSquare * to = from;
+    for(int j=0; j<depth; ++j) {
+      to += rays[i];
+      if(IS_OUTSIDE(*to)) 
+        break; 
+      if(sq == to) {      //comparing pointers 
+        return 1;       //yes, the square "sq" is attacked.
+        assert(!IS_BLOCKED (*from,*to));
+          //Cannot be attacked by same color.
+      }
+      if(!IS_EMPTY(*to))
+        break;          //Blocked by another piece
+    }
+  }
+  return 0; // the square "sq" is safe from an attack
+}
+
+void GameQueenMoves(_Game * g, _GameSquare * from){
+  GameMovesFrom(from, QUEEN_MOVES, 8, 7, g->moves); 
+}
+
+void GameKingMoves(_Game * g, _GameSquare * from){
+  GameMovesFrom(from, QUEEN_MOVES, 8, 1, g->moves);
+}
+
+void GameBishopMoves(_Game * g, _GameSquare * from){
+  GameMovesFrom(from, BISHOP_MOVES, 4, 7, g->moves); 
+}
+
+void GameKnightMoves(_Game * g, _GameSquare * from){
+  GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves); 
+}
+
+void GameRookMoves(_Game * g, _GameSquare * from){
+  GameMovesFrom(from, ROOK_MOVES, 4, 7, g->moves); 
+}
+
+void GameWPawnMoves(_Game * g, _GameSquare * from){
+  for(int j=0; j<2; j++) {
+    //Diagonal advance of pawn
+    _GameSquare * to = from + WPAWN_MOVES[j];
+    unsigned char flags = IS_CAPTURE(*from,*to) ? 
+      MOVE_CAPTURE : IS_ENPASSANTE(*from,*to,*g) ?
+      MOVE_ENPASSANTE : 0;
+    flags |= IS_PROMOTION(*from, *to) ? MOVE_PROMOTION : 0;
+    _GameMove move = {
+      .from.piece = from->piece,
+      .from.square = from->square,
+      .to.piece = from->piece,
+      .to.square = to->square,
+      .flags = flags
+    };
+      
+    Array * moves = g->moves;
+    if(flags & MOVE_PROMOTION) {
+      char p[4] = {'Q', 'N', 'R', 'B'};
+      for(int i=0; i<4; ++i) {
+        move.to.piece = MAPPING2[p[i]];
+        array_append (moves, &move, sizeof(move));
+      } 
+    }
+    else {
+      array_append (moves, &move, sizeof(move));
+    }  
+  }
+  for(int j=2; j<4; j++) {
+    //vertical advance of pawn
+    _GameSquare * to = from + WPAWN_MOVES[j];
+    if(!IS_EMPTY(*to))
+      break; //capture, block, outside leads to "break"
+    unsigned char flags = MOVE_NORMAL;
+    flags |= IS_PROMOTION(*from, *to) ? MOVE_PROMOTION : 0;
+    _GameMove move = {
+      .from.piece = from->piece,
+      .from.square = from->square,
+      .to.piece = from->piece,
+      .to.square = to->square,
+      .flags = flags
+    };
+      
+    Array * moves = g->moves;
+    if(flags & MOVE_PROMOTION) {
+      char p[4] = {'Q', 'N', 'R', 'B'};
+      for(int i=0; i<4; ++i) {
+        move.to.piece = MAPPING2[p[i]];
+        array_append (moves, &move, sizeof(move));
+      } 
+    }
+    else {
+      array_append (moves, &move, sizeof(move));
+    }  
+  }
 }
 
 static inline void GamePrintFEN(_Game * g){
@@ -303,7 +431,7 @@ void GameBoard(_Game * g, char * _fen) {
       g->castling |= MOVE_QCASTLE;
   }
 
-  g->enpassante = 0;
+  g->enpassante = -1;
   if(*fen != '-'){
     g->enpassante = SQUARE64(fen);
     ++fen;
@@ -468,6 +596,7 @@ int GameMove(_Game * g){
 int main(){
   _Game * g = Game(NULL);
   GamePrintBoard(g);
+
 
   _GameSquare * from = &(g->board[7][1]);
 
