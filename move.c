@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 
 /* switch off en passante,
 reset half clock.
@@ -38,7 +39,8 @@ When can a game draw
 #define BKING   ((6<<PIECE_SHIFT) | BLACK)
 #define WKING   ((6<<PIECE_SHIFT) | WHITE)
 
-#define FEN_SIZE 80
+
+#define FEN_MAXSIZE 80
 
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
@@ -86,7 +88,7 @@ const char BPAWN_MOVES[4] =
   { 11, 13, 12, 24};   
 
 static inline unsigned char SQUARE64(char * s){
-  return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a');
+  return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
 }
 
 // 8 bits of the flags (unsigned char)
@@ -102,19 +104,20 @@ static inline unsigned char SQUARE64(char * s){
 
 //Identifying rank, file, piece color
 #define PIECE_COLOR(SQUARE) ((SQUARE).piece & 1)
-#define BOARD_FILE(SQUARE) ('a' + (SQUARE).square%8)
-#define BOARD_RANK(SQUARE) ('0' + 8 - (SQUARE).square/8)
+#define BOARD_FILE(SQUARE)  ('a' + (SQUARE).square%8)
+#define BOARD_RANK(SQUARE)  ('0' + 8 - (SQUARE).square/8)
 #define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
 
 //Some conditions
-#define IS_OUTSIDE(SQUARE) ((SQUARE).piece == OUTSIDE)
-#define IS_EMPTY(SQUARE) ((SQUARE).piece == EMPTY)
-#define IS_PIECE(SQUARE) (( (SQUARE).piece & 14 ) != 14 )
-#define IS_NORMAL(FROM,TO) ((TO).piece == EMPTY)
+#define IS_OUTSIDE(SQUARE)  ((SQUARE).piece == OUTSIDE)
+#define IS_EMPTY(SQUARE)    ((SQUARE).piece == EMPTY)
+#define IS_PIECE(SQUARE)    (!IS_OUTSIDE(SQUARE) && \
+  !IS_EMPTY(SQUARE) )
+#define IS_NORMAL(FROM,TO)  ((TO).piece == EMPTY)
 #define IS_BLOCKED(FROM,TO) (IS_PIECE(TO) && \
-  PIECE_COLOR(FROM) == PIECE_COLOR(TO))
+  (PIECE_COLOR(FROM) == PIECE_COLOR(TO)) )
 #define IS_CAPTURE(FROM,TO) (IS_PIECE(TO) && \
-  PIECE_COLOR(FROM) != PIECE_COLOR(TO))
+  (PIECE_COLOR(FROM) != PIECE_COLOR(TO)) )
 #define IS_PROMOTION(FROM,TO)\
   ( (( (FROM).piece == WPAWN) && (BOARD_RANK(TO) == '8')) || \
     (( (FROM).piece == BPAWN) && (BOARD_RANK(TO) == '1')) )
@@ -122,8 +125,6 @@ static inline unsigned char SQUARE64(char * s){
   ( ((FROM).piece == WPAWN || (FROM).piece == BPAWN) && \
      (TO).square == (GAME).enpassante ) 
   
-
-
 //Array is used to allocate, reallocate memory ..
 //.. without any memory mismanagement.
 typedef struct {
@@ -171,15 +172,15 @@ typedef struct {
   /* In case of promotion (flags & PROMOTION == 1), 
   .. to.piece will store the promoted piece */
   _GameSquare from, to;
+  unsigned char flags, promotion;
   char SAN[8];
-  unsigned char flags;
 }_GameMove;
 
 typedef struct {
   _GameSquare ** board;
   unsigned char enpassante, castling, color;
   unsigned char halfclock, fullclock;
-  char fen[101];
+  char fen[FEN_MAXSIZE];
   Array * moves, * history;
   _GameMove * move;
 }_Game;
@@ -207,7 +208,7 @@ static inline void GameMovesFrom( _GameSquare * from,
       _GameMove move = {
         .from.piece = from->piece,
         .from.square = from->square,
-        .to.piece = from->piece,
+        .to.piece = to->piece,
         .to.square = to->square,
         .flags = flags
       };
@@ -237,9 +238,9 @@ static inline int GameIsAttackedByPiece ( _GameSquare * from,
       if(IS_OUTSIDE(*to)) 
         break; 
       if(sq == to) {      //comparing pointers 
-        return 1;       //yes, the square "sq" is attacked.
         assert(!IS_BLOCKED (*from,*to));
           //Cannot be attacked by same color.
+        return 1;       //yes, the square "sq" is attacked.
       }
       if(!IS_EMPTY(*to))
         break;          //Blocked by another piece
@@ -247,6 +248,7 @@ static inline int GameIsAttackedByPiece ( _GameSquare * from,
   }
   return 0; // the square "sq" is safe from an attack
 }
+
 
 void GameQueenMoves(_Game * g, _GameSquare * from){
   GameMovesFrom(from, QUEEN_MOVES, 8, 7, g->moves); 
@@ -268,27 +270,34 @@ void GameRookMoves(_Game * g, _GameSquare * from){
   GameMovesFrom(from, ROOK_MOVES, 4, 7, g->moves); 
 }
 
-void GameWPawnMoves(_Game * g, _GameSquare * from){
+void GamePawnMoves(_Game * g, _GameSquare * from, 
+    const char rays[]){
+
   for(int j=0; j<2; j++) {
     //Diagonal advance of pawn
-    _GameSquare * to = from + WPAWN_MOVES[j];
+    _GameSquare * to = from + rays[j];
     unsigned char flags = IS_CAPTURE(*from,*to) ? 
       MOVE_CAPTURE : IS_ENPASSANTE(*from,*to,*g) ?
       MOVE_ENPASSANTE : 0;
+    if(!flags)
+      continue;
     flags |= IS_PROMOTION(*from, *to) ? MOVE_PROMOTION : 0;
+fprintf(stdout,"--p%d, %d,%d,%u",to->piece, IS_PIECE(*to),
+PIECE_COLOR(*from) != PIECE_COLOR(*to),flags);
     _GameMove move = {
       .from.piece = from->piece,
       .from.square = from->square,
-      .to.piece = from->piece,
+      .to.piece = to->piece,
       .to.square = to->square,
       .flags = flags
     };
-      
+     
     Array * moves = g->moves;
     if(flags & MOVE_PROMOTION) {
-      char p[4] = {'Q', 'N', 'R', 'B'};
+      move.promotion = from->piece;
       for(int i=0; i<4; ++i) {
-        move.to.piece = MAPPING2[p[i]];
+        //'p' is promoted to 'r','b','n' and 'q'
+        move.promotion += 1 << PIECE_SHIFT; 
         array_append (moves, &move, sizeof(move));
       } 
     }
@@ -296,9 +305,10 @@ void GameWPawnMoves(_Game * g, _GameSquare * from){
       array_append (moves, &move, sizeof(move));
     }  
   }
+  //FIXME: can be made into :for(int j=0; j<4; ++j) {}
   for(int j=2; j<4; j++) {
     //vertical advance of pawn
-    _GameSquare * to = from + WPAWN_MOVES[j];
+    _GameSquare * to = from + rays[j];
     if(!IS_EMPTY(*to))
       break; //capture, block, outside leads to "break"
     unsigned char flags = MOVE_NORMAL;
@@ -306,16 +316,17 @@ void GameWPawnMoves(_Game * g, _GameSquare * from){
     _GameMove move = {
       .from.piece = from->piece,
       .from.square = from->square,
-      .to.piece = from->piece,
+      .to.piece = to->piece,
       .to.square = to->square,
       .flags = flags
     };
-      
+     
     Array * moves = g->moves;
     if(flags & MOVE_PROMOTION) {
-      char p[4] = {'Q', 'N', 'R', 'B'};
+      move.promotion = from->piece;
       for(int i=0; i<4; ++i) {
-        move.to.piece = MAPPING2[p[i]];
+        //'p' is promoted to 'r','b','n' and 'q'
+        move.promotion += 1 << PIECE_SHIFT; 
         array_append (moves, &move, sizeof(move));
       } 
     }
@@ -325,17 +336,36 @@ void GameWPawnMoves(_Game * g, _GameSquare * from){
   }
 }
 
+void GameBPawnMoves(_Game * g, _GameSquare * from){
+  GamePawnMoves(g, from, BPAWN_MOVES);
+}
+
+void GameWPawnMoves(_Game * g, _GameSquare * from){
+  GamePawnMoves(g, from, WPAWN_MOVES);
+}
+
+void (*GamePieceMoves[14]) (_Game *, _GameSquare *) = 
+  { NULL, NULL, GameBPawnMoves, GameWPawnMoves, 
+    GameRookMoves, GameRookMoves,
+    GameKnightMoves, GameKnightMoves,
+    GameBishopMoves, GameBishopMoves,
+    GameQueenMoves, GameQueenMoves,
+    GameKingMoves, GameKingMoves };
+
 static inline void GamePrintFEN(_Game * g){
   fprintf(stdout, "\n%s", g->fen);
 }
 
-void GamePrintBoard(_Game * g) {
+void GamePrintBoard(_Game * g, int persist) {
   _GameSquare ** board = g->board;
-      
-  fprintf(stdout,"\nBoard \
-    (move: %c, castle: %u en-p %u, nhalf %u, fullclock %u)",
-    g->color ? 'w' : 'c', g->castling,
-    g->enpassante, g->halfclock, g->fullclock);
+  
+  //if persist. It clears the window
+  if(persist) {
+    printf("\033[2J");          // Clear the screen
+    printf("\033[1;1H");        //Cursor on the left to
+  } 
+  fprintf(stdout,"\nBoard");
+    
   GamePrintFEN(g);
 
   for (int i=0; i<8; ++i){
@@ -350,6 +380,7 @@ void GamePrintBoard(_Game * g) {
   for (int j=0; j<8; ++j) {
     fprintf(stdout," %c", 'a'+j);
   }
+  fprintf(stdout,"\n");
 }
 
 void GameBoard(_Game * g, char * _fen) {
@@ -359,7 +390,7 @@ void GameBoard(_Game * g, char * _fen) {
   char * fen = _fen ? _fen : _fen0;
   g->fen[0] = '\0';
   for (int i=0; fen[i] != '\0'; ++i){
-    if(i == FEN_SIZE - 1){
+    if(i == FEN_MAXSIZE - 1){
       fprintf(stderr, "Error: Very Long FEN");
       fflush(stderr);
       exit(-1);
@@ -403,7 +434,7 @@ void GameBoard(_Game * g, char * _fen) {
   if(*fen == 'w')
     g->color = WHITE;
   else if (*fen == 'b')
-    g->color = WHITE;
+    g->color = BLACK;
   else {
     fprintf(stderr, "Error: Wrong Color in FEN Format");
     fflush(stderr);
@@ -417,8 +448,6 @@ void GameBoard(_Game * g, char * _fen) {
   g->castling = 0;
   while(*fen != '\0') {
     char c = *fen++;
-    if (c == '-') 
-      ++fen;
     if (c == ' ')
       break;
     if (c == 'k')
@@ -431,7 +460,7 @@ void GameBoard(_Game * g, char * _fen) {
       g->castling |= MOVE_QCASTLE;
   }
 
-  g->enpassante = -1;
+  g->enpassante = 64;
   if(*fen != '-'){
     g->enpassante = SQUARE64(fen);
     ++fen;
@@ -460,7 +489,7 @@ void GameBoard(_Game * g, char * _fen) {
 
 void GamePushHistory(_Game * g){
   /** Add current FEN to history */
-  array_append ( g->history, g->fen, FEN_SIZE); 
+  array_append ( g->history, g->fen, FEN_MAXSIZE); 
 }
 
 void GamePopHistory(_Game * g){
@@ -471,7 +500,7 @@ void GamePopHistory(_Game * g){
     fprintf(stderr, "Warning: Empty history");
     return;
   }
-  h->len -= FEN_SIZE;
+  h->len -= FEN_MAXSIZE;
   char * fen = (char *) (h->p) + h->len;
   GameBoard(g, fen); 
 }
@@ -532,6 +561,88 @@ void GameDestroy(_Game * g) {
 
   free(g);
 }
+ 
+  
+void GameMove(_Game * g, _GameMove * move){
+  assert(move);
+
+  unsigned char f = move->from.square,
+    t = move->to.square;
+  _GameSquare ** board = g->board;
+  _GameSquare * from = &(board[f/8][f%8]);
+  _GameSquare * to   = &(board[t/8][t%8]);
+  from->piece = EMPTY;
+  to->piece = (move->flags & MOVE_PROMOTION) ? 
+    move->promotion : move->from.piece;
+  if(move->flags <= MOVE_CAPTURE)
+    return; //In case of normal move, or just capture
+  if(move->flags & MOVE_ENPASSANTE) {
+    _GameSquare * en = to + (g->color ? 12 : -12); 
+    en->piece = EMPTY;
+    return;
+  }
+  //FIXME: All te four conditions may be compressed
+  if(move->flags & MOVE_QCASTLE) {
+    board[7][0].piece = EMPTY;
+    board[7][3].piece = WROOK;
+    return;
+  }
+  if(move->flags & MOVE_qCASTLE) {
+    board[0][0].piece = EMPTY;
+    board[0][3].piece = BROOK;
+    return;
+  }
+  if(move->flags & MOVE_KCASTLE) {
+    board[7][7].piece = EMPTY;
+    board[7][5].piece = WROOK;
+    return;
+  }
+  if(move->flags & MOVE_kCASTLE) {
+    board[0][7].piece = EMPTY;
+    board[0][5].piece = BROOK;
+    return;
+  }
+} 
+  
+void GameUnmove(_Game * g, _GameMove * move){
+  assert(move);
+
+  unsigned char f = move->from.square,
+    t = move->to.square;
+  _GameSquare ** board = g->board;
+  _GameSquare * from = &(board[f/8][f%8]);
+  _GameSquare * to   = &(board[t/8][t%8]);
+  to->piece = move->to.piece;
+  from->piece = move->from.piece;
+  if(move->flags <= MOVE_CAPTURE)
+    return; //In case of normal move, or just capture
+  if(move->flags & MOVE_ENPASSANTE) {
+    _GameSquare * en = to + (g->color ? 12 : -12); 
+    en->piece = g->color ? WPAWN : BPAWN;
+    return;
+  }
+  //FIXME: All te four conditions may be compressed
+  if(move->flags & MOVE_QCASTLE) {
+    board[7][3].piece = EMPTY;
+    board[7][0].piece = WROOK;
+    return;
+  }
+  if(move->flags & MOVE_qCASTLE) {
+    board[0][3].piece = EMPTY;
+    board[0][0].piece = BROOK;
+    return;
+  }
+  if(move->flags & MOVE_KCASTLE) {
+    board[7][5].piece = EMPTY;
+    board[7][7].piece = WROOK;
+    return;
+  }
+  if(move->flags & MOVE_kCASTLE) {
+    board[0][5].piece = EMPTY;
+    board[0][7].piece = BROOK;
+    return;
+  }
+} 
 
 int GameAllMoves(_Game * g){
   /* Find all moves by rule. 
@@ -541,28 +652,45 @@ int GameAllMoves(_Game * g){
    If Not on check and there are some moves return 3 */
   
   //Empty the moves array.
-  Array * m = g->moves;
-  m->len = 0;
+  Array * moves = g->moves;
+  moves->len = 0;
 
   _GameSquare ** board = g->board;
   for (int i=0; i<8; ++i)
     for(int j=0; j<8; ++j) {
       _GameSquare * from = &(board[i][j]);
-      unsigned char piece = from->piece;
-      if( !piece )
+      if( IS_EMPTY(*from) )
   continue; //empty
-      if( piece & 1 != g->color )
+      if( PIECE_COLOR(*from) != g->color )
   continue; //Occupied by the other color
-      //func_pointer[piece](g);
-      }
+      //Generate possible moves with the 'piece' 
+      GamePieceMoves[from->piece](g, from);
+    }
+  
+  int nmoves =  (int) (moves->len /sizeof(_GameMove));
+  _GameMove * m = (_GameMove *) (g->moves->p);
+  for(int i=0; i<nmoves; ++i, ++m) {
+    clock_t start_time = clock();
+    clock_t wait_time = 0.4*CLOCKS_PER_SEC ; //5s 
+    while (clock() - start_time < wait_time) {};
+    GamePrintBoard(g,1);
 
-  if(!m->len) {
+    GameMove(g, m);
+
+    start_time = clock();
+    while (clock() - start_time < wait_time) {};
+    GamePrintBoard(g,1);
+
+    GameUnmove(g, m);
+  }
+
+  if(!moves->len) {
     //Game Over
   }
     
 }
 
-int GameMove(_Game * g){
+int GameUpdateMove(_Game * g){
 
   //move
   _GameSquare * board = g->board[0];
@@ -578,7 +706,6 @@ int GameMove(_Game * g){
   m = NULL;
    
   //update_flags
-  
 
   GameAllMoves(g);
   if(!g->moves->len) {
@@ -591,16 +718,26 @@ int GameMove(_Game * g){
     g->color = !g->color;
     //update halfmove if CAPTURE or pawnmove
   }
-} 
+}
+
+/*Sample FEN's for verifying
+1) Fool's Mate (Black Checkmates White)
+r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2
+2) 8/P7/8/8/8/8/8/k6K w - - 0 1
+*/
 
 int main(){
-  _Game * g = Game(NULL);
-  GamePrintBoard(g);
+  //_Game * g = Game(NULL);
+  //_Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
+  _Game * g = Game("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  GamePrintBoard(g, 0);
 
+  //_GameSquare * from = &(g->board[7][1]);
+  //GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
 
-  _GameSquare * from = &(g->board[7][1]);
-
-  GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
+  GameAllMoves(g);
+   
+  GamePrintBoard(g, 1);
 
   GameDestroy(g);
 
