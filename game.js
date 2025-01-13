@@ -23,9 +23,9 @@ class ChessGame {
 
   piece(chesspiece){
     const img = document.createElement('img');
-    img.src = "chesspieces/" + chesspiece + ".png"; 
-    img.alt = chesspiece;
     img.id = this.blackpieces.includes(chesspiece) ? 'b' : 'w';
+    img.src = img.id + "/" + chesspiece + ".png"; 
+    img.alt = chesspiece;
     img.draggable = "true";
     return img;
   }
@@ -236,10 +236,10 @@ class ChessGame {
     const square = document.getElementById(move.to);
     const piece = square.querySelector('img');
     if(piece){
-      piece.src = 'chesspieces/' + promotion + '.png';
       piece.alt = promotion;
       piece.id = 
         this.blackpieces.includes(promotion) ? 'b' : 'w';
+      piece.src = piece.id + '/' + promotion + '.png';
     }
 
     const promotionOverlay = 
@@ -365,10 +365,10 @@ class ChessGame {
     if(move.flags.includes('p')){
       const promotion = move.color === 'w' ? 
   move.p.toUpperCase() : move.p;
-      piece.src = 'chesspieces/' + promotion + '.png';
-      piece.alt = promotion;
       piece.id = 
         this.blackpieces.includes(promotion) ? 'b' : 'w';
+      piece.src = piece.id + '/' + promotion + '.png';
+      piece.alt = promotion;
     } 
     /* Take care of special moves */
     this.playerMove(move, true);
@@ -394,7 +394,7 @@ class ChessGame {
       console.log("Game over!");
       return;
     }
-    this.randomMove();
+    //this.randomMove();
     console.log(this.chess.fen());
     if (this.chess.moves().length === 0) {
       console.log("Game over!");

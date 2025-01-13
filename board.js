@@ -30,7 +30,8 @@ for (let i = 0; i < 8; i++) {
     // Create an image element
     if (board[i][j] != '') {
       const img = document.createElement('img');
-      img.src = "chesspieces/" + board[i][j] + ".png"; 
+			const dir = 'PRNBQK'.includes(board[i][j]) ? 'w' : 'b';
+      img.src = dir + '/' + board[i][j] + ".png"; 
       img.alt = board[i][j];
       img.id = "piece";
       /* Only the chess pieces are movable */
