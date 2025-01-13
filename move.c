@@ -122,8 +122,10 @@ static inline unsigned char SQUARE64(char * s){
   ( (( (FROM).piece == WPAWN) && (BOARD_RANK(TO) == '8')) || \
     (( (FROM).piece == BPAWN) && (BOARD_RANK(TO) == '1')) )
 #define IS_ENPASSANTE(FROM,TO,GAME) \
-  ( ((FROM).piece == WPAWN || (FROM).piece == BPAWN) && \
-     (TO).square == (GAME).enpassante ) 
+  ( ((FROM).piece == WPAWN && BOARD_RANK(FROM) == '5' && \
+     (TO).square == (GAME).enpassante ) ||\
+    ((FROM).piece == BPAWN && BOARD_RANK(FROM) == '4' && \
+     (TO).square == (GAME).enpassante ) ) 
   
 //Array is used to allocate, reallocate memory ..
 //.. without any memory mismanagement.
@@ -222,11 +224,11 @@ static inline void GameMovesFrom( _GameSquare * from,
   }
 }
 
-// Returns 1, if the square "sq" is attacked by the ..
-// .. piece in "from". Returns 0, otherwise
+// Returns 1, if the square "sq"(of color "color") ..
+// .. is attacked by the piece in "from". Returns 0, otherwise
 static inline int GameIsAttackedByPiece ( _GameSquare * from, 
-    const char rays[], int nrays, 
-    int depth, _GameSquare * sq) {
+    const char rays[], int nrays, int depth, 
+    _GameSquare * sq) {
   
   //'from' square can be neither empty nor outside the box
   assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
@@ -238,7 +240,7 @@ static inline int GameIsAttackedByPiece ( _GameSquare * from,
       if(IS_OUTSIDE(*to)) 
         break; 
       if(sq == to) {      //comparing pointers 
-        assert(!IS_BLOCKED (*from,*to));
+        //assert(!IS_BLOCKED (*from,*to));
           //Cannot be attacked by same color.
         return 1;       //yes, the square "sq" is attacked.
       }
@@ -247,6 +249,10 @@ static inline int GameIsAttackedByPiece ( _GameSquare * from,
     }
   }
   return 0; // the square "sq" is safe from an attack
+}
+
+int GameIsKingAttacked(_Game * g, unsigned char color) {
+    
 }
 
 
@@ -332,7 +338,9 @@ PIECE_COLOR(*from) != PIECE_COLOR(*to),flags);
     }
     else {
       array_append (moves, &move, sizeof(move));
-    }  
+    }
+    if(from->square/8 != (g->color ? 6 : 1))
+      break;  
   }
 }
 
@@ -416,6 +424,8 @@ void GameBoard(_Game * g, char * _fen) {
       }
     }
     else if (c == '/') {
+      assert( sid%8 == 0 ); 
+        //Make sure all squares of this rank are filled
       ++rank;
       square = rank[0];
     } 
@@ -563,7 +573,7 @@ void GameDestroy(_Game * g) {
 }
  
   
-void GameMove(_Game * g, _GameMove * move){
+void GameMovePiece(_Game * g, _GameMove * move){
   assert(move);
 
   unsigned char f = move->from.square,
@@ -604,7 +614,7 @@ void GameMove(_Game * g, _GameMove * move){
   }
 } 
   
-void GameUnmove(_Game * g, _GameMove * move){
+void GameUnmovePiece(_Game * g, _GameMove * move){
   assert(move);
 
   unsigned char f = move->from.square,
@@ -675,13 +685,13 @@ int GameAllMoves(_Game * g){
     while (clock() - start_time < wait_time) {};
     GamePrintBoard(g,1);
 
-    GameMove(g, m);
+    GameMovePiece(g, m);
 
     start_time = clock();
     while (clock() - start_time < wait_time) {};
     GamePrintBoard(g,1);
 
-    GameUnmove(g, m);
+    GameUnmovePiece(g, m);
   }
 
   if(!moves->len) {
@@ -723,13 +733,18 @@ int GameUpdateMove(_Game * g){
 /*Sample FEN's for verifying
 1) Fool's Mate (Black Checkmates White)
 r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2
-2) 8/P7/8/8/8/8/8/k6K w - - 0 1
+2) Promotable white pawn
+8/P7/8/8/8/8/8/k6K w - - 0 1
+3) En passante 
+rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR b KQkq d6 0 2
+rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
 */
 
 int main(){
   //_Game * g = Game(NULL);
   //_Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
-  _Game * g = Game("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  //_Game * g = Game("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  _Game * g = Game("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 3");
   GamePrintBoard(g, 0);
 
   //_GameSquare * from = &(g->board[7][1]);
