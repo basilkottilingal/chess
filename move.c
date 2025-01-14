@@ -179,7 +179,8 @@ typedef struct {
 }_GameMove;
 
 typedef struct {
-  _GameSquare ** board;
+  _GameSquare ** board;  //8x8 board with padding
+	_GameSquare * king[2]; //location of kings
   unsigned char enpassante, castling, color;
   unsigned char halfclock, fullclock;
   char fen[FEN_MAXSIZE];
@@ -252,9 +253,19 @@ static inline int GameIsAttackedByPiece ( _GameSquare * from,
 }
 
 int GameIsKingAttacked(_Game * g, unsigned char color) {
-    
+	_GameSquare * king = g->king[color];   
+  _GameSquare ** board = g->board;
+  for (int i=0; i<8; ++i)
+    for(int j=0; j<8; ++j) {
+      _GameSquare * from = &(board[i][j]);
+      if( IS_EMPTY(*from) )
+  continue; //empty
+      if( PIECE_COLOR(*from) != color )
+  continue; //Occupied by the other color
+      //Generate possible moves with the 'piece' 
+      //GamePieceMoves[from->piece](g, from);
+    }
 }
-
 
 void GameQueenMoves(_Game * g, _GameSquare * from){
   GameMovesFrom(from, QUEEN_MOVES, 8, 7, g->moves); 
@@ -435,6 +446,10 @@ void GameBoard(_Game * g, char * _fen) {
     }
     else{
         square->piece =  MAPPING2[c - 'A']; // occupied square
+				if(square->piece == WKING)
+					g->king[WHITE] = square;
+				else if(square->piece == BKING)
+					g->king[BLACK] = square;
         square++->square = sid++; //Square id [0:64)
     }
   }
@@ -628,7 +643,7 @@ void GameUnmovePiece(_Game * g, _GameMove * move){
     return; //In case of normal move, or just capture
   if(move->flags & MOVE_ENPASSANTE) {
     _GameSquare * en = to + (g->color ? 12 : -12); 
-    en->piece = g->color ? WPAWN : BPAWN;
+    en->piece = g->color ? BPAWN : WPAWN;
     return;
   }
   //FIXME: All te four conditions may be compressed
@@ -742,9 +757,9 @@ rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
 
 int main(){
   //_Game * g = Game(NULL);
-  //_Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
+  _Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
   //_Game * g = Game("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
-  _Game * g = Game("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 3");
+  //_Game * g = Game("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   GamePrintBoard(g, 0);
 
   //_GameSquare * from = &(g->board[7][1]);
