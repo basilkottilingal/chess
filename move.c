@@ -6,17 +6,27 @@
 #include <limits.h>
 #include <time.h>
 
-/* switch off en passante,
-reset half clock.
-When can a game draw
+/* 
+TODO: switch on/off en passante,
+      reset half clock, full clock.
+      update king location.
+      update color.
+      Castling to the GameKingMoves();      
+*/
+/* ---------------------------------------------------------
+------------------------------------------------------------
+When can a game draw:
   Stalemate:	Player has no legal moves but is not in check.
-  Insufficient Material:	Neither player can checkmate with the pieces remaining.
+  Insufficient Material:	Neither player can 
+     checkmate with the pieces remaining.
   Threefold Repetition:	The same position appears three times.
   Fifty-Move Rule:	50 moves without a pawn move or capture.
   Agreement:	Players agree to end the game as a draw.
   Dead Position:	No possible moves can lead to checkmate.
-  Draw by Time: A player's time runs out, but their opponent cannot deliver checkmate.
-*/
+  Draw by Time: A player's time runs out, but 
+    their opponent cannot deliver checkmate.
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 // Square is either empty ('0')
 // .. Or occupied by a piece '2' : '13'
@@ -126,9 +136,22 @@ static inline unsigned char SQUARE64(char * s){
      (TO).square == (GAME).enpassante ) ||\
     ((FROM).piece == BPAWN && BOARD_RANK(FROM) == '4' && \
      (TO).square == (GAME).enpassante ) ) 
-  
-//Array is used to allocate, reallocate memory ..
-//.. without any memory mismanagement.
+ 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  An "Array" is used to store dynamic data. You can create, 
+  .. reallocate, shrink and free the "Array" ..
+  .. without any memory mismanagement. 
+  NOTE: realloc() function used inside array_append(),
+  .. can slow the program, when you append large data ..
+  .. multiple times. WHY? : Because realloc search for .. 
+  .. continous chunk of memory that can fit the new ..
+  .. array data which might be very large. In this case, ..
+  .. impelement memory pooling of fixed sized blocks ..
+  .. Refer to:
+      http://www.boost.org/doc/libs/1_55_0/libs/pool/doc/html/boost_pool/pool/pooling.html
+------------------------------------------------------------
+--------------------------------------------------------- */
 typedef struct {
   void * p;
   long max, len;
@@ -164,6 +187,18 @@ void * array_shrink (Array * a)
   free (a);
   return p;
 }
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  3 structs commonly used in this header file.
+  a) _GameSquare : A square of the chessboard
+  b) _GameMove : Info corresponding to a move from ..
+    the current board location
+  c) _Game : Store all the information corresponding to ..
+    a chess game including board information, other ..
+    informations like whose move, location of each kings,
+    any active en-passante, are castling available, etc.
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 typedef struct {
   unsigned char piece;
@@ -172,21 +207,38 @@ typedef struct {
 
 typedef struct {
   /* In case of promotion (flags & PROMOTION == 1), 
-  .. to.piece will store the promoted piece */
+  .. "promotion" will store the promoted piece */
   _GameSquare from, to;
   unsigned char flags, promotion;
   char SAN[8];
 }_GameMove;
 
 typedef struct {
-  _GameSquare ** board;  //8x8 board with padding
-	_GameSquare * king[2]; //location of kings
+  //8x8 board with padding
+  _GameSquare ** board;  
+  //location of kings
+	_GameSquare * king[2]; 
   unsigned char enpassante, castling, color;
   unsigned char halfclock, fullclock;
   char fen[FEN_MAXSIZE];
   Array * moves, * history;
   _GameMove * move;
 }_Game;
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Functions that generate moves for each pieces . 
+  Each Function pointers orresonding to each pieces ..
+  .. can be called as 
+    GamePieceMoves[from->piece](g, from);
+  The possible moves are appended to the array "g->moves".
+  NOTE: The moves generated include illegal moves ( or ..
+  .. those moves that allow the king on "attack" ). Those ..
+  .. moves will be later removed. For more, Read the function
+    GameAllMoves(_Game * g);
+------------------------------------------------------------
+--------------------------------------------------------- */
+
 
 static inline void GameMovesFrom( _GameSquare * from, 
     const char rays[], int nrays, int depth, Array * moves) {
@@ -225,50 +277,6 @@ static inline void GameMovesFrom( _GameSquare * from,
   }
 }
 
-// Returns 1, if the square "sq"(of color "color") ..
-// .. is attacked by the piece in "from". Returns 0, otherwise
-static inline int GameIsAttackedByPiece ( _GameSquare * from, 
-    const char rays[], int nrays, int depth, 
-    _GameSquare * sq) {
-  
-  //'from' square can be neither empty nor outside the box
-  assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
-
-  for(int i=0; i<nrays; ++i) {
-    _GameSquare * to = from;
-    for(int j=0; j<depth; ++j) {
-      to += rays[i];
-      if(IS_OUTSIDE(*to)) 
-        break; 
-      if(sq == to) {      //comparing pointers 
-        //assert(!IS_BLOCKED (*from,*to));
-          //Cannot be attacked by same color.
-        return 1;       //yes, the square "sq" is attacked.
-      }
-      if(!IS_EMPTY(*to))
-        break;          //Blocked by another piece
-    }
-  }
-  return 0; // the square "sq" is safe from an attack
-}
-
-int GameIsKingAttacked(_Game * g, unsigned char color) {
-	_GameSquare * king = g->king[color];   
-  _GameSquare ** board = g->board;
-  for (int i=0; i<8; ++i)
-    for(int j=0; j<8; ++j) {
-      _GameSquare * from = &(board[i][j]);
-      if( IS_EMPTY(*from) )
-  continue; //empty
-			if( from == king )
-	continue;
-      if( PIECE_COLOR(*from) != color )
-  continue; //Occupied by the other color
-      //Generate possible moves with the 'piece' 
-      //GamePieceMoves[from->piece](g, from);
-    }
-}
-
 void GameQueenMoves(_Game * g, _GameSquare * from){
   GameMovesFrom(from, QUEEN_MOVES, 8, 7, g->moves); 
 }
@@ -298,11 +306,14 @@ void GamePawnMoves(_Game * g, _GameSquare * from,
     unsigned char flags = IS_CAPTURE(*from,*to) ? 
       MOVE_CAPTURE : IS_ENPASSANTE(*from,*to,*g) ?
       MOVE_ENPASSANTE : 0;
-    if(!flags)
+  
+    //Pawn move diagonally only if it's a  ..
+    //.. capture or an "en-passante" capture
+    if(!flags) 
       continue;
+
     flags |= IS_PROMOTION(*from, *to) ? MOVE_PROMOTION : 0;
-fprintf(stdout,"--p%d, %d,%d,%u",to->piece, IS_PIECE(*to),
-PIECE_COLOR(*from) != PIECE_COLOR(*to),flags);
+
     _GameMove move = {
       .from.piece = from->piece,
       .from.square = from->square,
@@ -322,7 +333,8 @@ PIECE_COLOR(*from) != PIECE_COLOR(*to),flags);
     }
     else {
       array_append (moves, &move, sizeof(move));
-    }  
+    }
+  
   }
   //FIXME: can be made into :for(int j=0; j<4; ++j) {}
   for(int j=2; j<4; j++) {
@@ -352,7 +364,9 @@ PIECE_COLOR(*from) != PIECE_COLOR(*to),flags);
     else {
       array_append (moves, &move, sizeof(move));
     }
-    if(from->square/8 != (g->color ? 6 : 1))
+
+    //double advance only for starting pawns
+    if( BOARD_RANK(*from) != (g->color ? '2' : '7') )
       break;  
   }
 }
@@ -373,6 +387,84 @@ void (*GamePieceMoves[14]) (_Game *, _GameSquare *) =
     GameQueenMoves, GameQueenMoves,
     GameKingMoves, GameKingMoves };
 
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  The function 
+    GameIsAttackedByPiece (from, rays[], nrays, depth, sq);
+  .. can be used to see if a square "sq" is attacked by ..
+  .. the the piece in the square "from". The array  ..
+  .. "rays[]" stores the rays along which piece can move.
+  .. "nrays" is the size of "rays[]", "depth" is the ..
+  .. the max depth along the ray the piece can move. It ..
+  .. 7 or rook, queen, and bishop. 
+  The function
+    GameIsKingAttacked( g, color);
+  .. is used to see if the king of color "color" is under ..
+  .. any attack. This function can be used to (1) see if ..
+  .. a move is valid or not; and to (2) see if a move ..
+  .. produces a check.
+------------------------------------------------------------
+--------------------------------------------------------- */
+
+static inline int GameIsAttackedByPiece ( _GameSquare * from, 
+    const char rays[], int nrays, int depth, 
+    _GameSquare * sq) {
+  
+  //'from' square can be neither empty nor outside the box
+  assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
+
+  for(int i=0; i<nrays; ++i) {
+    _GameSquare * to = from;
+    for(int j=0; j<depth; ++j) {
+      to += rays[i];
+      if(IS_OUTSIDE(*to)) 
+        break; 
+      if(sq == to) {      //comparing pointers 
+        assert(IS_EMPTY(*to) ? 1 : !IS_BLOCKED (*from,*to));
+        //Making sure that the piece occupying "to" ..
+        // .. is not of the same color as the attacking piece ..
+        // .. occuppying "from".
+        return 1;       //yes, the square "sq" is attacked.
+      }
+      if(!IS_EMPTY(*to))
+        break;          //Blocked by another piece
+    }
+  }
+  return 0; // the square "sq" is safe from an attack
+}
+
+int GameIsKingAttacked(_Game * g, unsigned char color) {
+  /*check if the king of color 'color' is attacked by ..
+  .. any of the opposite pieces*/
+	_GameSquare * king = g->king[color];   
+  _GameSquare ** board = g->board;
+  for (int i=0; i<8; ++i)
+    for(int j=0; j<8; ++j) {
+      _GameSquare * from = &(board[i][j]);
+      if( IS_EMPTY(*from) )
+  continue; //empty
+			if( from == king )
+	continue;
+      if( PIECE_COLOR(*from) != color )
+  continue; //Occupied by the other color
+      //Generate possible moves with the 'piece' 
+      //GamePieceMoves[from->piece](g, from);
+    }
+}
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Function to print the current FEN to stdout:
+    GamePrintFEN(_Game * g);
+  Function to print the current board to stdout.
+    GamePrintBoard(_Game * g, int persist);
+  In the above function use "persist" as 1 to print ..
+  .. the board on the left top of the screen with a time ..
+  .. small delay (0.4 s);
+------------------------------------------------------------
+--------------------------------------------------------- */
+
 static inline void GamePrintFEN(_Game * g){
   fprintf(stdout, "\n%s", g->fen);
 }
@@ -382,6 +474,10 @@ void GamePrintBoard(_Game * g, int persist) {
   
   //if persist. It clears the window
   if(persist) {
+    clock_t start_time = clock();
+    clock_t wait_time = 0.4*CLOCKS_PER_SEC ; //5s 
+    while (clock() - start_time < wait_time) {};
+
     printf("\033[2J");          // Clear the screen
     printf("\033[1;1H");        //Cursor on the left to
   } 
@@ -404,8 +500,15 @@ void GamePrintBoard(_Game * g, int persist) {
   fprintf(stdout,"\n");
 }
 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  The following function
+    GameBoard(_Game * g, char * _fen); //.. 
+  .. sets the game and board from the parsed FEN "_fen"
+------------------------------------------------------------
+--------------------------------------------------------- */
+
 void GameBoard(_Game * g, char * _fen) {
-  //Set Current FEN
   char _fen0[] = 
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   char * fen = _fen ? _fen : _fen0;
@@ -514,6 +617,19 @@ void GameBoard(_Game * g, char * _fen) {
   return;
 }
 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Updating the game history. The functions ..
+    GamePushHistory(_Game * g); 
+  .. may be called after each move, in case you need to ..
+  .. revert any move (while analysing the game) or you ..
+  .. want to save the game. 
+  The function
+    GamePopHistory(_Game * g);
+  .. undo the last move.
+------------------------------------------------------------
+--------------------------------------------------------- */
+
 void GamePushHistory(_Game * g){
   /** Add current FEN to history */
   array_append ( g->history, g->fen, FEN_MAXSIZE); 
@@ -532,9 +648,26 @@ void GamePopHistory(_Game * g){
   GameBoard(g, fen); 
 }
 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Update current FEN (using the board "g->board") after ..
+  .. the move. The FEN is required to update history.
+------------------------------------------------------------
+--------------------------------------------------------- */
 void GameFEN(_Game * g){
   /* Get FEN from Board */
 }
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  To create a game (_Game) instance, call
+    Game(char * fen);
+  To start with default board position, call as
+    Game(NULL);
+  To free the memory created for the game instance, call ..
+    GameDestroy(Game * g);
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 _Game * Game(char * fen){
 
@@ -697,15 +830,10 @@ int GameAllMoves(_Game * g){
   int nmoves =  (int) (moves->len /sizeof(_GameMove));
   _GameMove * m = (_GameMove *) (g->moves->p);
   for(int i=0; i<nmoves; ++i, ++m) {
-    clock_t start_time = clock();
-    clock_t wait_time = 0.4*CLOCKS_PER_SEC ; //5s 
-    while (clock() - start_time < wait_time) {};
     GamePrintBoard(g,1);
 
     GameMovePiece(g, m);
 
-    start_time = clock();
-    while (clock() - start_time < wait_time) {};
     GamePrintBoard(g,1);
 
     GameUnmovePiece(g, m);

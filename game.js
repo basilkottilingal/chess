@@ -394,7 +394,7 @@ class ChessGame {
       console.log("Game over!");
       return;
     }
-    //this.randomMove();
+    this.randomMove();
     console.log(this.chess.fen());
     if (this.chess.moves().length === 0) {
       console.log("Game over!");
