@@ -108,7 +108,7 @@ static inline unsigned char SQUARE64(char * s){
 #define BOARD_RANK(SQUARE)  ('0' + 8 - (SQUARE).square/8)
 #define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
 
-//Some conditions
+//conditions to check while moving piece from 'FROM' to 'TO'
 #define IS_OUTSIDE(SQUARE)  ((SQUARE).piece == OUTSIDE)
 #define IS_EMPTY(SQUARE)    ((SQUARE).piece == EMPTY)
 #define IS_PIECE(SQUARE)    (!IS_OUTSIDE(SQUARE) && \
@@ -260,6 +260,8 @@ int GameIsKingAttacked(_Game * g, unsigned char color) {
       _GameSquare * from = &(board[i][j]);
       if( IS_EMPTY(*from) )
   continue; //empty
+			if( from == king )
+	continue;
       if( PIECE_COLOR(*from) != color )
   continue; //Occupied by the other color
       //Generate possible moves with the 'piece' 
