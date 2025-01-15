@@ -12,6 +12,7 @@ TODO: switch on/off en passante,
       update king location.
       update color.
       Castling to the GameKingMoves();      
+      SAN for _GameMove * move
 */
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -527,6 +528,10 @@ void GameMovePiece(_Game * g, _GameMove * move){
   from->piece = EMPTY;
   to->piece = (move->flags & MOVE_PROMOTION) ? 
     move->promotion : move->from.piece;
+  if(to->piece == WKING)
+    g->king[WHITE] = to;
+  else if(to->piece == BKING)
+    g->king[BLACK] = to;
   if(move->flags <= MOVE_CAPTURE)
     return; //In case of normal move, or just capture
   if(move->flags & MOVE_ENPASSANTE) {
@@ -567,6 +572,10 @@ void GameUnmovePiece(_Game * g, _GameMove * move){
   _GameSquare * to   = &(board[t/8][t%8]);
   to->piece = move->to.piece;
   from->piece = move->from.piece;
+  if(from->piece == WKING)
+    g->king[WHITE] = from;
+  else if(from->piece == BKING)
+    g->king[BLACK] = from;
   if(move->flags <= MOVE_CAPTURE)
     return; //In case of normal move, or just capture
   if(move->flags & MOVE_ENPASSANTE) {
@@ -616,7 +625,10 @@ void GameUnmovePiece(_Game * g, _GameMove * move){
 static inline int GameIsAttackedByPiece ( _GameSquare * from, 
     const char rays[], int nrays, int depth, 
     _GameSquare * sq) {
-  
+
+fprintf(stdout, "\n%c%c%c - %c%c",
+    BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from),
+    BOARD_FILE(*sq), BOARD_RANK(*sq));
   //'from' square can be neither empty nor outside the box
   assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
 
@@ -729,16 +741,23 @@ int GameIsKingAttacked(_Game * g, unsigned char color)  {
 }
 
 int GameIsMoveValid(_Game * g, _GameMove * move) {
-    GamePrintBoard(g,1);
     GameMovePiece(g, move);
-
-    if(GameIsKingAttacked(g, g->color))
-      fprintf(stdout, "\nInvalid");
-    if(GameIsKingAttacked(g, !g->color))
-      fprintf(stdout, "\nMove creates a Check");
-
     GamePrintBoard(g,1);
+
+    int valid = !GameIsKingAttacked(g, g->color);
+    if(valid) {
+      int check = GameIsKingAttacked(g, !g->color);
+      if(check) {
+        fprintf(stdout, " Check");
+        move->flags |= MOVE_CHECK;
+      }
+    }
+    else {
+      fprintf(stdout, " Invalid");
+    }
+
     GameUnmovePiece(g, move);
+    GamePrintBoard(g,1);
 }
 
 /* ---------------------------------------------------------
@@ -986,11 +1005,14 @@ r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2
 3) En passante 
 rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR b KQkq d6 0 2
 rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
+4) To see if filtering invalid moves works fine
+8/Q7/8/q7/8/8/8/k6K b - - 0 1
 */
 
 int main(){
   //_Game * g = Game(NULL);
-  _Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
+  //_Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
+  _Game * g = Game("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //_Game * g = Game("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
   //_Game * g = Game("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   GamePrintBoard(g, 0);
