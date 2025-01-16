@@ -950,20 +950,26 @@ int GameAllMoves(_Game * g){
       GamePieceMoves[from->piece](g, from);
     }
   
-  int nmoves =  (int) (moves->len /sizeof(_GameMove));
-  _GameMove * m = (_GameMove *) (g->moves->p);
-  for(int i=0; i<nmoves; ++i, ++m) {
-    GameIsMoveValid(g,m);
+  //Removing Invalid Moves
+  size_t smove = sizeof(_GameMove);
+  int nmoves =  (int) (moves->len / smove);
+  _GameMove * move = (_GameMove *) (g->moves->p);
+  _GameMove * m = move;
+  for(int i=0; i<nmoves; ++i, ++move) {
+    if(GameIsMoveValid(g,move)) {
+      if(!(m == move)) //To avoid memcpy to same dest
+        memcpy(m, move, smove);
+      ++m;
+    }
+    else 
+      moves->len -= smove;
+  }
 /*
     GamePrintBoard(g,1);
-
     GameMovePiece(g, m);
-
     GamePrintBoard(g,1);
-
     GameUnmovePiece(g, m);
 */
-  }
 
   if(!moves->len) {
     //Game Over
@@ -971,11 +977,20 @@ int GameAllMoves(_Game * g){
     
 }
 
-int GameUpdateMove(_Game * g){
+int GameUpdateMove(_Game * g, unsigned char IS_BOT){
 
   _GameSquare * board = g->board[0];
 
+  //Get all the moves in the array "g->moves"
   GameAllMoves(g);
+
+  if(IS_BOT) {
+    //Generate a move from "g->moves"
+  }
+  else {
+    //Input from an input device.
+  }
+
   if(!g->moves->len) {
     if(g->check)  
       fprintf(stdout, "Game Over!. %c wins",
@@ -992,6 +1007,7 @@ int GameUpdateMove(_Game * g){
     exit(-1);
   }
 
+  //Udate the halfclock, fullclock
   g->fullclock += (!g->color);
   g->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
     ((move->from.piece == WPAWN || move->from.piece == BLACK) 
@@ -1000,7 +1016,9 @@ int GameUpdateMove(_Game * g){
     fprintf(stdout, "StaleMate 50 moves rule");
     return 0;
   }
+  //Change the Turn
   g->color = !g->color;
+  //Is the board on Check?
   g->check = move->flags & MOVE_CHECK;
   //Set En-Passante square while double pawn advance
   if( move->from.piece == WPAWN &&
