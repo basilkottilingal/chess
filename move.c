@@ -5,13 +5,15 @@
 #include <string.h>
 #include <limits.h>
 #include <time.h>
+#include <math.h>
 
 /* 
 TODO: switch on/off en passante,
       reset half clock, full clock.
       update king location.
       update color.
-      Castling to the GameKingMoves();      
+      Castling to the GameKingMoves();  
+      FEN from board 
       SAN for _GameMove * move
       when setting up board
         1)if(npieces == 0) or halfclock == 50; //ALready stalemate
@@ -97,9 +99,9 @@ const char ROOK_MOVES[4] =
 const char BISHOP_MOVES[4] = 
   { 13, 11, -13, -11 };
 const char WPAWN_MOVES[4] = 
-  { -11, -13, -12, -24}; 
+  { -11, -13, -12, -24 }; 
 const char BPAWN_MOVES[4] = 
-  { 11, 13, 12, 24};   
+  { 11, 13, 12, 24 };   
 
 static inline unsigned char SQUARE64(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
@@ -252,11 +254,11 @@ void GamePrintBoard(_Game * g, int persist) {
   //if persist. It clears the window
   if(persist) {
     clock_t start_time = clock();
-    clock_t wait_time = 0.4*CLOCKS_PER_SEC ; //5s 
+    clock_t wait_time = 0.2*CLOCKS_PER_SEC ; //sleep time 
     while (clock() - start_time < wait_time) {};
 
-    printf("\033[2J");          // Clear the screen
-    printf("\033[1;1H");        //Cursor on the left to
+    printf("\033[2J");       // Clear the screen
+    printf("\033[1;1H");     //Cursor on the left top left
   } 
   fprintf(stdout,"\nBoard");
     
@@ -560,9 +562,6 @@ static inline int GameIsAttackedByPiece ( _GameSquare * from,
     const char rays[], int nrays, int depth, 
     _GameSquare * sq) {
 
-fprintf(stdout, "\n%c%c%c - %c%c",
-    BOARD_PIECE(*from), BOARD_FILE(*from), BOARD_RANK(*from),
-    BOARD_FILE(*sq), BOARD_RANK(*sq));
   //'from' square can be neither empty nor outside the box
   assert ( !IS_OUTSIDE(*from) && !IS_EMPTY(*from) );
 
@@ -677,22 +676,24 @@ int GameIsKingAttacked(_Game * g, unsigned char color)  {
 
 int GameIsMoveValid(_Game * g, _GameMove * move) {
     GameMovePiece(g, move);
-    GamePrintBoard(g,1);
+    //GamePrintBoard(g,1);
 
     int valid = !GameIsKingAttacked(g, g->color);
     if(valid) {
       int check = GameIsKingAttacked(g, !g->color);
       if(check) {
-        fprintf(stdout, " Check");
+        //fprintf(stdout, " Check");
         move->flags |= MOVE_CHECK;
       }
     }
     else {
-      fprintf(stdout, " Invalid");
+      //fprintf(stdout, " Invalid");
     }
 
     GameUnmovePiece(g, move);
-    GamePrintBoard(g,1);
+    //GamePrintBoard(g,1);
+
+    return valid;
 }
 
 /* ---------------------------------------------------------
@@ -956,7 +957,7 @@ int GameAllMoves(_Game * g){
   _GameMove * move = (_GameMove *) (g->moves->p);
   _GameMove * m = move;
   for(int i=0; i<nmoves; ++i, ++move) {
-    if(GameIsMoveValid(g,move)) {
+    if(GameIsMoveValid(g, move)) {
       if(!(m == move)) //To avoid memcpy to same dest
         memcpy(m, move, smove);
       ++m;
@@ -964,33 +965,34 @@ int GameAllMoves(_Game * g){
     else 
       moves->len -= smove;
   }
-/*
-    GamePrintBoard(g,1);
-    GameMovePiece(g, m);
-    GamePrintBoard(g,1);
-    GameUnmovePiece(g, m);
-*/
-
-  if(!moves->len) {
-    //Game Over
-  }
     
 }
 
-int GameUpdateMove(_Game * g, unsigned char IS_BOT){
+int GameBot(_Game * g) {
+  // Algorithm Not yet implemented
+  // Random move (As of now)
+  _GameMove * move = NULL;
+      
+  srand(time(0)); 
+  int random_number = rand();
+  if(g->moves->len) {
+    int nmoves = (g->moves->len) / sizeof(_GameMove);
+    move = (_GameMove *) g->moves->p;
+    int imove = floor (((double) nmoves)*rand()/RAND_MAX);
+    move += imove;
+  }
+  g->move = move;
+}
+
+//Next Move
+int GameMove(_Game * g, unsigned char IS_BOT){
 
   _GameSquare * board = g->board[0];
 
   //Get all the moves in the array "g->moves"
   GameAllMoves(g);
 
-  if(IS_BOT) {
-    //Generate a move from "g->moves"
-  }
-  else {
-    //Input from an input device.
-  }
-
+  //See if the Game is over. Bcs no moves available
   if(!g->moves->len) {
     if(g->check)  
       fprintf(stdout, "Game Over!. %c wins",
@@ -1000,12 +1002,23 @@ int GameUpdateMove(_Game * g, unsigned char IS_BOT){
     return 0;
   }
 
+  if(IS_BOT) {
+    //Generate a move from "g->moves"
+    GameBot(g);
+  }
+  else {
+    //Input from an input device.
+  }
+
   _GameMove * move = g->move;
   if(!move) {
     fprintf(stderr, "Error: Move not chosen by bot");
     fflush(stdout);
     exit(-1);
   }
+
+  //Move
+  GameMovePiece(g, move); 
 
   //Udate the halfclock, fullclock
   g->fullclock += (!g->color);
@@ -1052,18 +1065,24 @@ int GameUpdateMove(_Game * g, unsigned char IS_BOT){
   return 1; //Game continues
 }
 
+void Game(_Game * g) {
+  while ( GameMove(g, 1)){
+    GamePrintBoard(g, 1);
+  }
+}
+
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   To create a game (_Game) instance, call
-    Game(char * fen);
+    GameNew(char * fen);
   To start with default board position, call as
-    Game(NULL);
+    GameNew(NULL);
   To free the memory created for the game instance, call ..
     GameDestroy(Game * g);
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-_Game * Game(char * fen){
+_Game * GameNew(char * fen){
 
   //Game instance
   _Game * g = (_Game *) malloc (sizeof (_Game));
@@ -1134,20 +1153,22 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 */
 
 int main(){
-  //_Game * g = Game(NULL);
-  //_Game * g = Game("8/P7/8/8/8/8/8/k6K w - - 0 1");
-  //_Game * g = Game("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
-  _Game * g = Game("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
-  //_Game * g = Game("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
-  //_Game * g = Game("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
+  //_Game * g = GameNew(NULL);
+  //_Game * g = GameNew("8/P7/8/8/8/8/8/k6K w - - 0 1");
+  //_Game * g = GameNew("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
+  //_Game * g = GameNew("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
+  //_Game * g = GameNew("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  _Game * g = GameNew("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   GamePrintBoard(g, 0);
 
   //_GameSquare * from = &(g->board[7][1]);
   //GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
 
-  GameAllMoves(g);
+  //GameAllMoves(g);
    
-  GamePrintBoard(g, 1);
+  //GamePrintBoard(g, 1);
+
+  Game(g);
 
   GameDestroy(g);
 
