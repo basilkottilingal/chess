@@ -187,11 +187,12 @@ void array_append (Array * a, void * elem, size_t size)
   a->len += size;
 }
 
-void * array_shrink (Array * a)
+void array_shrink (Array * a)
 {
-  void * p = realloc (a->p, a->len);
-  free (a);
-  return p;
+  if(a->len < a->max) {
+    a->p = realloc (a->p, a->len);
+    a->max = a->len;
+  }
 }
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -229,7 +230,6 @@ typedef struct {
   unsigned char check;
   char fen[FEN_MAXSIZE];
   Array * moves, * history;
-  _GameMove * move;
 }_Game;
 
 /* ---------------------------------------------------------
@@ -985,7 +985,7 @@ int GameAllMoves(_Game * g){
     
 }
 
-int GameBot(_Game * g) {
+_GameMove * GameBot(_Game * g) {
   // Algorithm Not yet implemented
   // Random move (As of now)
   _GameMove * move = NULL;
@@ -993,12 +993,25 @@ int GameBot(_Game * g) {
   srand(time(0)); 
   int random_number = rand();
   if(g->moves->len) {
+    
     int nmoves = (g->moves->len) / sizeof(_GameMove);
+
+//FIXME:Delete me
+if(g->castling & ((MOVE_qCASTLE)  << g->color)) {
+ _GameMove * moves = (_GameMove *) g->moves->p;
+for(int i=0;i<nmoves;++i){
+  if(moves[i].flags & ((MOVE_qCASTLE)  << g->color))
+    return (&(moves[i]));
+  //_GameSquare * king = g->king[g->color];
+  //assert(king[-4].piece == g->color?WROOK:BROOK);
+}
+}
     move = (_GameMove *) g->moves->p;
     int imove = floor (((double) nmoves)*rand()/RAND_MAX);
     move += imove;
   }
-  g->move = move;
+
+  return move;
 }
 
 void GameError(unsigned int error) {
@@ -1034,15 +1047,15 @@ int GameMove(_Game * g, unsigned char IS_BOT){
 
   _GameSquare * board = g->board[0];
 
+  _GameMove * move = NULL;
   if(IS_BOT) {
     //Generate a move from "g->moves"
-    GameBot(g);
+    move = GameBot(g);
   }
   else {
     //Input from an input device.
   }
 
-  _GameMove * move = g->move;
   if(!move) {
     fprintf(stderr, "\nError: Move not chosen by bot");
     fprintf(stderr, "\nProbably loaded game is over");
@@ -1097,7 +1110,7 @@ int GameMove(_Game * g, unsigned char IS_BOT){
     --(g->npieces);
 
   //move is completed
-  move = NULL;
+  //move = NULL;
 
   //Creates list of moves for the new board
   int status = GameAllMoves(g);
@@ -1153,7 +1166,6 @@ _Game * GameNew(char * fen){
 
   //Allocate memory for possible moves,
   g->moves = array_new();
-  g->move  = NULL;
 
   //Allocate memory for game history.
   g->history = array_new();
@@ -1180,9 +1192,12 @@ void GameDestroy(_Game * g) {
   board[0] -= p; 
   free(board[0]);
   free(board);
-
-  array_free(g->moves);
-  array_free(g->history);
+  
+  if(g->moves) 
+    array_free(g->moves);
+  
+  if(g->history)
+    array_free(g->history);
 
   free(g);
 }
