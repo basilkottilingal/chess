@@ -225,7 +225,7 @@ typedef struct {
   //location of kings
 	_GameSquare * king[2]; 
   unsigned char enpassante, castling, color;
-  unsigned char halfclock, fullclock;
+  unsigned char halfclock, fullclock, npieces;
   unsigned char check;
   char fen[FEN_MAXSIZE];
   Array * moves, * history;
@@ -254,7 +254,7 @@ void GamePrintBoard(_Game * g, int persist) {
   //if persist. It clears the window
   if(persist) {
     clock_t start_time = clock();
-    clock_t wait_time = 0.2*CLOCKS_PER_SEC ; //sleep time 
+    clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 
     while (clock() - start_time < wait_time) {};
 
     printf("\033[2J");       // Clear the screen
@@ -301,7 +301,8 @@ void GameBoard(_Game * g, char * _fen) {
     g->fen[i] = fen[i];
     g->fen[i+1] = '\0';  
   }
- 
+
+  g->npieces = 0; 
   g->king[WHITE] = NULL; g->king[BLACK] = NULL;
 
   /* Set board from FEN */ 
@@ -335,7 +336,9 @@ void GameBoard(_Game * g, char * _fen) {
         if(square->piece == WKING)
           g->king[WHITE] = square;
         else if(square->piece == BKING)
-          g->king[BLACK] = square;
+          g->king[BLACK] = square; 
+        else 
+          ++(g->npieces);
         square++->square = sid++; //Square id [0:64)
     }
   }
@@ -653,7 +656,7 @@ int GameIsSquareAttacked(_Game * g,
       _GameSquare * from = &(board[i][j]);
       if( IS_EMPTY(*from) )
   continue; //empty
-			if( from == sq )
+      if( from == sq )
 	continue;
       if( PIECE_COLOR(*from) != color )
   continue; //Occupied by the other color
@@ -965,6 +968,22 @@ int GameAllMoves(_Game * g){
     else 
       moves->len -= smove;
   }
+
+  //See if the Game is over. Bcs no moves available
+  if(!g->moves->len) {
+    if(g->check)  
+      fprintf(stdout, "\nGame Over!. %s wins",
+        g->color ? "BLACK" : "WHITE");
+    else
+      fprintf(stdout, "\nStaleMate: No moves available");
+    return 0; //Game Over
+  } 
+  if (!g->npieces) {
+      fprintf(stdout, "\nStaleMate: No pieces available");
+    return 0; //Game Over
+  }
+  
+  return 1; //Game continues
     
 }
 
@@ -984,23 +1003,38 @@ int GameBot(_Game * g) {
   g->move = move;
 }
 
+void GameError(unsigned int error) {
+  if (error & 15) {
+    unsigned int e = error & 15;
+    if (e == 1) {
+      fprintf(stderr, "Warning: Loaded game has no moves");
+    }
+    fflush(stderr);
+  }
+  if( error & 16) {
+    fprintf(stdout, "\n %s wins by %s", 
+      error & 32 ? "WHITE" : "BLACK",
+      error & 64 ? "time" : "checkmate");
+  }
+  else if (error & 128) {
+    unsigned int e = (error & (256 | 512 | 1024)) >> 8;
+    fprintf(stdout, "\n Draw:");
+    if(e == 0)
+      fprintf(stdout, "Stalemate");
+    else if (e == 1)
+      fprintf(stdout, "Insufficient Material");
+    else if (e == 2)
+      fprintf(stdout, "Fifty-Move Rule");
+    else
+      fprintf(stdout, "Any Other Reasons");
+  }
+  fflush(stdout);
+}
+
 //Next Move
 int GameMove(_Game * g, unsigned char IS_BOT){
 
   _GameSquare * board = g->board[0];
-
-  //Get all the moves in the array "g->moves"
-  GameAllMoves(g);
-
-  //See if the Game is over. Bcs no moves available
-  if(!g->moves->len) {
-    if(g->check)  
-      fprintf(stdout, "Game Over!. %c wins",
-        g->color ? 'b' : 'w');
-    else
-      fprintf(stdout, "StaleMate: No moves available");
-    return 0;
-  }
 
   if(IS_BOT) {
     //Generate a move from "g->moves"
@@ -1012,9 +1046,10 @@ int GameMove(_Game * g, unsigned char IS_BOT){
 
   _GameMove * move = g->move;
   if(!move) {
-    fprintf(stderr, "Error: Move not chosen by bot");
+    fprintf(stderr, "\nError: Move not chosen by bot");
+    fprintf(stderr, "\nProbably loaded game is over");
     fflush(stdout);
-    exit(-1);
+    return 0; //Game Stopped
   }
 
   //Move
@@ -1023,10 +1058,10 @@ int GameMove(_Game * g, unsigned char IS_BOT){
   //Udate the halfclock, fullclock
   g->fullclock += (!g->color);
   g->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
-    ((move->from.piece == WPAWN || move->from.piece == BLACK) 
+    ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
       ? 0 : (g->halfclock + 1));
   if(g->halfclock == 50) { 
-    fprintf(stdout, "StaleMate 50 moves rule");
+    fprintf(stdout, "\nStaleMate 50 moves rule");
     return 0;
   }
   //Change the Turn
@@ -1060,13 +1095,22 @@ int GameMove(_Game * g, unsigned char IS_BOT){
     if(BOARD_FILE(move->from) == 'h')
       g->castling &= ~(MOVE_kCASTLE);
   }
-  
+  //Total number of pieces
+  if(move->flags & MOVE_CAPTURE)
+    --(g->npieces);
+
+  //move is completed
   move = NULL;
+
+  //Creates list of moves for the new board
+  if(!GameAllMoves(g))
+    return 0; //Game Over
+  
   return 1; //Game continues
 }
 
 void Game(_Game * g) {
-  while ( GameMove(g, 1)){
+  while ( GameMove(g, 1) ){
     GamePrintBoard(g, 1);
   }
 }
@@ -1118,6 +1162,10 @@ _Game * GameNew(char * fen){
   GameBoard(g, fen);
   //See if the king (whose turn) is on check    
   g->check = GameIsKingAttacked(g, g->color);
+  //Creates list of moves for the new board
+  if(!GameAllMoves(g)) {
+    fprintf(stderr, "\nWARNING : Game loaded is over");
+  }
  
   return g; 
   
@@ -1150,6 +1198,8 @@ rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
 8/Q7/8/q7/8/8/8/k6K b - - 0 1
 5)Castling available for 'w'
 k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
+6)Game already over
+8/k7/8/K7/8/8/8/8 b - - 0 1
 */
 
 int main(){
@@ -1158,7 +1208,9 @@ int main(){
   //_Game * g = GameNew("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //_Game * g = GameNew("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
   //_Game * g = GameNew("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
-  _Game * g = GameNew("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
+  //_Game * g = GameNew("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
+  //_Game * g = GameNew("8/k7/8/K7/8/8/8/8 b - - 0 1");
+  _Game * g = GameNew("k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
   GamePrintBoard(g, 0);
 
   //_GameSquare * from = &(g->board[7][1]);
