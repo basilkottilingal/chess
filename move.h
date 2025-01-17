@@ -254,7 +254,7 @@ void GamePrintBoard(_Game * g, int persist) {
   //if persist. It clears the window
   if(persist) {
     clock_t start_time = clock();
-    clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 
+    clock_t wait_time = 0.1*CLOCKS_PER_SEC ; //sleep time 
     while (clock() - start_time < wait_time) {};
 
     printf("\033[2J");       // Clear the screen
@@ -938,6 +938,10 @@ int GameAllMoves(_Game * g){
    If Not on check and there are no moves return 2. Stalemate.
    If Not on check and there are some moves return 3 */
   
+  if (!g->npieces) {
+      return (128 | (1 << 8)); //Insufficient pieces
+  }
+
   //Empty the moves array.
   Array * moves = g->moves;
   moves->len = 0;
@@ -971,19 +975,13 @@ int GameAllMoves(_Game * g){
 
   //See if the Game is over. Bcs no moves available
   if(!g->moves->len) {
-    if(g->check)  
-      fprintf(stdout, "\nGame Over!. %s wins",
-        g->color ? "BLACK" : "WHITE");
+    if(g->check)
+      return (16 | (g->color ? 0 : 32)); //someone wins 
     else
-      fprintf(stdout, "\nStaleMate: No moves available");
-    return 0; //Game Over
+      return (128); //stalemate 
   } 
-  if (!g->npieces) {
-      fprintf(stdout, "\nStaleMate: No pieces available");
-    return 0; //Game Over
-  }
   
-  return 1; //Game continues
+  return 0; //Game continues
     
 }
 
@@ -1017,7 +1015,7 @@ void GameError(unsigned int error) {
       error & 64 ? "time" : "checkmate");
   }
   else if (error & 128) {
-    unsigned int e = (error & (256 | 512 | 1024)) >> 8;
+    unsigned int e = (error >> 8) & (1 | 2 | 4);
     fprintf(stdout, "\n Draw:");
     if(e == 0)
       fprintf(stdout, "Stalemate");
@@ -1049,7 +1047,7 @@ int GameMove(_Game * g, unsigned char IS_BOT){
     fprintf(stderr, "\nError: Move not chosen by bot");
     fprintf(stderr, "\nProbably loaded game is over");
     fflush(stdout);
-    return 0; //Game Stopped
+    return 1; //Game Stopped
   }
 
   //Move
@@ -1060,9 +1058,8 @@ int GameMove(_Game * g, unsigned char IS_BOT){
   g->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
     ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
       ? 0 : (g->halfclock + 1));
-  if(g->halfclock == 50) { 
-    fprintf(stdout, "\nStaleMate 50 moves rule");
-    return 0;
+  if(g->halfclock == 50) {
+    return (128 | (2 << 8));
   }
   //Change the Turn
   g->color = !g->color;
@@ -1103,16 +1100,19 @@ int GameMove(_Game * g, unsigned char IS_BOT){
   move = NULL;
 
   //Creates list of moves for the new board
-  if(!GameAllMoves(g))
-    return 0; //Game Over
+  int status = GameAllMoves(g);
   
-  return 1; //Game continues
+  return status; //Game continues if status = 0
 }
 
-void Game(_Game * g) {
-  while ( GameMove(g, 1) ){
+unsigned int Game(_Game * g) {
+  unsigned int status = 0;
+  while ( !status ){
+    status = GameMove(g, 1); 
     GamePrintBoard(g, 1);
   }
+  assert(status);
+  return status;
 }
 
 /* ---------------------------------------------------------
@@ -1185,44 +1185,3 @@ void GameDestroy(_Game * g) {
   free(g);
 }
 
-
-/*Sample FEN's for verifying
-1) Fool's Mate (Black Checkmates White)
-r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2
-2) Promotable white pawn
-8/P7/8/8/8/8/8/k6K w - - 0 1
-3) En passante 
-rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR b KQkq d6 0 2
-rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
-4) To see if filtering invalid moves works fine
-8/Q7/8/q7/8/8/8/k6K b - - 0 1
-5)Castling available for 'w'
-k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
-6)Game already over
-8/k7/8/K7/8/8/8/8 b - - 0 1
-*/
-
-int main(){
-  //_Game * g = GameNew(NULL);
-  //_Game * g = GameNew("8/P7/8/8/8/8/8/k6K w - - 0 1");
-  //_Game * g = GameNew("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
-  //_Game * g = GameNew("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
-  //_Game * g = GameNew("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
-  //_Game * g = GameNew("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
-  //_Game * g = GameNew("8/k7/8/K7/8/8/8/8 b - - 0 1");
-  _Game * g = GameNew("k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
-  GamePrintBoard(g, 0);
-
-  //_GameSquare * from = &(g->board[7][1]);
-  //GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
-
-  //GameAllMoves(g);
-   
-  //GamePrintBoard(g, 1);
-
-  Game(g);
-
-  GameDestroy(g);
-
-  return 0;
-}
