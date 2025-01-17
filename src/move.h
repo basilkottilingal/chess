@@ -1163,8 +1163,10 @@ _Game * GameNew(char * fen){
   //See if the king (whose turn) is on check    
   g->check = GameIsKingAttacked(g, g->color);
   //Creates list of moves for the new board
-  if(!GameAllMoves(g)) {
+  unsigned int status = GameAllMoves(g);
+  if(status) {
     fprintf(stderr, "\nWARNING : Game loaded is over");
+    GameError(status);
   }
  
   return g; 

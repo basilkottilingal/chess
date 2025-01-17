@@ -21,11 +21,11 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 */
 
 int main(){
-  //_Game * g = GameNew(NULL);
+  _Game * g = GameNew(NULL);
   //_Game * g = GameNew("8/P7/8/8/8/8/8/k6K w - - 0 1");
   //_Game * g = GameNew("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //_Game * g = GameNew("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
-  _Game * g = GameNew("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  //_Game * g = GameNew("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
   //_Game * g = GameNew("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   //_Game * g = GameNew("8/k7/8/K7/8/8/8/8 b - - 0 1");
   //_Game * g = GameNew("k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
