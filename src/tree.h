@@ -1,10 +1,14 @@
 #include "move.h"
 
+/**
+TODO: mempool for board and moves. Cap a limit too the pool.
+*/
+
 _Game * GameCopy(_Game * _g) {
   //Game instance 'g' copied from '_g'
   _Game * g = (_Game *) malloc (sizeof (_Game));
 
-  g->board = GameBoard();;
+  g->board = GameBoard();
 
   //board is copied
   memcpy( &(board[-2][-2]), &(_g->board[-2][-2]), 
@@ -40,10 +44,34 @@ _Game * GameCopy(_Game * _g) {
 #define IS_LEAF_NODE   1
 #define IS_ROOT_NODE   2
 #define IS_PARENT_NODE 4
-/* Nodes that are eligible to have children but not assigned*/
+/* Nodes that are eligible to have children but not yet ..
+.. assigned with "children" are called PRUNED nodes. ..
+.. IS_PRUNED_NODE is synonymous with IS_LEAF_NODE, but
+.. is used to signify that algorithm prefered to not ..
+.. expand further from that node. */
 #define IS_PRUNED_NODE 32
 
-_TreeNode * TREE_STACK[TREE_DEPTH_MAX];
+
+/* Depth-First Tree Traversal without a recursion function */
+unsigned char TREE_STACK[TREE_DEPTH_MAX];
+#define foreach_TreeNode_start(_tree_, _depth_) { \
+  assert(_tree_);                                 \
+  assert(_depth_ <= _tree_->depth);               \
+  _TreeNode * _node_ = _tree_->_root;             \
+  TREE_STACK[0] = 1;                              \
+  while(_node_) {                                 \
+    // Push                                       \
+    TREE_STACK[_l] = _node_->children;             \
+    _node_ = _node
+    // Pop
+    _node_ = (--TREE_STACK[_node_->level] > 0) ?  \
+      _node_+1 : _node_->parent;                  \
+  }
+  for(int _l_ = 0; _l_<_depth_; ++_l_) {          \
+    TREE_STACK[
+      
+      
+  
 
 typedef struct _TreeNode{
   _Game * g;
@@ -73,7 +101,7 @@ int TreeNodeExpand(_TreeNode * node) {
   assert( node->depth < TREE_MAX_DEPTH );
  
   //avoiding multiple expansion of a leaf node; 
-  assert( node->flags & IS_PARENT_NODE );
+  assert( node->flags & (IS_LEAF_NODE | IS_PRUNED_NODE) );
   assert( !node->children );
 
   //The game is over. Ex: No more moves (g->moves->len == 0).
@@ -84,52 +112,66 @@ int TreeNodeExpand(_TreeNode * node) {
   assert(g->moves->len > 0);
 
   _GameMove * move = (_GameMove *) (g->moves->p);
-
   _TreeNode * child = 
-    (_TreeNode *)malloc( nmoves * sizeof (_TreeNode) ); 
+    (_TreeNode *)malloc(node->nchildren * sizeof (_TreeNode)); 
   node->children = child;
 
   for (int i=0; i<nmoves; ++i, ++child, ++move) {
-    child->level    = node->level + 1;
-    child->children = NULL; //Not yet assigned
-    child->parent   = node;
-    child->flags    = IS_LEAF_NODE;
-    child->g        = _GameCopy(g);
+    child->level     = node->level + 1;
+    child->children  = NULL; //Not yet assigned
+    child->parent    = node;
+    child->flags     = IS_LEAF_NODE;
+    child->nchildren = 0
     //"child" is one "move" (halfmove) ahead of the "node"
-    child->status   = GameMove(child->g, move); 
+    child->g         = _GameCopy(g);
+    child->status    = GameMove(child->g, move);
+    if(!child->status) {
+      //this child can be further expanded
+      child->flags  |= IS_PRUNED_NODE;
+      child->nchildren = 
+        (unsigned char) (child->g->moves / sizeof(_GameMove));
+    }
   }
 
   //Not a child anymore;
-  node->flags &= ~IS_LEAF_NODE;
+  node->flags &= ~(IS_LEAF_NODE & IS_PRUNED_NODE);
   node->flags |=  IS_PARENT_NODE;
 }
 
 //Destroy Leaf Nodes;
 void TreeNodeDestroy(_TreeNode * node) {
   //Make sure that it's leaf node; 
+  assert(child->flags & IS_LEAF_NODE);
   assert(!node->children);
+  // Destroyed associated memory created for "node". ..
+  // Note: Assume memory for "node->children" are  ..
+  // .. destroyed before.
   GameDestroy(node->g);
   node->g = NULL;
   return;  
 }
 
-//Destroy children
+//free "children"
 void TreeNodePrune(_TreeNode * node) {
   assert( node->flags & IS_PARENT_NODE ) 
   _GameNode * child = node->children;
-  for(int i=0; i<nchildren; ++i, ++child) {
-    assert(child->flags & IS_LEAF_NODE);
+  assert(child);
+  //free "children" and associated memory for it's objects.
+  for(int i=0; i<nchildren; ++i, ++child) 
     TreeNodeDestroy( child );
-  }
-  //No more a parent;
-  node->flags &= ~IS_PARENT_NODE;
-  node->flags |=  IS_LEAF_NODE;
-  //free children
   free(node->children);
   node->children = NULL;
+  //No more a parent;
+  node->flags &= ~IS_PARENT_NODE;
+  node->flags |=  (IS_LEAF_NODE | IS_PRUNED_NODE);
 }
 
 _Tree * Tree(_Game * g, unsigned char depth) {
+  if(g->status) {
+    //Game already over. No scope to expand a tree
+    return NULL;
+  }
+
   _Tree * tree     = (_Tree *) malloc (sizeof(_Tree));
   _TreeNode * root = (_TreeNode *) malloc (sizeof(_TreeNode));
   root->g = GameCopy(g);
@@ -139,6 +181,8 @@ _Tree * Tree(_Game * g, unsigned char depth) {
   tree->root = root; 
   tree->depth = 
     depth > TREE_MAX_DEPTH ? TREE_MAX_DEPTH ? depth;
+
+  //FIXME: Slow algorithm.
   for(int l=0; l<tree-depth; ++l) {
     foreach_TreeNode_start(tree, tree->depth) {
       if( node->flags & IS_PRUNED_NODE ) {
