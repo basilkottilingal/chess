@@ -8,16 +8,10 @@
 #include <math.h>
 
 /* 
-TODO: switch on/off en passante,
-      reset half clock, full clock.
-      update king location.
-      update color.
-      Castling to the GameKingMoves();  
+TODO: 
+      Bug in Castling options in  GameKingMoves();  
       FEN from board 
       SAN for _GameMove * move
-      when setting up board
-        1)if(npieces == 0) or halfclock == 50; //ALready stalemate
-        2)On check with 0 moves, game over;
 */
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -254,7 +248,7 @@ void GamePrintBoard(_Game * g, int persist) {
   //if persist. It clears the window
   if(persist) {
     clock_t start_time = clock();
-    clock_t wait_time = 0.1*CLOCKS_PER_SEC ; //sleep time 
+    clock_t wait_time = 0.01*CLOCKS_PER_SEC ; //sleep time 
     while (clock() - start_time < wait_time) {};
 
     printf("\033[2J");       // Clear the screen
@@ -332,18 +326,25 @@ void GameBoard(_Game * g, char * _fen) {
       break;
     }
     else{
-        square->piece =  MAPPING2[c - 'A']; // occupied square
-        if(square->piece == WKING)
-          g->king[WHITE] = square;
-        else if(square->piece == BKING)
-          g->king[BLACK] = square; 
-        else 
-          ++(g->npieces);
-        square++->square = sid++; //Square id [0:64)
+      square->piece =  MAPPING2[c - 'A']; // occupied square
+      if(square->piece == WKING) {
+        assert(!g->king[WHITE]); 
+        //There cannot be multiple kings
+        g->king[WHITE] = square;
+      }
+      else if(square->piece == BKING) {
+        assert(!g->king[BLACK]); 
+        //There cannot be multiple kings
+        g->king[BLACK] = square; 
+      }
+      else { 
+        assert((g->npieces)++ < 30);
+      }
+      square++->square = sid++; //Square id [0:64)
     }
   }
   //Make sure that there are both 'k' and 'K' in the FEN;
-  assert(g->king[WHITE]);  assert(g->king[BLACK]);
+  assert(g->king[WHITE] && g->king[BLACK]);
 
   //Let's see whose turn is now ('w'/'b')
   g->color = (*fen == 'w') ? WHITE : BLACK;
@@ -991,22 +992,11 @@ _GameMove * GameBot(_Game * g) {
   // Random move (As of now)
   _GameMove * move = NULL;
       
-  srand(time(0)); 
   int random_number = rand();
   if(g->moves->len) {
     
     int nmoves = (g->moves->len) / sizeof(_GameMove);
 
-//FIXME:Delete me
-if(g->castling & ((MOVE_qCASTLE)  << g->color)) {
- _GameMove * moves = (_GameMove *) g->moves->p;
-for(int i=0;i<nmoves;++i){
-  if(moves[i].flags & ((MOVE_qCASTLE)  << g->color))
-    return (&(moves[i]));
-  //_GameSquare * king = g->king[g->color];
-  //assert(king[-4].piece == g->color?WROOK:BROOK);
-}
-}
     move = (_GameMove *) g->moves->p;
     int imove = floor (((double) nmoves)*rand()/RAND_MAX);
     move += imove;
@@ -1044,18 +1034,9 @@ void GameError(unsigned int error) {
 }
 
 //Next Move
-int GameMove(_Game * g, unsigned char IS_BOT){
+int GameMove(_Game * g, _GameMove * move){
 
   _GameSquare * board = g->board[0];
-
-  _GameMove * move = NULL;
-  if(IS_BOT) {
-    //Generate a move from "g->moves"
-    move = GameBot(g);
-  }
-  else {
-    //Input from an input device.
-  }
 
   if(!move) {
     fprintf(stderr, "\nError: Move not chosen by bot");
@@ -1073,7 +1054,7 @@ int GameMove(_Game * g, unsigned char IS_BOT){
     ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
       ? 0 : (g->halfclock + 1));
   if(g->halfclock == 50) {
-    return (128 | (2 << 8));
+    return (128 | (2 << 8)); //Draw by 50 moves rule.
   }
   //Change the Turn
   g->color = !g->color;
@@ -1088,24 +1069,66 @@ int GameMove(_Game * g, unsigned char IS_BOT){
     g->enpassante = move->from.square + 8;
   else
     g->enpassante = 64;
-  //Switching off castling if king move moves
-  if(move->from.piece == WKING)
-    g->castling &= ~(MOVE_QCASTLE | MOVE_KCASTLE);
-  else if(move->from.piece == BKING)
-    g->castling &= ~(MOVE_qCASTLE | MOVE_kCASTLE);
-  //Switching off castling if corner rooks move
-  else if(move->from.piece == WROOK) {
-    if(BOARD_FILE(move->from) == 'a')
-      g->castling &= ~(MOVE_QCASTLE);
-    if(BOARD_FILE(move->from) == 'h')
-      g->castling &= ~(MOVE_KCASTLE);
+  
+  if(g->castling) {
+    //Switching off castling if king move moves
+    if(move->from.square == 4)
+      g->castling &= ~(MOVE_qCASTLE | MOVE_kCASTLE);
+    else if (move->from.square == 60)
+      g->castling &= ~(MOVE_QCASTLE | MOVE_KCASTLE);
+  
+    //Switching off castling if corner rooks move/captured
+    if(move->from.square == 0 || move->to.square == 0)
+      g->castling &= ~MOVE_qCASTLE;
+    if(move->from.square == 7 || move->to.square == 7)
+      g->castling &= ~MOVE_kCASTLE;
+    if(move->from.square == 56 || move->to.square == 56)
+      g->castling &= ~MOVE_QCASTLE;
+    if(move->from.square == 63 || move->to.square == 63)
+      g->castling &= ~MOVE_KCASTLE;
   }
-  else if(move->from.piece == BROOK) {
-    if(BOARD_FILE(move->from) == 'a')
-      g->castling &= ~(MOVE_qCASTLE);
-    if(BOARD_FILE(move->from) == 'h')
-      g->castling &= ~(MOVE_kCASTLE);
+
+//Switch of this later.
+#if 1
+if(g->castling){
+  for(int i=0; i<2;++i) {
+    if(g->castling & (MOVE_kCASTLE<<i)){
+      _GameSquare * king = g->king[i];
+      assert(king->square == (4 + 8*7*(i)));
+      assert(king[0].piece == (i ? WKING : BKING));  
+      if(king[3].piece != (i ? WROOK : BROOK)){
+fprintf(stderr, "\nk ? ? r\n");
+for(int i=0; i<4; ++i) 
+  fprintf(stderr, "%c ", MAPPING[king[i].piece]);
+fprintf(stderr, "\n");
+for(int i=0; i<4; ++i) 
+  fprintf(stderr, "%c ", MAPPING[(king+i)->piece]);
+fflush(stderr);
+exit(-1);
+      }
+    }
+    if(g->castling & (MOVE_qCASTLE<<i)){
+      _GameSquare * king = g->king[i];
+      assert(king->square == (4 + 8*7*(i)));
+      assert(king[0].piece == (i ? WKING : BKING));  
+      if(king[-4].piece != (i ? WROOK : BROOK)){ 
+fprintf(stderr, "\nr ? ? ? r\n");
+for(int i=0; i<4; ++i) 
+  fprintf(stderr, "%c ", MAPPING[king[i].piece]);
+fprintf(stderr, "\n");
+for(int i=-4; i<=0; ++i) 
+  fprintf(stderr, "%c ", MAPPING[(king+i)->piece]);
+fprintf(stderr, "\n");
+for(int i=4; i>=0; --i) 
+  fprintf(stderr, "%c ", MAPPING[(king-i)->piece]);
+fflush(stderr);
+exit(-1);
+      }
+    }
   }
+}
+#endif
+
   //Total number of pieces
   if(move->flags & MOVE_CAPTURE)
     --(g->npieces);
@@ -1120,9 +1143,16 @@ int GameMove(_Game * g, unsigned char IS_BOT){
 }
 
 unsigned int Game(_Game * g) {
+  srand(time(0)); 
   unsigned int status = 0;
   while ( !status ){
-    status = GameMove(g, 1); 
+    _GameMove * move = NULL;
+    if(1)
+      move = GameBot(g);
+    else {
+      //Input from an input device
+    }
+    status = GameMove(g, move); 
     GamePrintBoard(g, 1);
   }
   assert(status);
