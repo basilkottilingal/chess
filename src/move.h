@@ -276,12 +276,12 @@ void GamePrintBoard(_Game * g, int persist) {
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   The following function
-    GameBoard(_Game * g, char * _fen); //.. 
+    GameSetBoard(_Game * g, char * _fen); //.. 
   .. sets the game and board from the parsed FEN "_fen"
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-void GameBoard(_Game * g, char * _fen) {
+void GameSetBoard(_Game * g, char * _fen) {
   char _fen0[] = 
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   char * fen = _fen ? _fen : _fen0;
@@ -431,7 +431,7 @@ void GamePopHistory(_Game * g){
   }
   h->len -= FEN_MAXSIZE;
   char * fen = (char *) (h->p) + h->len;
-  GameBoard(g, fen); 
+  GameSetBoard(g, fen); 
 }
 
 /* ---------------------------------------------------------
@@ -1170,11 +1170,8 @@ unsigned int Game(_Game * g) {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-_Game * GameNew(char * fen){
-
-  //Game instance
-  _Game * g = (_Game *) malloc (sizeof (_Game));
-
+static inline 
+_GameSquare ** GameBoard(){
   //Allocate mem for 2-D board (8x8) with ..
   //.. 2 layer padding on each sides (12x12).
   //accessible: board[-2:9][-2:9]
@@ -1193,7 +1190,15 @@ _Game * GameNew(char * fen){
     board[i] += p;
   }
   board += p;
-  g->board = board;
+  return board;
+}
+
+_Game * GameNew(char * fen){
+
+  //Game instance
+  _Game * g = (_Game *) malloc (sizeof (_Game));
+
+  g->board = GameBoard();;
 
   //Allocate memory for possible moves,
   g->moves = array_new();
@@ -1202,7 +1207,7 @@ _Game * GameNew(char * fen){
   g->history = array_new();
 
   //Set the Chessboard
-  GameBoard(g, fen);
+  GameSetBoard(g, fen);
   //See if the king (whose turn) is on check    
   g->check = GameIsKingAttacked(g, g->color);
   //Creates list of moves for the new board
