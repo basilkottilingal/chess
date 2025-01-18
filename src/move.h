@@ -390,9 +390,10 @@ void GameBoard(_Game * g, char * _fen) {
     char c = *fen;
     assert(isdigit(c));
     g->fullclock = 10*g->fullclock + (c - '0');
-    //No one ever reported a game with 300+moves in a FIDE game.
-    //I don't know the theoretical limit.
-    //I think stalemate would have occured before 1000 moves??
+    // No recorded FIDE game exceeded 300 moves.
+    // .. I don't know the theoretical limit. 
+    // .. I think draw (by 50moves rule) would have ..
+    // .. occured before 1000 moves??
     assert(g->fullclock <= 10000);
   }
   assert(g->fullclock); //has to be greater than 0;
