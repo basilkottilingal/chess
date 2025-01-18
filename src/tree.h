@@ -11,9 +11,6 @@ _Game * GameCopy(_Game * _g) {
   board[0] = (_GameSquare *)
     malloc(tb*tb*sizeof(_GameSquare));
 
-  //board is copied
-  memcpy(board[0], _g->board[0], tb*tb*sizeof(_GameSquare) );
-
   for(int i=1; i<tb; ++i)
     board[i] = board[i-1] + tb;
   for(int i=0; i<tb; ++i) {
@@ -23,6 +20,10 @@ _Game * GameCopy(_Game * _g) {
   }
   board += p;
   g->board = board;
+
+  //board is copied
+  memcpy(&(board[-2][-2]), 
+    &(_g->board[-2][-2]), tb*tb*sizeof(_GameSquare) );
 
   g->move  = NULL;
   g->history = NULL; //Not used.
