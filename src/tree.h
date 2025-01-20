@@ -54,6 +54,7 @@ _Game * GameCopy(_Game * _g) {
 
 
 typedef struct _TreeNode{
+unsigned int id; 
   _Game * g;
   //unsigned int gstatus;
 
@@ -69,6 +70,8 @@ typedef struct _TreeNode{
 
 void TreeNode(_TreeNode * node, _TreeNode * parent, 
     _Game * g, _GameMove * move) {
+node->id = rand();
+
   assert(!g->status);
   node->g = GameCopy(g);
   node->flags = IS_LEAF_NODE;
@@ -101,6 +104,8 @@ void TreeNode(_TreeNode * node, _TreeNode * parent,
   //tree links
   node->parent = parent;
   node->children = NULL;
+
+  return;
 }
 
 //Destroy Leaf Nodes;
@@ -108,7 +113,7 @@ int TreeNodeDestroy(_TreeNode * node) {
   // Make sure that it's leaf node; 
   assert( node->flags & IS_LEAF_NODE );
   assert( node->children == NULL );
-  // Destroyed associated memory created for "node". ..
+  // Destroy associated memory created for "node". ..
   // Note: Assume memory for "node->children" are  ..
   // .. destroyed before.
   GameDestroy( node->g );
@@ -134,13 +139,17 @@ int TreeNodeExpand(_TreeNode * node) {
 
   _GameMove * move = (_GameMove *) (node->g->moves->p);
   unsigned char nmoves = node->nchildren;
-fprintf(stdout, "(NodeExpand %d-Children)", nmoves);
+//fprintf(stdout, "(Node-0x%d Expand %d-Children)", node->id,nmoves);
   _TreeNode * child = 
     (_TreeNode *) malloc (nmoves * sizeof (_TreeNode)); 
   node->children = child;
 
-  for (int i=0; i<nmoves; ++i, ++child, ++move)
+//fprintf(stdout, "{");
+  for (int i=0; i<nmoves; ++i, ++child, ++move) {
     TreeNode(child, node, node->g, move);
+//fprintf(stdout, "0x%d,", child->id);
+  }
+//fprintf(stdout, "}");
 
   //node is not a leaf anymore;
   node->flags &= ~(IS_LEAF_NODE & IS_PRUNED_NODE);
@@ -151,29 +160,88 @@ fprintf(stdout, "(NodeExpand %d-Children)", nmoves);
 
 //free "children"
 int TreeNodePrune(_TreeNode * node) {
-  assert( node->flags & IS_PARENT_NODE ); 
+  if( !(node->flags & IS_PARENT_NODE )) 
+    return 0;
+ 
   _TreeNode * child = node->children;
   assert(child);
   //free "children" and associated memory for it's objects.
-  for(int i=0; i<node->nchildren; ++i, ++child) 
+  for(int i=0; i<node->nchildren; ++i, ++child) { 
+    if(! (child->flags & IS_LEAF_NODE) ) {
+      return 0;
+    }
     TreeNodeDestroy( child );
+  }
   free(node->children);
   node->children = NULL;
   //No more a parent;
   node->flags &= ~IS_PARENT_NODE;
   node->flags |=  (IS_LEAF_NODE | IS_PRUNED_NODE);
+  
+  return 1;
 }
 
 typedef struct {
   //Usually used to store current state of the game
   _TreeNode * root;    
   //max depth of search (further from current state)
-  unsigned char depth, depthmax; 
+  unsigned char depth, depthmax;
 } _Tree;
 
 typedef int (* TreeNodeFunction) (_TreeNode *); 
+/* Depth-First Tree Traversal without a recursion function */
+unsigned char TREE_STACK[TREE_MAX_DEPTH];
+void TreeNodeEach(_Tree * tree, unsigned char depth, 
+    TreeNodeFunction func){
+
+  assert(tree);                                 
+  //assert(depth <= tree->depth);               
+  _TreeNode * node = tree->root;             
+  TREE_STACK[0] = 1; 
+  while(node) {                                 
+    while(node->level <= depth) {
+      /* Do something with node here  
+      fprintf(stdout, "\n");
+      for(int i=0; i<node->level; ++i)
+        fprintf(stdout, " ");
+      fprintf(stdout, "l%d,flags%d", node->level, node->flags);
+      */
+      if(func)
+        func(node);
+      /* //End of "Do something with node here"*/  
+      
+      /* Going down the tree */
+      if(!node->children) {
+        //fprintf(stdout,"<E>"); fflush(stdout);
+        break; //Cannot go down further
+      }
+      else if(node->level <= depth) {
+        //fprintf(stdout,"<D>"); fflush(stdout);
+        //Go to children if node->level is not yet "depth"
+        TREE_STACK[node->level + 1] = node->nchildren;
+        node = node->children;
+      } 
+    }
+        //fprintf(stdout,"<M>"); fflush(stdout);
+
+    /* Going to sibling (if any more left to traverse) or ..
+    .. Go to parent's sibling (if any more left ) or .. */
+    while ( node ) {
+      if( --TREE_STACK[node->level] > 0 ) {  
+        ++node; 
+        //fprintf(stdout,"<X>"); fflush(stdout);
+        break;
+      }
+      node = node->parent;
+        //fprintf(stdout,"<Y>"); fflush(stdout);
+    } 
+        //fprintf(stdout,"<Z>"); fflush(stdout);
+  }
+        //fprintf(stdout,"<Q>"); fflush(stdout);
+}
 
 _Tree * Tree(_Game * g, unsigned char depth) {
+srand(time(0));  
   if(g->status) {
     //Game already over. No scope to expand a tree
     return NULL;
@@ -185,66 +253,22 @@ _Tree * Tree(_Game * g, unsigned char depth) {
   tree->root = root;
   tree->depthmax = 
     depth > TREE_MAX_DEPTH ? TREE_MAX_DEPTH : depth;
-  tree->depth = 0;
 
-  /*
-  //FIXME: Slow algorithm.
-  for(int l=0; l<tree-depth; ++l) {
-    foreach_TreeNode_start(tree, tree->depth) {
-      if( node->flags & IS_PRUNED_NODE ) {
-        assert(node->level == l);
-        TreeNodeExpand(node); 
-      }
-    }
-    foreach_TreeNode_end();
-  }
-  */
+  // Expand the tree
+  TreeNodeEach(tree, TREE_MAX_DEPTH-1, TreeNodeExpand);
+  // There is no pruning, .. thus around 20^TREE_MAX_DEPTH 
+  // is the number of leaf nodes. Make sure you don't ..
+  // .. run out RAM and crash the system.
+  tree->depth = tree->depthmax;
+ 
   return tree;
 }
 
-/* Depth-First Tree Traversal without a recursion function */
-unsigned char TREE_STACK[TREE_MAX_DEPTH];
-void TreeNodeEach(_Tree * tree, int depth, 
-    TreeNodeFunction func){
+void TreeDestroy(_Tree * tree) { 
 
-  assert(tree);                                 
-  //assert(depth <= tree->depth);               
-  _TreeNode * node = tree->root;             
-  TREE_STACK[0] = 1; 
-  while(node) {                                 
-    while(node->level <= depth) {
-      /* Do something with node here */  
-      func(node);
-      fprintf(stdout, "\n");
-      for(int i=0; i<node->level; ++i)
-        fprintf(stdout, " ");
-      fprintf(stdout, "l%d,flags%d", node->level, node->flags);
-      /* End of "Do something with node here"*/  
-      
-      /* Going down the tree */
-      if(!node->children) {
-        fprintf(stdout,"E"); fflush(stdout);
-        break; //Cannot go down further
-      }
-      else if(node->level < depth) {
-        fprintf(stdout,"D"); fflush(stdout);
-        //Go to children if node->level is not yet "depth"
-        TREE_STACK[node->level + 1] = node->nchildren;
-        node = node->children;
-      } 
-    }
-        fprintf(stdout,"M"); fflush(stdout);
+  //Not the ideal one; 
+  //You should be able to do it in one go like creatiing tree
+  for (int l=tree->depth-1; l>0; --l)
+    TreeNodeEach(tree, l, TreeNodePrune);
 
-    /* Going to sibling (if any more left to traverse) or ..
-    .. Go to parent's sibling (if any more left ) or .. */
-    while ( node ) {
-      if( --TREE_STACK[node->level] > 0 ) {  
-        ++node; 
-        break;
-        fprintf(stdout,"X"); fflush(stdout);
-      }
-      node = node->parent;
-        fprintf(stdout,"Y"); fflush(stdout);
-    } 
-  }
 }
