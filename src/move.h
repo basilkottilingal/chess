@@ -222,6 +222,8 @@ typedef struct {
   unsigned char enpassante, castling, color;
   unsigned char halfclock, fullclock, npieces;
   unsigned char check;
+  //Game Status; 
+  unsigned int status; 
   char fen[FEN_MAXSIZE];
   Array * moves, * history;
 }_Game;
@@ -939,14 +941,21 @@ int GameAllMoves(_Game * g){
    If on check and there are atleast 1 move which nullify check.
    If Not on check and there are no moves return 2. Stalemate.
    If Not on check and there are some moves return 3 */
-  
-  if (!g->npieces) {
-      return (128 | (1 << 8)); //Insufficient pieces
-  }
-
   //Empty the moves array.
   Array * moves = g->moves;
   moves->len = 0;
+
+
+  g->status = 0;
+  //Look for draw
+  if(g->halfclock == 50) {
+    g->status = (128 | (2 << 8)); //Draw by 50 moves rule.
+  }
+  if (!g->npieces) {
+    g->status = (128 | (1 << 8)); //Insufficient pieces
+  }
+  if(g->status)
+    return g->status; 
 
   _GameSquare ** board = g->board;
   for (int i=0; i<8; ++i)
@@ -978,12 +987,12 @@ int GameAllMoves(_Game * g){
   //See if the Game is over. Bcs no moves available
   if(!g->moves->len) {
     if(g->check)
-      return (16 | (g->color ? 0 : 32)); //someone wins 
+      g->status = (16 | (g->color ? 0 : 32)); //someone wins 
     else
-      return (128); //stalemate 
+      g->status = 128; //stalemate 
   } 
   
-  return 0; //Game continues
+  return g->status; //Game continues if (g->status == 0)
     
 }
 
@@ -1053,9 +1062,6 @@ int GameMove(_Game * g, _GameMove * move){
   g->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
     ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
       ? 0 : (g->halfclock + 1));
-  if(g->halfclock == 50) {
-    return (128 | (2 << 8)); //Draw by 50 moves rule.
-  }
   //Change the Turn
   g->color = !g->color;
   //Is the board on Check?
@@ -1137,26 +1143,24 @@ exit(-1);
   //move = NULL;
 
   //Creates list of moves for the new board
-  int status = GameAllMoves(g);
-  
-  return status; //Game continues if status = 0
+  //Game continues if (g->status == 0)
+  return (GameAllMoves(g));
 }
 
 unsigned int Game(_Game * g) {
   srand(time(0)); 
-  unsigned int status = 0;
-  while ( !status ){
+  while ( !g->status ){
     _GameMove * move = NULL;
     if(1)
       move = GameBot(g);
     else {
       //Input from an input device
     }
-    status = GameMove(g, move); 
+    GameMove(g, move); 
     GamePrintBoard(g, 1);
   }
-  assert(status);
-  return status;
+  assert(g->status); //Game is over
+  return (g->status);
 }
 
 /* ---------------------------------------------------------
@@ -1211,10 +1215,10 @@ _Game * GameNew(char * fen){
   //See if the king (whose turn) is on check    
   g->check = GameIsKingAttacked(g, g->color);
   //Creates list of moves for the new board
-  unsigned int status = GameAllMoves(g);
-  if(status) {
-    fprintf(stderr, "\nWARNING : Game loaded is over");
-    GameError(status);
+  GameAllMoves(g);
+  if(g->status) {
+    fprintf(stderr, "\nWARNING : Game loaded has no moves");
+    GameError(g->status);
   }
  
   return g; 
