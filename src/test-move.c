@@ -2,7 +2,7 @@
 
 
 //Run this test script using
-//$ gcc -Winline -o del test.c -lm&& ./del
+//$ gcc -Winline -o del test-move.c -lm&& ./del
 
 /*Sample FEN's for verifying
 1) Fool's Mate (Black Checkmates White)

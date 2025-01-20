@@ -54,24 +54,37 @@ _Game * GameCopy(_Game * _g) {
 
 /* Depth-First Tree Traversal without a recursion function */
 unsigned char TREE_STACK[TREE_DEPTH_MAX];
-#define foreach_TreeNode_start(_tree_, _depth_) { \
-  assert(_tree_);                                 \
-  assert(_depth_ <= _tree_->depth);               \
-  _TreeNode * _node_ = _tree_->_root;             \
-  TREE_STACK[0] = 1;                              \
-  while(_node_) {                                 \
-    // Push                                       \
-    TREE_STACK[_l] = _node_->children;             \
-    _node_ = _node
-    // Pop
-    _node_ = (--TREE_STACK[_node_->level] > 0) ?  \
-      _node_+1 : _node_->parent;                  \
+void TreeNodeEach(_Tree * tree, int depth, func){
+  assert(tree);                                 
+  assert(depth <= tree->depth);               
+  _TreeNode * node_ = tree->root;             
+  TREE_STACK[0] = 1; 
+  while(node) {                                 
+    do {
+      /* Do something with node here */  
+      //func(node, data);
+      fprintf(stdout, "\n");
+      for(int i=0; i<node->level; ++i)
+        fprintf(stdout, " ");
+      fprintf(stdout, "l%d,flags%d", node->level, node->flags);
+      
+      /* Going down the tree */
+      assert(node->children);
+      TREE_STACK[TREE_LEVEL + 1] = node->nchildren;
+      node = node->children;
+    } while(node->children);
+
+    /* Going to sibling (if any more left to traverse) or ..
+    .. Go to parent's sibling (if any more left ) or .. */
+    do {
+      if( --TREE_STACK[node->level] > 0 ) {  
+        ++node; 
+        break;
+      }
+      node = node->parent;
+    } while (node);
   }
-  for(int _l_ = 0; _l_<_depth_; ++_l_) {          \
-    TREE_STACK[
-      
-      
-  
+}
 
 typedef struct _TreeNode{
   _Game * g;
