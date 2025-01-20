@@ -56,33 +56,39 @@ _Game * GameCopy(_Game * _g) {
 unsigned char TREE_STACK[TREE_DEPTH_MAX];
 void TreeNodeEach(_Tree * tree, int depth, func){
   assert(tree);                                 
-  assert(depth <= tree->depth);               
+  //assert(depth <= tree->depth);               
   _TreeNode * node_ = tree->root;             
   TREE_STACK[0] = 1; 
   while(node) {                                 
-    do {
+    while(node->level <= depth) {
       /* Do something with node here */  
       //func(node, data);
       fprintf(stdout, "\n");
       for(int i=0; i<node->level; ++i)
         fprintf(stdout, " ");
       fprintf(stdout, "l%d,flags%d", node->level, node->flags);
+      /* End of "Do something with node here"*/  
       
       /* Going down the tree */
-      assert(node->children);
-      TREE_STACK[TREE_LEVEL + 1] = node->nchildren;
-      node = node->children;
-    } while(node->children);
+      if(!node->children) {
+        break; //Cannot go down further
+      }
+      else if(node->level < depth) {
+        //Go to children if node->level is not yet "depth"
+        TREE_STACK[TREE_LEVEL + 1] = node->nchildren;
+        node = node->children;
+      } 
+    }
 
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
-    do {
+    while ( node ) {
       if( --TREE_STACK[node->level] > 0 ) {  
         ++node; 
         break;
       }
       node = node->parent;
-    } while (node);
+    } 
   }
 }
 
@@ -180,7 +186,7 @@ void TreeNodePrune(_TreeNode * node) {
 }
 
 _Tree * Tree(_Game * g, unsigned char depth) {
-  if(g->status) {
+  if(g->gstatus) {
     //Game already over. No scope to expand a tree
     return NULL;
   }
