@@ -19,33 +19,30 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 8/k7/8/K7/8/8/8/8 b - - 0 1
 */
 
-int TreeNodePrint(_TreeNode * n){
-  GamePrintBoard(n->g, 1);
+int TreeNodePrint(_TreeNode * node){
+  GamePrintBoard(node->g, 1);
 }
 
-int TreeNodeCheckFlags(_TreeNode * n) {
-  if(n->flags & IS_LEAF_NODE) {
-    if(n->children != NULL) {
-fprintf(stdout, "<%d>", n->level); fflush(stdout);
-assert(0);
-    }
+int TreeNodeCheckFlags(_TreeNode * node) {
+  unsigned char flags = node->flags;
+  _Game * g = node->g;
+  if(flags & IS_LEAF_NODE)
+    assert(!node->children);
+  if(flags & IS_ROOT_NODE) {
+    assert(node->level == 0);
+    assert(node->parent == NULL);
   }
-  if(n->flags & IS_ROOT_NODE) {
-    assert(n->level == 0);
-    assert(n->parent == NULL);
-  }
-  if(n->flags & IS_PARENT_NODE) {
-    assert(n->children);
-  }
-  if(n->flags & IS_PRUNED_NODE) {
+  if(flags & IS_PARENT_NODE) 
+    assert(node->children);
+  if(flags & IS_PRUNED_NODE) {
     //Pruned means "undeveloped" thus a leaf node
-    assert(n->flags & IS_LEAF_NODE);
-    assert(!n->g->status);
+    assert(flags & IS_LEAF_NODE);
+    assert(!g->status);
   }
-  else if(n->flags & IS_LEAF_NODE) {
-    assert(n->g->status); 
+  else if(flags & IS_LEAF_NODE) 
+    assert(g->status); 
     //Non-pruned leaf should be "End" of game
-  }
+  assert((flags&IS_LEAF_NODE) ^ (flags&IS_PARENT_NODE) );
 }
 
 int main(){

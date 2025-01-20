@@ -54,7 +54,7 @@ _Game * GameCopy(_Game * _g) {
 
 
 typedef struct _TreeNode{
-unsigned int id; 
+  //unsigned int id; 
   _Game * g;
   //unsigned int gstatus;
 
@@ -70,7 +70,7 @@ unsigned int id;
 
 void TreeNode(_TreeNode * node, _TreeNode * parent, 
     _Game * g, _GameMove * move) {
-node->id = rand();
+  //node->id = rand();
 
   assert(!g->status);
   node->g = GameCopy(g);
@@ -152,7 +152,7 @@ int TreeNodeExpand(_TreeNode * node) {
 //fprintf(stdout, "}");
 
   //node is not a leaf anymore;
-  node->flags &= ~(IS_LEAF_NODE & IS_PRUNED_NODE);
+  node->flags &= ~(IS_LEAF_NODE | IS_PRUNED_NODE);
   node->flags |=  IS_PARENT_NODE;
   
   return nmoves;
@@ -241,7 +241,7 @@ void TreeNodeEach(_Tree * tree, unsigned char depth,
 }
 
 _Tree * Tree(_Game * g, unsigned char depth) {
-srand(time(0));  
+  //srand(time(0));  
   if(g->status) {
     //Game already over. No scope to expand a tree
     return NULL;
