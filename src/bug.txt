@@ -1,0 +1,315 @@
+gcc -o del test-move.c -lm && ./del
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n b q k b n r
+ 7  p p p p p p p p
+ 6  . . . . . . . .
+ 5  . . . . . . . .
+ 4  . . . . . . . .
+ 3  N . . . . . . .
+ 2  P P P P P P P P
+ 1  R . B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n b q k b n r
+ 7  p p p p p p p .
+ 6  . . . . . . . p
+ 5  . . . . . . . .
+ 4  . . . . . . . .
+ 3  N . . . . . . .
+ 2  P P P P P P P P
+ 1  R . B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n b q k b n r
+ 7  p p p p p p p .
+ 6  . . . . . . . p
+ 5  . . . . . . . .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  R . B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n b q k b n r
+ 7  p p p . p p p .
+ 6  . . . . . . . p
+ 5  . . . p . . . .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  R . B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n b q k b n r
+ 7  p p p . p p p .
+ 6  . . . . . . . p
+ 5  . B . p . . . .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  R . B Q K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k b n r
+ 7  p p p b p p p .
+ 6  . . . . . . . p
+ 5  . B . p . . . .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  R . B Q K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k b n r
+ 7  p p p b p p p .
+ 6  . . . . . . . p
+ 5  . . . p . . . .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  R . B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k b n r
+ 7  p p p b p p . .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  R . B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k b n r
+ 7  p p p b p p . .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . . .
+ 3  N . . . . . . .
+ 2  P P P P . P P P
+ 1  . R B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k b n r
+ 7  p p p . p p . .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . . .
+ 3  N . . . . . . b
+ 2  P P P P . P P P
+ 1  . R B Q K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k b n r
+ 7  p p p . p p . .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . Q .
+ 3  N . . . . . . b
+ 2  P P P P . P P P
+ 1  . R B . K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . Q .
+ 3  N . . . . . . b
+ 2  P P P P . P P P
+ 1  . R B . K B N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . Q .
+ 3  N . . . . . . b
+ 2  P P P P B P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r . . q k . n r
+ 7  p p p n p p b .
+ 6  . . . . . . . p
+ 5  . . . p . . p .
+ 4  . . . . P . Q .
+ 3  N . . . . . . b
+ 2  P P P P B P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r . . q k . n r
+ 7  p p p n p p b .
+ 6  . . . . . . . p
+ 5  . . . p P . p .
+ 4  . . . . . . Q .
+ 3  N . . . . . . b
+ 2  P P P P B P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . p
+ 5  . . . p P . p .
+ 4  . . . . . . Q .
+ 3  N . . . . . . b
+ 2  P P P P B P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . p
+ 5  . . . p P . p .
+ 4  . . . . . . Q .
+ 3  N . . . . B . b
+ 2  P P P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . .
+ 5  . . . p P . p p
+ 4  . . . . . . Q .
+ 3  N . . . . B . b
+ 2  P P P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . .
+ 5  . . . p P . p p
+ 4  . . . . . . . .
+ 3  N . . . . B . Q
+ 2  P P P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p p p . p p b .
+ 6  . . . . . . . .
+ 5  . . . . P . p p
+ 4  . . . p . . . .
+ 3  N . . . . B . Q
+ 2  P P P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p B p . p p b .
+ 6  . . . . . . . .
+ 5  . . . . P . p p
+ 4  . . . p . . . .
+ 3  N . . . . . . Q
+ 2  P P P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p B p . p p b .
+ 6  . . . . . . . .
+ 5  . . . . P . p .
+ 4  . . . p . . . p
+ 3  N . . . . . . Q
+ 2  P P P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n r
+ 7  p B p . p p b .
+ 6  . . . . . . . .
+ 5  . . . . P . p .
+ 4  . . . p . . . p
+ 3  N P . . . . . Q
+ 2  P . P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+
+Board
+rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+ 8  r n . q k . n .
+ 7  p B p . p p b r
+ 6  . . . . . . . .
+ 5  . . . . P . p .
+ 4  . . . p . . . p
+ 3  N P . . . . . Q
+ 2  P . P P . P P P
+ 1  . R B . K . N R
+
+    a b c d e f g h
+del: move.h:582: GameIsAttackedByPiece: Assertion `!IS_BLOCKED (*from,*to)' failed.
+Aborted (core dumped)
