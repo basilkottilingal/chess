@@ -66,8 +66,8 @@ int main(){
   //unsigned int status = Game(g);
   //GameError(status);
   _Tree * tree = Tree(g, TREE_MAX_DEPTH);
-  TreeNodeEach(tree, TREE_MAX_DEPTH, TreeNodePrint);
-  TreeNodeEach(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
+  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
+  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
   TreeDestroy(tree);
 
   GameDestroy(g);

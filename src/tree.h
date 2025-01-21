@@ -4,35 +4,35 @@
 TODO: mempool for board and moves. Cap a limit too the pool.
 */
 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Copying a _Game instance (_g) to a newly .. 
+  .. created instance (g).
+------------------------------------------------------------
+--------------------------------------------------------- */
 _Game * GameCopy(_Game * _g) {
-  //Game instance 'g' copied from '_g'
+  // Create and copy.
   _Game * g = (_Game *) malloc (sizeof (_Game));
+  memcpy (g, _g, sizeof(_Game));
 
+  // Now update all the pointers
+
+  // Create New board and content the copy of board
   g->board = GameBoard();
-
-  //board is copied
   memcpy( &(g->board[-2][-2]), &(_g->board[-2][-2]), 
     144*sizeof(_GameSquare) );
 
-  //Not used.
+  // Not used.
   g->history = NULL; 
 
-  // Copy moves from "_g->moves" rather than generating moves
+  // Copy moves from "_g->moves" rather than generating moves.
+  // And shrink the array to avoid using larger memory for ..
+  // .. smaller sized data
   g->moves = array_new();
   array_append(g->moves, _g->moves->p, _g->moves->len);
-  // shrink array to avoid using larger memory for ..
-  // .. smaller sized data
   array_shrink(g->moves);
 
-  //Game meta data 
-  g->check      = _g->check;
-  g->status     = _g->status;
-  g->enpassante = _g->enpassante;
-  g->castling   = _g->castling;
-  g->color      = _g->color;
-  g->halfclock  = _g->halfclock;
-  g->fullclock  = _g->fullclock;
-  g->npieces    = _g->npieces;
+  // Update the pointers for King location
   for(int i=0; i<2; ++i) {
     unsigned char k = _g->king[i]->square;
     g->king[i] = &(g->board[k/8][k%8]);
@@ -41,18 +41,21 @@ _Game * GameCopy(_Game * _g) {
   return g; 
 }
 
-#define TREE_MAX_DEPTH 4
-#define IS_LEAF_NODE   1
-#define IS_ROOT_NODE   2
-#define IS_PARENT_NODE 4
-/* Nodes that are eligible to have children but not yet ..
-.. assigned with "children" are called PRUNED nodes. ..
-.. IS_PRUNED_NODE is synonymous with IS_LEAF_NODE, but
-.. is used to signify that algorithm prefered to not ..
-.. expand further from that node. */
-#define IS_PRUNED_NODE 32
 
-
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  A _TreeNode is used to keep an instance of the game.
+  A node can expand as a tree to store different evolutions
+  of the current board. 
+  Node can be identified as leaf or internal node.
+  There is exactly one root node.
+  Nodes that are eligible to have children but not yet ..
+  .. assigned with "children" are called PRUNED nodes. ..
+  .. IS_PRUNED_NODE maybe synonymous with IS_LEAF_NODE, but
+  .. is used to signify that algorithm prefered to not ..
+  .. expand further from that node. 
+------------------------------------------------------------
+--------------------------------------------------------- */
 typedef struct _TreeNode{
   //unsigned int id; 
   _Game * g;
@@ -67,6 +70,20 @@ typedef struct _TreeNode{
   struct _TreeNode * parent; 
   struct _TreeNode * children; 
 } _TreeNode;
+
+#define TREE_MAX_DEPTH 4
+#define IS_LEAF_NODE   1
+#define IS_ROOT_NODE   2
+#define IS_PARENT_NODE 4
+#define IS_PRUNED_NODE 32
+
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Assigne values to a _TreeNode object.
+  (NOTE Doesn't create an object here).
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 void TreeNode(_TreeNode * node, _TreeNode * parent, 
     _Game * g, _GameMove * move) {
@@ -107,6 +124,12 @@ void TreeNode(_TreeNode * node, _TreeNode * parent,
 
   return;
 }
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Free Memory associated with a Node 
+  (NOTE: But not the node itself)
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 //Destroy Leaf Nodes;
 int TreeNodeDestroy(_TreeNode * node) {
@@ -121,8 +144,14 @@ int TreeNodeDestroy(_TreeNode * node) {
   return 1;  
 }
 
-int TreeNodeExpand(_TreeNode * node) {
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Create children for a _TreeNode by expanding using all ..
+  .. possible moves.
+------------------------------------------------------------
+--------------------------------------------------------- */
 
+int TreeNodeExpand(_TreeNode * node) {
 
   if( !(node->flags & IS_PRUNED_NODE) ) {
     return 0; //Cannot expand this node; 
@@ -139,17 +168,12 @@ int TreeNodeExpand(_TreeNode * node) {
 
   _GameMove * move = (_GameMove *) (node->g->moves->p);
   unsigned char nmoves = node->nchildren;
-//fprintf(stdout, "(Node-0x%d Expand %d-Children)", node->id,nmoves);
   _TreeNode * child = 
     (_TreeNode *) malloc (nmoves * sizeof (_TreeNode)); 
   node->children = child;
 
-//fprintf(stdout, "{");
-  for (int i=0; i<nmoves; ++i, ++child, ++move) {
+  for (int i=0; i<nmoves; ++i, ++child, ++move) 
     TreeNode(child, node, node->g, move);
-//fprintf(stdout, "0x%d,", child->id);
-  }
-//fprintf(stdout, "}");
 
   //node is not a leaf anymore;
   node->flags &= ~(IS_LEAF_NODE | IS_PRUNED_NODE);
@@ -157,6 +181,12 @@ int TreeNodeExpand(_TreeNode * node) {
   
   return nmoves;
 }
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Pruning (or undoing a node expansion). 
+  It can be done only if all children are leaves;
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 //free "children"
 int TreeNodePrune(_TreeNode * node) {
@@ -181,6 +211,13 @@ int TreeNodePrune(_TreeNode * node) {
   return 1;
 }
 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  _Tree is the linked list of hierarchical nodes,
+  .. starting with a roor node.
+------------------------------------------------------------
+--------------------------------------------------------- */
+
 typedef struct {
   //Usually used to store current state of the game
   _TreeNode * root;    
@@ -189,56 +226,107 @@ typedef struct {
 } _Tree;
 
 typedef int (* TreeNodeFunction) (_TreeNode *); 
-/* Depth-First Tree Traversal without a recursion function */
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+Tree Traversal without a recursion function.
+1) Depth-First Search (Pre-Order) is implemented in ..
+   .. TreeEachNode()
+     1
+    / \
+   2   5
+  / \
+ 3  4
+2) Depth-First Search (Post-Order) 
+     5
+    / \
+   3   4
+  / \
+ 1  2
+------------------------------------------------------------
+--------------------------------------------------------- */
+
 unsigned char TREE_STACK[TREE_MAX_DEPTH];
-void TreeNodeEach(_Tree * tree, unsigned char depth, 
+
+void TreeEachNode(_Tree * tree, unsigned char depth, 
     TreeNodeFunction func){
 
   assert(tree);                                 
-  //assert(depth <= tree->depth);               
+  assert(depth <= tree->depthmax);               
   _TreeNode * node = tree->root;             
   TREE_STACK[0] = 1; 
   while(node) {                                 
     while(node->level <= depth) {
-      /* Do something with node here  
-      fprintf(stdout, "\n");
-      for(int i=0; i<node->level; ++i)
-        fprintf(stdout, " ");
-      fprintf(stdout, "l%d,flags%d", node->level, node->flags);
-      */
+      /* Do something with node here  */
       if(func)
         func(node);
-      /* //End of "Do something with node here"*/  
+      /* End of "Do something with node here"*/  
       
       /* Going down the tree */
       if(!node->children) {
-        //fprintf(stdout,"<E>"); fflush(stdout);
         break; //Cannot go down further
       }
       else if(node->level <= depth) {
-        //fprintf(stdout,"<D>"); fflush(stdout);
         //Go to children if node->level is not yet "depth"
         TREE_STACK[node->level + 1] = node->nchildren;
         node = node->children;
       } 
     }
-        //fprintf(stdout,"<M>"); fflush(stdout);
 
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( node ) {
       if( --TREE_STACK[node->level] > 0 ) {  
         ++node; 
-        //fprintf(stdout,"<X>"); fflush(stdout);
         break;
       }
       node = node->parent;
-        //fprintf(stdout,"<Y>"); fflush(stdout);
     } 
-        //fprintf(stdout,"<Z>"); fflush(stdout);
   }
-        //fprintf(stdout,"<Q>"); fflush(stdout);
 }
+
+void TreeEachNodePostOrder(_Tree * tree, unsigned char depth, 
+    TreeNodeFunction func){
+
+  assert(tree);                                 
+  assert(depth <= tree->depthmax);               
+  _TreeNode * node = tree->root;             
+  TREE_STACK[0] = 1; 
+  while(node) {                                 
+    while(node->level <= depth) {
+      /* Do something with node here  */
+      if(func)
+        func(node);
+      /* End of "Do something with node here"*/  
+      
+      /* Going down the tree */
+      if(!node->children) {
+        break; //Cannot go down further
+      }
+      else if(node->level <= depth) {
+        //Go to children if node->level is not yet "depth"
+        TREE_STACK[node->level + 1] = node->nchildren;
+        node = node->children;
+      } 
+    }
+
+    /* Going to sibling (if any more left to traverse) or ..
+    .. Go to parent's sibling (if any more left ) or .. */
+    while ( node ) {
+      if( --TREE_STACK[node->level] > 0 ) {  
+        ++node; 
+        break;
+      }
+      node = node->parent;
+    } 
+  }
+}
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+  Create a tree from a given instance of game 
+------------------------------------------------------------
+--------------------------------------------------------- */
 
 _Tree * Tree(_Game * g, unsigned char depth) {
   //srand(time(0));  
@@ -255,7 +343,7 @@ _Tree * Tree(_Game * g, unsigned char depth) {
     depth > TREE_MAX_DEPTH ? TREE_MAX_DEPTH : depth;
 
   // Expand the tree
-  TreeNodeEach(tree, TREE_MAX_DEPTH-1, TreeNodeExpand);
+  TreeEachNode(tree, TREE_MAX_DEPTH-1, TreeNodeExpand);
   // There is no pruning, .. thus around 20^TREE_MAX_DEPTH 
   // is the number of leaf nodes. Make sure you don't ..
   // .. run out RAM and crash the system.
@@ -269,6 +357,6 @@ void TreeDestroy(_Tree * tree) {
   //Not the ideal one; 
   //You should be able to do it in one go like creatiing tree
   for (int l=tree->depth-1; l>0; --l)
-    TreeNodeEach(tree, l, TreeNodePrune);
+    TreeEachNode(tree, l, TreeNodePrune);
 
 }
