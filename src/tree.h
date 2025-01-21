@@ -2,6 +2,7 @@
 
 /**
 TODO: mempool for board and moves. Cap a limit too the pool.
+Parallel Tree Generation, Traversal etc
 */
 
 /* ---------------------------------------------------------
@@ -75,8 +76,8 @@ typedef struct _TreeNode{
 #define IS_LEAF_NODE   1
 #define IS_ROOT_NODE   2
 #define IS_PARENT_NODE 4
+#define ARE_ALL_CHILDREN_LEAVES 8
 #define IS_PRUNED_NODE 32
-
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -177,7 +178,10 @@ int TreeNodeExpand(_TreeNode * node) {
 
   //node is not a leaf anymore;
   node->flags &= ~(IS_LEAF_NODE | IS_PRUNED_NODE);
-  node->flags |=  IS_PARENT_NODE;
+  node->flags |=  (IS_PARENT_NODE | ARE_ALL_CHILDREN_LEAVES);
+  //Not all children of node->parent are leaf anymore
+  if(node->parent) 
+    node->parent->flags &= ~ARE_ALL_CHILDREN_LEAVES;
   
   return nmoves;
 }
@@ -190,7 +194,7 @@ int TreeNodeExpand(_TreeNode * node) {
 
 //free "children"
 int TreeNodePrune(_TreeNode * node) {
-  if( !(node->flags & IS_PARENT_NODE )) 
+  if( !(node->flags & IS_PARENT_NODE) ) 
     return 0;
  
   _TreeNode * child = node->children;
@@ -231,13 +235,17 @@ typedef int (* TreeNodeFunction) (_TreeNode *);
 ------------------------------------------------------------
 Tree Traversal without a recursion function.
 1) Depth-First Search (Pre-Order) is implemented in ..
-   .. TreeEachNode()
+   .. TreeEachNode(). Is used to create the tree, etc.
      1
     / \
    2   5
   / \
  3  4
-2) Depth-First Search (Post-Order) 
+2) Depth-First Search (Post-Order). 
+   Refer TreeEachNodePostOrde(). 
+   Is used for alpha-beta pruning where you need to ..
+    .. transfer output from subtree to the parent.
+   Is also used prune each subtree, in one go.
      5
     / \
    3   4
@@ -294,10 +302,6 @@ void TreeEachNodePostOrder(_Tree * tree, unsigned char depth,
   TREE_STACK[0] = 1; 
   while(node) {                                 
     while(node->level <= depth) {
-      /* Do something with node here  */
-      if(func)
-        func(node);
-      /* End of "Do something with node here"*/  
       
       /* Going down the tree */
       if(!node->children) {
@@ -313,6 +317,11 @@ void TreeEachNodePostOrder(_Tree * tree, unsigned char depth,
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( node ) {
+      /* Do something with node here  */
+      if(func)
+        func(node);
+      /* End of "Do something with node here"*/ 
+ 
       if( --TREE_STACK[node->level] > 0 ) {  
         ++node; 
         break;
@@ -354,9 +363,17 @@ _Tree * Tree(_Game * g, unsigned char depth) {
 
 void TreeDestroy(_Tree * tree) { 
 
-  //Not the ideal one; 
-  //You should be able to do it in one go like creatiing tree
-  for (int l=tree->depth-1; l>0; --l)
-    TreeEachNode(tree, l, TreeNodePrune);
+  //  You can prune the entire tree in one go using ..
+  //  .. DFS - (post order) traversal
+  TreeEachNodePostOrder(tree, tree->depth, TreeNodePrune);
+  
+  //  Other wise you have to do it in different levels ..
+  //  starting from bottom
+  //  (Not the ideal one; 
+  //  for (int l=tree->depth-1; l>0; --l)
+  //    TreeEachNode(tree, l, TreeNodePrune);
 
+  TreeNodeDestroy(tree->root);
+  free(tree->root);
+  free(tree);
 }
