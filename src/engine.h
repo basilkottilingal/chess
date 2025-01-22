@@ -18,9 +18,12 @@ typedef int (* EngineType)(_Engine * e);
 //Not yet assigned which engines represent each colors
 EngineType Engines[2] = {NULL, NULL}; 
 
-//A naive evaluation function for a leaf node;
+/*
+  A naive evaluation function for a leaf node;
 double TreeGameEvalNaive(_TreeNode * node, 
     unsigned char mycolor) {
   assert(node->flags & IS_LEAF_NODE);
-  for  
 }
+*/
+
+

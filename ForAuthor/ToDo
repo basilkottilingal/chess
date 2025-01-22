@@ -1,10 +1,11 @@
-1)  FEN update;
+~~1)  FEN update;~~
 2)  binary history : {board (charx64), move(ucharx6 = from:ucharx2 + to:ucharx2 +flags:uchar+promotion:uchar)}
-3)  32 board compatible; 
+3)  cross platform compatibility. 32 board compatible; 
 4)  square() shouldn't be part of board; rather it's an iterator;
 5)  Naive Evaluate of the bitboard;
-6)  MPI: (a) Tree generation, (b) Tree travesal 
-7)  include NNUE (give credit)
+6)  MPI: (a) Tree generation, (b) Tree travesal
+    (c) avoid recreation of same node. (use hash function) 
+~~7)  include NNUE (give credit)~~
 8)  write your own NNUE; (Can you dow it in C?? Too much)
 9)  websocket: (a) uninterrupted game interface, (b) using ligtweight C code
 10) Minimax

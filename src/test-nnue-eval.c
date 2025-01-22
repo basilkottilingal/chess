@@ -44,7 +44,7 @@ int main(){
   GamePrintBoard(g, 1);
 
   //Download this nnue from https://tests.stockfishchess.org/nns?network_name=04cf2b&user=vdv
-  init_nnue("nn-04cf2b4ed1da.nnue");
+  init_nnue("./nnue/nn-04cf2b4ed1da.nnue");
   //nnue_init("nn-1c0000000000.nnue");
   //fprintf(stdout, "EVAL %d", evaluate_fen(g->fen));
   srand(time(0));

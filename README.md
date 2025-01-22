@@ -19,3 +19,10 @@ Now you can load this header in javascript using require().
 ## Notation used by chess.js
 Notation for board position: FEN (Forsyth-Edwards Notation)
 Notation for a move: Algebraic Notation 
+
+#Engine.
+  (1) Board eval using NNUE.
+      A sample [nnue](https://tests.stockfishchess.org/nns?network_name=04cf2b&user=vdv) the kind of ones used in      
+      [Stockfish](https://github.com/official-stockfish/Stockfish).
+      A cpp interface for nnu-probing downloaded  from [dshawul](https://github.com/dshawul/nnue-probe/)
+  (2) 
