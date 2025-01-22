@@ -54,14 +54,14 @@ When can a game draw:
 
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
-char MAPPING[16] = 
+const unsigned char MAPPING[16] = 
   { '.', '.',
     'p', 'P', 'r', 'R', 'n', 'N',
     'b', 'B', 'q', 'Q', 'k', 'K',
     '.', 'x' 
   };
 
-unsigned char MAPPING2[58] = 
+const unsigned char MAPPING2[58] = 
   { 'A', WBISHOP, 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
     WKING, 'L', 'M', WKNIGHT, 'O', WPAWN, WQUEEN, 
     WROOK, 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
@@ -444,6 +444,73 @@ void GamePopHistory(_Game * g){
 --------------------------------------------------------- */
 void GameFEN(_Game * g){
   /* Get FEN from Board */
+  _GameSquare ** board = g->board, * square;
+  char * fen = g->fen;
+  unsigned char nempty, piece;
+
+  //parse board
+  for(int i=0; i<8; ++i) {
+    nempty = 0;
+    for (int j=0; j<8; ++j) {
+      square = &(board[i][j]);
+      piece = square->piece;
+      if(piece) {
+        if(nempty) {
+          *fen++ = '0' + nempty;
+          nempty = 0;
+        }
+        *fen++ = MAPPING[piece];
+      }
+      else
+        nempty++;
+    }
+    if(nempty)
+      *fen++ = '0' + nempty;
+    *fen++ = i<7 ? '/' : ' '; 
+  }
+  
+  //color
+  *fen++ = g->color ? 'w' : 'b';
+  *fen++ = ' ';
+
+  //Castling
+  if(!g->castling)
+    *fen++ = '-';
+  else{
+    if(g->castling | MOVE_KCASTLE)
+      *fen++ = 'K';
+    if(g->castling | MOVE_QCASTLE)
+      *fen++ = 'Q';
+    if(g->castling | MOVE_kCASTLE)
+      *fen++ = 'k';
+    if(g->castling | MOVE_qCASTLE)
+      *fen++ = 'q';
+  }
+  *fen++ = ' ';
+
+  //enpassante
+  if(g->enpassante == 64)
+    *fen++ = '-';
+  else {  
+    *fen++ = 'a' + (g->enpassante)%8;
+    *fen++ = '0' + 8 - (g->enpassante)/8;
+  }
+  *fen++ = ' ';
+
+  unsigned int gameclock[2] = {g->halfclock, g->fullclock};
+  for(int i=0; i<2; ++i) {
+    unsigned int n = gameclock[i], pos = 4;
+    unsigned char h[5];
+    h[pos] = i ? '\0' : ' ';
+    while(pos) {
+      h[--pos] = '0' + n%10;
+      n /= 10;   
+      if(!n) break;
+    }
+    for(int j=pos; j<5; ++j)
+      *fen++ = h[j];
+    //assert(!n); //Cannot be greater than 10000
+  }
 }
 
 /* ---------------------------------------------------------
@@ -1141,7 +1208,9 @@ exit(-1);
 
   //move is completed
   //move = NULL;
-
+  
+  //Update FEN
+  GameFEN(g);
   //Creates list of moves for the new board
   //Game continues if (g->status == 0)
   return (GameAllMoves(g));

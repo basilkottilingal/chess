@@ -37,7 +37,7 @@ int main(){
   //_GameSquare * from = &(g->board[7][1]);
   //GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
   //GameAllMoves(g);
-  //GamePrintBoard(g, 1);
+  GamePrintBoard(g, 1);
 
   unsigned int status = Game(g);
   GameError(status);
