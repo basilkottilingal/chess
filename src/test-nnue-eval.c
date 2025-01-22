@@ -1,11 +1,10 @@
+//Run this test script using
 //$ gcc test-nnue-eval.c ./nnue/eval.c ./nnue/nnue.cpp ./nnue/misc.cpp -o del -lm
 
 #include "move.h"
 
 #include "./nnue/eval.h"
 
-//Run this test script using
-//$ gcc -Winline -o del test-move.c -lm&& ./del
 
 /*Sample FEN's for verifying
 1) Fool's Mate (Black Checkmates White)
@@ -44,11 +43,11 @@ int main(){
   //GameAllMoves(g);
   GamePrintBoard(g, 1);
 
-  //int val = file_open("nn-1c0000000000.nnue");
-  init_nnue("nn-1c0000000000.nnue");
+  //Download this nnue from https://tests.stockfishchess.org/nns?network_name=04cf2b&user=vdv
+  init_nnue("nn-04cf2b4ed1da.nnue");
   //nnue_init("nn-1c0000000000.nnue");
-    fprintf(stdout, "EVAL %d", evaluate_fen(g->fen));
-/*
+  //fprintf(stdout, "EVAL %d", evaluate_fen(g->fen));
+  srand(time(0));
   while ( !g->status ){
     _GameMove * move = NULL;
     if(1)
@@ -60,7 +59,6 @@ int main(){
     GamePrintBoard(g, 1);
     fprintf(stdout, "EVAL %d", evaluate_fen(g->fen));
   }
-*/
 
   GameDestroy(g);
 

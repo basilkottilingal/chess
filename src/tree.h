@@ -77,6 +77,7 @@ typedef struct _TreeNode{
 #define IS_ROOT_NODE   2
 #define IS_PARENT_NODE 4
 #define ARE_ALL_CHILDREN_LEAVES 8
+#define IS_NODE_ORIGINAL 16
 #define IS_PRUNED_NODE 32
 
 /* ---------------------------------------------------------
