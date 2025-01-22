@@ -193,7 +193,9 @@ int TreeNodeExpand(_TreeNode * node) {
 --------------------------------------------------------- */
 
 //free "children"
-int TreeNodePrune(_TreeNode * node) {
+int TreeNodePrune(_TreeNode * node, void * data) {
+  // data is not used. Function is designed to match ..
+  // TreeNodeReductionFunction Format;
   if( !(node->flags & IS_PARENT_NODE) ) 
     return 0;
  
@@ -229,7 +231,6 @@ typedef struct {
   unsigned char depth, depthmax;
 } _Tree;
 
-typedef int (* TreeNodeFunction) (_TreeNode *); 
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -242,9 +243,10 @@ Tree Traversal without a recursion function.
   / \
  3  4
 2) Depth-First Search (Post-Order). 
-   Refer TreeEachNodePostOrde(). 
-   Is used for alpha-beta pruning where you need to ..
-    .. transfer output from subtree to the parent.
+   Refer TreeEachNodePostOrder(). 
+   Is used for reduction operation vertically up.
+    Ex: f(parent) = max {f(children)}
+   example minimax algorithm.
    Is also used prune each subtree, in one go.
      5
     / \
@@ -255,6 +257,7 @@ Tree Traversal without a recursion function.
 --------------------------------------------------------- */
 
 unsigned char TREE_STACK[TREE_MAX_DEPTH];
+typedef int (* TreeNodeFunction) (_TreeNode *); 
 
 void TreeEachNode(_Tree * tree, unsigned char depth, 
     TreeNodeFunction func){
@@ -293,8 +296,10 @@ void TreeEachNode(_Tree * tree, unsigned char depth,
   }
 }
 
+typedef int (* TreeNodeReductionFunction) (_TreeNode *, void *); 
+
 void TreeEachNodePostOrder(_Tree * tree, unsigned char depth, 
-    TreeNodeFunction func){
+    TreeNodeReductionFunction rfunc, void * rval){
 
   assert(tree);                                 
   assert(depth <= tree->depthmax);               
@@ -318,8 +323,8 @@ void TreeEachNodePostOrder(_Tree * tree, unsigned char depth,
     .. Go to parent's sibling (if any more left ) or .. */
     while ( node ) {
       /* Do something with node here  */
-      if(func)
-        func(node);
+      if(rfunc)
+        rfunc(node, rval);
       /* End of "Do something with node here"*/ 
  
       if( --TREE_STACK[node->level] > 0 ) {  
@@ -365,7 +370,8 @@ void TreeDestroy(_Tree * tree) {
 
   //  You can prune the entire tree in one go using ..
   //  .. DFS - (post order) traversal
-  TreeEachNodePostOrder(tree, tree->depth, TreeNodePrune);
+  TreeEachNodePostOrder(tree, tree->depth, 
+    TreeNodePrune, NULL);
   
   //  Other wise you have to do it in different levels ..
   //  starting from bottom
