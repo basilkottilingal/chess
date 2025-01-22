@@ -20,6 +20,7 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 8/k7/8/K7/8/8/8/8 b - - 0 1
 7)Bug
 rn1qk1n1/pBp1ppbr/8/4P1p1/3p3p/NP5Q/P1PP1PPP/1RB1K1NR w Kq - 1 2
+rn2k1n1/pBp1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6
 */
 
 int main(){
@@ -31,7 +32,8 @@ int main(){
   //_Game * g = GameNew("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   //_Game * g = GameNew("8/k7/8/K7/8/8/8/8 b - - 0 1");
   //_Game * g = GameNew("k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
-  _Game * g = GameNew("rn1qk1n1/pBp1ppbr/8/4P1p1/3p3p/NP5Q/P1PP1PPP/1RB1K1NR w Kq - 1 2");
+  //_Game * g = GameNew("rn1qk1n1/pBp1ppbr/8/4P1p1/3p3p/NP5Q/P1PP1PPP/1RB1K1NR w Kq - 1 2");
+  _Game * g = GameNew("rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6");
 
   //GamePrintBoard(g, 0);
   //_GameSquare * from = &(g->board[7][1]);

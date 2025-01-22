@@ -353,7 +353,7 @@ void GameSetBoard(_Game * g, char * _fen) {
   assert(*fen == 'w' || *fen == 'b');
   assert(*(++fen) == ' '); 
 
-  g->castling = 0;
+  g->castling = '\0';
   while(*(++fen) != '\0') {
     char c = *fen;
     if (c == ' ')
@@ -477,13 +477,13 @@ void GameFEN(_Game * g){
   if(!g->castling)
     *fen++ = '-';
   else{
-    if(g->castling | MOVE_KCASTLE)
+    if(g->castling & MOVE_KCASTLE)
       *fen++ = 'K';
-    if(g->castling | MOVE_QCASTLE)
+    if(g->castling & MOVE_QCASTLE)
       *fen++ = 'Q';
-    if(g->castling | MOVE_kCASTLE)
+    if(g->castling & MOVE_kCASTLE)
       *fen++ = 'k';
-    if(g->castling | MOVE_qCASTLE)
+    if(g->castling & MOVE_qCASTLE)
       *fen++ = 'q';
   }
   *fen++ = ' ';
@@ -500,6 +500,8 @@ void GameFEN(_Game * g){
   unsigned int gameclock[2] = {g->halfclock, g->fullclock};
   for(int i=0; i<2; ++i) {
     unsigned int n = gameclock[i], pos = 4;
+    assert(n <= i ? 5000 : 50); 
+    //otherwise: weird clocknumbers
     unsigned char h[5];
     h[pos] = i ? '\0' : ' ';
     while(pos) {
@@ -509,7 +511,6 @@ void GameFEN(_Game * g){
     }
     for(int j=pos; j<5; ++j)
       *fen++ = h[j];
-    //assert(!n); //Cannot be greater than 10000
   }
 }
 
@@ -715,9 +716,20 @@ int (*GameIsSquareAttackedByPiece [14])
   .. produces a check.
 ------------------------------------------------------------
 --------------------------------------------------------- */
-
 int GameIsSquareAttacked(_Game * g, 
-    _GameSquare * sq, unsigned char color) {
+    _GameSquare * sq, unsigned char attackingcolor) {
+
+    // weird condition. This should't arise.
+    // This condn arises when we are looking if 'sq' ..
+    // .. occupied by a piece of color 'color' is being ..
+    // .. checked if it's being attacked by pieces of ..
+    // .. color 'color'!!!
+  if( !IS_EMPTY(*sq) )
+    if( PIECE_COLOR(*sq) == attackingcolor ) {
+      fprintf(stderr, "Warning: Weird attack query");
+      fflush(stderr);
+      assert(0);
+    }
 
   /*check if the square "sq" is attacked by ..
   .. any pieces of color "color"*/
@@ -729,7 +741,7 @@ int GameIsSquareAttacked(_Game * g,
   continue; //empty
       if( from == sq )
 	continue;
-      if( PIECE_COLOR(*from) != color )
+      if( PIECE_COLOR(*from) != attackingcolor )
   continue; //Occupied by the other color
       //Generate possible moves with the 'piece' ..
       // to see if 'piece' can attack 'sq' 
@@ -751,7 +763,6 @@ int GameIsKingAttacked(_Game * g, unsigned char color)  {
 int GameIsMoveValid(_Game * g, _GameMove * move) {
     GameMovePiece(g, move);
     //GamePrintBoard(g,1);
-
     int valid = !GameIsKingAttacked(g, g->color);
     if(valid) {
       int check = GameIsKingAttacked(g, !g->color);
@@ -836,19 +847,21 @@ void GameKingMoves(_Game * g, _GameSquare * from){
     assert(king->square == (4 + 8*7*(g->color)));
     assert(king == from);
     assert(king[3].piece == (g->color ? WROOK : BROOK));  
-    for(int i=0; i<4; ++i) {
-      // see if king, rook and the 2 squares in b/w them ..
-      // .. are under attack
-      if(GameIsSquareAttacked (g, king + i, !g->color)) {
-        available = 0;
-        break;
-      }
-    }
     for(int i=1; i<3; ++i) {
       // see if 2 squares b/w king and rook are empty
       if(!IS_EMPTY(king[i])) {
         available = 0;
         break;
+      }
+    }
+    if(available) {
+      for(int i=0; i<4; ++i) {
+        // see if king, rook and the 2 squares in b/w them ..
+        // .. are under attack
+        if(GameIsSquareAttacked (g, king + i, !g->color)) {
+          available = 0;
+          break;
+        }
       }
     }
     
@@ -870,19 +883,21 @@ void GameKingMoves(_Game * g, _GameSquare * from){
     assert(king->square == (4 + 8*7*(g->color)));
     assert(king == from);
     assert(king[-4].piece == (g->color ? WROOK : BROOK));  
-    for(int i=-4; i<1; ++i) {
-      // see if king, rook and the 3 squares in b/w them ..
-      // .. are under attack
-      if(GameIsSquareAttacked (g, king + i, !g->color)) {
-        available = 0;
-        break;
-      }
-    }
     for(int i=-3; i<0; ++i) {
       // see if 3 squares b/w king and rook are empty
       if(!IS_EMPTY(king[i])) {
         available = 0;
         break;
+      }
+    }
+    if(available) {
+      for(int i=-4; i<1; ++i) {
+        // see if king, rook and the 3 squares in b/w them ..
+        // .. are under attack
+        if(GameIsSquareAttacked (g, king + i, !g->color)) {
+          available = 0;
+          break;
+        }
       }
     }
     
