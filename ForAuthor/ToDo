@@ -1,0 +1,14 @@
+1)  FEN update;
+2)  binary history : {board (charx64), move(ucharx6 = from:ucharx2 + to:ucharx2 +flags:uchar+promotion:uchar)}
+3)  32 board compatible; 
+4)  square() shouldn't be part of board; rather it's an iterator;
+5)  Naive Evaluate of the bitboard;
+6)  MPI: (a) Tree generation, (b) Tree travesal 
+7)  include NNUE (give credit)
+8)  write your own NNUE; (Can you dow it in C?? Too much)
+9)  websocket: (a) uninterrupted game interface, (b) using ligtweight C code
+10) Minimax
+11) Alpha-Beta Pruning
+12) Memory evaluation. To check memory allocated and free are equal during the entire program;
+
+

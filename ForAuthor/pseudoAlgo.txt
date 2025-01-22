@@ -1,0 +1,81 @@
+Not finished. No need to read this.
+
+MOVES(square, moves):
+  piece = PIECE(SQUARE)
+  if(piece == 'p') {
+    if(
+  }
+  
+ALL_MOVES():
+  moves = [];
+  for i in [0,7) {
+    for j in [0,7) {
+      if (piece(BOARD[i][j]) != '') {
+        moves += MOVES(BOARD[i][j])
+      }
+    }
+  }
+  /* Check for legal moves */
+  legalmoves = []
+  for i=0:LENGTH(moves)
+    if(IS_MOVE_LEGAL(moves[i]))
+      legalmoves.APPEND(moves[i]);
+  RETURN legalmoves;
+
+/* Instance of Game */
+GAME {
+    BOARD[8][8] = {{r,n,b,..},{p,p,p,..},..}; // current board structure
+    COLOR;                                 // Whose Turn
+    CASTLE;                                // 
+    ENPASSANTE;
+    HALFCLOCK;
+    FULLCLOCK;
+    IS_ONCHECK; 
+  }
+
+Possible moves of each 
+
+File and rank
+  FILE[8] = {}
+
+Identify color
+  BLACK:=64, WHITE:=128
+
+  COLOR ( FILE, RANK ) 
+    return BOARD[FILE][RANK] & ( BLACK | WHITE );
+
+  IS_WHITE ( FILE, RANK )
+    return BOARD[FILE][RANK] & WHITE ;
+  
+  IS_BLACK ( FILE, RANK )
+    return BOARD[FILE][RANK] & BLACK ;
+
+Flags of a move
+
+
+Identify piece
+  k:=1, k:=2, q:=4, b:=8, r:=16, n:=32
+
+Possible pieces
+  BLACKS = p+k+q+r+b+n
+
+  COLOR(SQUARE)
+    return (BOARD[])
+  
+Pieces available on the board
+  PIECES[2][16]
+
+
+Algo for all possible moves from this square 
+  MOVES (FILE, RANK) {
+    if(COLOR (FILE, RANK) != STATUS.COLOR) 
+      return []; //No Moves
+    PIECE = PIECE(FILE, RANK);
+    FOREACH_MOVES(PIECE.TYPE) {
+      
+    }
+  }
+
+Algo for all possible moves 
+  MOVES (
+  1.1 ]
