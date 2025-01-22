@@ -246,7 +246,7 @@ Tree Traversal without a recursion function.
    Refer TreeEachNodePostOrder(). 
    Is used for reduction operation vertically up.
     Ex: f(parent) = max {f(children)}
-   example minimax algorithm.
+   as in minimax algorithm.
    Is also used prune each subtree, in one go.
      5
     / \
