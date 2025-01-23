@@ -71,6 +71,7 @@ int EngineOverRideNNUE(_Game * g, int * eval) {
       //Other draw conds doesn't make sense     
       *eval = 0; //Eval for a draw ; 
     }
+    return 1;//override 
   }
   */
   return 0;//doesn't override as of now
@@ -118,17 +119,41 @@ int GameEvaluate(_Game * g) {
 #endif
 
 /*
-int TreeNodeNegamax(_Tree * node, void * val) {
+NegaMax pseudo algo
+int negaMax( int depth ) {
+    if ( depth == 0 ) return evaluate();
+    int max = -oo;
+    for ( all moves)  {
+        score = -negaMax( depth - 1 );
+        if( score > max )
+            max = score;
+    }
+    return max;
+}
+*/
+
+int TreeNodeNegamax(_TreeNode * node) {
   if(node->flags & IS_ROOT_NODE) {
-    *eval = GameEvaluate(node->g);
-    assert(g->
+    return 0; // would be already set by children
   }
-  else 
-  
+  else if(node->flags & IS_LEAF_NODE) {
+    node->eval = GameEvaluate(node->g);
+  }
+  int eval = node->eval;
+  _TreeNode * parent = node->parent;
+  //assert(parent);
+  /*
+  if(node == parent->children) { //it's parent's 1st child
+    parent->eval = 
+      (-ENGINE_EVAL_MAX > -eval) ? -eval 
+    parent->move = (_GameMove *) parent->g->moves->p;
+  }
+  else {
+  }
+  */
 }
 
 _GameMove * EngineMinimax(_Engine * e) {
   _Tree * t = e->tree;
-  
 }
-*/
+

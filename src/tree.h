@@ -64,7 +64,10 @@ typedef struct _TreeNode{
 
   //level. level in [0, depth)
   unsigned char level; // [0,8) ??
-  unsigned char flags; //identify  
+  unsigned char flags; //identify 
+ 
+  int eval;//board evaluation value \in [-5000, 5000]
+  _GameMove * move; //preferred move using evaluation
 
   //Graph Connection using pointers
   unsigned char nchildren;
@@ -194,9 +197,7 @@ int TreeNodeExpand(_TreeNode * node) {
 --------------------------------------------------------- */
 
 //free "children"
-int TreeNodePrune(_TreeNode * node, void * data) {
-  // data is not used. Function is designed to match ..
-  // TreeNodeReductionFunction Format;
+int TreeNodePrune(_TreeNode * node) {
   if( !(node->flags & IS_PARENT_NODE) ) 
     return 0;
  
@@ -297,10 +298,10 @@ void TreeEachNode(_Tree * tree, unsigned char depth,
   }
 }
 
-typedef int (* TreeNodeReductionFunction) (_TreeNode *, void *); 
+//typedef int (* TreeNodeReductionFunction) (_TreeNode *, void *); 
 
 void TreeEachNodePostOrder(_Tree * tree, unsigned char depth, 
-    TreeNodeReductionFunction rfunc, void * rval){
+    TreeNodeFunction rfunc){
 
   assert(tree);                                 
   assert(depth <= tree->depthmax);               
@@ -325,7 +326,7 @@ void TreeEachNodePostOrder(_Tree * tree, unsigned char depth,
     while ( node ) {
       /* Do something with node here  */
       if(rfunc)
-        rfunc(node, rval);
+        rfunc(node);
       /* End of "Do something with node here"*/ 
  
       if( --TREE_STACK[node->level] > 0 ) {  
@@ -372,7 +373,7 @@ void TreeDestroy(_Tree * tree) {
   //  You can prune the entire tree in one go using ..
   //  .. DFS - (post order) traversal
   TreeEachNodePostOrder(tree, tree->depth, 
-    TreeNodePrune, NULL);
+    TreeNodePrune);
   
   //  Other wise you have to do it in different levels ..
   //  starting from bottom

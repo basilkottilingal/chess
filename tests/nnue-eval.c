@@ -1,10 +1,10 @@
 //Run this test script using
-//$ gcc test-nnue-eval.c ./nnue/eval.c ./nnue/nnue.cpp ./nnue/misc.cpp -o del -lm
+//$ make nnue-eval.tst && ./run
+
+//Verify the nnue eval @ https://hxim.github.io/Stockfish-Evaluation-Guide/
+// Upload the nnue, and give the FEN 
 
 #include "../src/engine.h"
-
-//#include "../src/nnue/eval.h"
-
 
 /*Sample FEN's for verifying
 1) Fool's Mate (Black Checkmates White)
