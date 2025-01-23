@@ -1,9 +1,9 @@
 //Run this test script using
 //$ gcc test-nnue-eval.c ./nnue/eval.c ./nnue/nnue.cpp ./nnue/misc.cpp -o del -lm
 
-#include "../src/move.h"
+#include "../src/engine.h"
 
-#include "../src/nnue/eval.h"
+//#include "../src/nnue/eval.h"
 
 
 /*Sample FEN's for verifying
@@ -57,7 +57,7 @@ int main(){
     }
     GameMove(g, move); 
     GamePrintBoard(g, 1);
-    fprintf(stdout, "EVAL %d", evaluate_fen(g->fen));
+    fprintf(stdout, "EVAL %d %d", GameEvaluate(g), GameEvaluateFEN(g));
   }
 
   GameDestroy(g);

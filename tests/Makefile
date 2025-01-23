@@ -10,7 +10,7 @@ NNUE = ../src/nnue
 OBJ = ../obj
 
 # Dependencies for nnue eval 
-nnue = $(NNUE)/eval.c $(NNUE)/nnue.cpp $(NNUE)/misc.cpp
+nnue = $(NNUE)/nnue.cpp $(NNUE)/misc.cpp
 
 # make an execuatable.
 # example
