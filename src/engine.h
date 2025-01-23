@@ -33,60 +33,75 @@ void init_nnue(const char * filename) {
   nnue_init(filename);
 }
 
-/**
-  Copied from "nnue.h"
-* Internal piece representation
-*     wking=1, wqueen=2, wrook=3, wbishop= 4, wknight= 5, wpawn= 6,
-*     bking=7, bqueen=8, brook=9, bbishop=10, bknight=11, bpawn=12
-*
-* Make sure the piecesyou pass to the library from your engine
-* use this format.
-*/
 const int MAPPING_NNUE[14] = 
   { 0, 0,
     12, 6, 9, 3, 11, 5,
     10, 4, 8, 2, 7, 1,
   }; //converting to nnue.h format
 
+#define ENGINE_EVAL_MAX 5000
+int EngineOverRideNNUE(_Game * g, int * eval) {
+  /* Nnue engines doesn't return +-5000 for a win, ..
+     .. or 0 for a stalemate/3Fold/InsuffMaterial/50Moves ..
+     .. draw. But when to override?? is a debatable one. We ..
+     .. leave it for later.
+
+  unsigned int status = g->status;
+  if(status) {
+    //Game Over
+    assert((status & 16) ^ (status & 128));
+    //Only draw/win/lose allowed. Other flags are meaningless
+
+    //Game is a win/lose
+    if(status & 16) {
+      assert(!(status & 64)); 
+      //Otherwise one player ran out of time,
+      //That means engine also ran out of time??
+
+      //Eval condition for either wins. 
+      //assert((status & 32)^(g->color));
+      *eval =  g->color ? -ENGINE_EVAL_MAX :  //white fails
+        ENGINE_EVAL_MAX; //black fails
+    } 
+    //Game is a draw 
+    else if (status & 128){
+      int draw = (status >> 8) & (1|2|3);
+      assert(draw < 4); 
+      //i.e stalemate/threefold/InsuffMaterial/50Move
+      //Other draw conds doesn't make sense     
+      *eval = 0; //Eval for a draw ; 
+    }
+  }
+  */
+  return 0;//doesn't override as of now
+}
+
 int GameEvaluate(_Game * g) {
+  int Eval = 0;
+  if(g->status)
+    if(EngineOverRideNNUE(g, &Eval))
+      return Eval;
+
   _GameSquare ** board = g->board;
   int player = !g->color; //NNUE color notation
   int pieces[33], squares[33];
-  int ipieces = 0;
-  {
-    //WKING
-    unsigned char s = g->king[WHITE]->square;
-    int f = s%8;  
-    int r = s/8;
-    pieces[ipieces] = MAPPING_NNUE[WKING];
-    squares[ipieces] = 8*(7-r) + f; //NNUE sq notation
-    ipieces++;
-  }
-  {
-    //BKING
-    unsigned char s = g->king[BLACK]->square;
-    int f = s%8;  
-    int r = s/8;
-    pieces[ipieces] = MAPPING_NNUE[BKING];
-    squares[ipieces] = 8*(7-r) + f; //NNUE sq notation
-    ipieces++;
-  }
+  int ipieces = 2;
   for(int i=0; i<8; i++) {
     for(int j=0; j<8; j++) {
       int p = board[i][j].piece;
-      if(p == EMPTY || p == WKING || p == BKING)
-        continue;
-      p = MAPPING_NNUE[p];//convert piece to nnue.h format
-      pieces[ipieces] = p;
-      squares[ipieces] = 8*(7-i) + j; //NNUE sq notation
-      ipieces++;
+      if(p == EMPTY) continue;
+      int ip = (p == WKING) ? 0 : (p == BKING) ? 1 : ipieces;
+      ipieces += ((p != WKING) && (p!=BKING)) ? 1 : 0;
+      p = MAPPING_NNUE[p];//convert piece to "nnue.h" format
+      pieces[ip] = p;     //piece as in "nnue.h" format
+      squares[ip] = 8*(7-i) + j; //sq notation as in "nnue.h"
     }
   }
   pieces[ipieces] = 0;
-
   //get the eval
   return nnue_evaluate(player, pieces, squares);
 }
+
 int GameEvaluateFEN(_Game * g) {
   return nnue_evaluate_fen(g->fen);
 }

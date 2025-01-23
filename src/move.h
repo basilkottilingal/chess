@@ -1118,8 +1118,16 @@ void GameError(unsigned int error) {
       fprintf(stdout, "Insufficient Material");
     else if (e == 2)
       fprintf(stdout, "Fifty-Move Rule");
+    else if (e == 3)
+      fprintf(stdout, "Threefold rule");
+    else if (e == 4)
+      fprintf(stdout, 
+        "BLACK runs out of time and WHITE cannot win");
+    else if (e == 5)
+      fprintf(stdout, 
+        "WHITE runs out of time and BLACK cannot win");
     else
-      fprintf(stdout, "Any Other Reasons");
+      fprintf(stderr, "Error : Unknown Draw Reason");
   }
   fflush(stdout);
 }
