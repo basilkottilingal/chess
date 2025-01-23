@@ -1,4 +1,4 @@
-#include "move.h"
+#include "../src/move.h"
 
 
 //Run this test script using

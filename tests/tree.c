@@ -1,4 +1,4 @@
-#include "tree.h"
+#include "../src/tree.h"
 
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del

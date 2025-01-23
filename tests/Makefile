@@ -5,22 +5,15 @@ CFLAGS = -Wall -Wextra -std=c11
 # Target executable
 TARGET = program
 
-# Source files and object files
-SRC = main.c file1.c file2.c
-OBJ = $(SRC:.c=.o)
+SRC = ../src
+NNUE = ../src/nnue
+OBJ = ../obj
 
-# Build the target
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+# Dependencies for nnue eval 
+nnue = $(NNUE)/eval.c $(NNUE)/nnue.cpp $(NNUE)/misc.cpp
 
-# Compile source files to object files
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
-%.tst: %.o
-  $(CC) $(CFLAGS) 
-
-# Clean up build artifacts
-clean:
-	rm -f $(OBJ) $(TARGET)
-
+# make an execuatable.
+# example
+#  $ make move.tst && ./run 
+%.tst: %.c 
+	$(CC) $(CFLAGS) $< $(nnue) -o run -lm
