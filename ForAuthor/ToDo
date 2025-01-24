@@ -18,3 +18,21 @@ Tree should be modified as
 Node = {uchar ** Board, uchar metadata[]} //Minimal. Board shouldn't malloc(); Get allocated from an already created memBlock;
 Edge = {Node * from, GameMove move};   
 Tree = {Node * root, Edge ** edges}
+
+Dependency hierarchy
+
+.  board.h 
+.   |
+.   |
+.  move.h
+.   |
+.   |         nnue/misc.h
+.  tree.h       |
+.   |           |
+.   |         nnue/nnue.h
+.   |           |
+.   |           |
+.   |   --------
+.   |   |
+.  engine.h 
+
