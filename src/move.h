@@ -25,52 +25,23 @@ When can a game draw:
   Dead Position:	No possible moves can lead to checkmate.
   Draw by Time: A player's time runs out, but 
     their opponent cannot deliver checkmate.
+
 ------------------------------------------------------------
+conditions to check while moving piece from 'FROM' to 'TO'
 --------------------------------------------------------- */
-
-// Square is either empty ('0')
-// .. Or occupied by a piece '2' : '13'
-// .. Outside ('15') the box
-#define OUTSIDE 15
-#define EMPTY 0
-#define WHITE 1 
-#define BLACK 0
-#define PIECE_SHIFT 1
-#define BPAWN   ((1<<PIECE_SHIFT) | BLACK)
-#define WPAWN   ((1<<PIECE_SHIFT) | WHITE)
-#define BROOK   ((2<<PIECE_SHIFT) | BLACK) 
-#define WROOK   ((2<<PIECE_SHIFT) | WHITE)
-#define BKNIGHT ((3<<PIECE_SHIFT) | BLACK) 
-#define WKNIGHT ((3<<PIECE_SHIFT) | WHITE)
-#define BBISHOP ((4<<PIECE_SHIFT) | BLACK) 
-#define WBISHOP ((4<<PIECE_SHIFT) | WHITE)
-#define BQUEEN  ((5<<PIECE_SHIFT) | BLACK)
-#define WQUEEN  ((5<<PIECE_SHIFT) | WHITE)
-#define BKING   ((6<<PIECE_SHIFT) | BLACK)
-#define WKING   ((6<<PIECE_SHIFT) | WHITE)
-
-
-#define FEN_MAXSIZE 80
-
-// Chesspieces: For faster translation b/w ..
-// .. chesspieces' usual notation and thier number notation 
-const unsigned char MAPPING[16] = 
-  { '.', '.',
-    'p', 'P', 'r', 'R', 'n', 'N',
-    'b', 'B', 'q', 'Q', 'k', 'K',
-    '.', 'x' 
-  };
-
-const unsigned char MAPPING2[58] = 
-  { 'A', WBISHOP, 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
-    WKING, 'L', 'M', WKNIGHT, 'O', WPAWN, WQUEEN, 
-    WROOK, 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
-    ' ', ' ', ' ', ' ', ' ', ' ', 'a', BBISHOP, 'c', 'd', 
-    'e', 'f', 'g', 'h', 'i', 'j', BKING, 'l', 'm', 
-    BKNIGHT, 'o', BPAWN, BQUEEN, BROOK, 's', 't', 
-    'u', 'v', 'w', 'x', 'y', 'z'
-  };
-
+#define IS_NORMAL(FROM,TO)  ( IS_EMPTY(TO) )
+#define IS_BLOCKED(FROM,TO) ( IS_PIECE(TO) && \
+  (PIECE_COLOR(FROM) == PIECE_COLOR(TO)) )
+#define IS_CAPTURE(FROM,TO) ( IS_PIECE(TO) && \
+  (PIECE_COLOR(FROM) != PIECE_COLOR(TO)) )
+#define IS_PROMOTION(FROM,TO)\
+  ( (( PIECE(FROM) == WPAWN) && (SQUARE_RANK(TO) == '8')) || \
+    (( PIECE(FROM) == BPAWN) && (SQUARE_RANK(TO) == '1')) )
+#define IS_ENPASSANTE(FROM,TO,GAME) \
+  ( (PIECE(FROM) == WPAWN && SQUARE_RANK(FROM) == '5' && \
+     (*TO) == (GAME).enpassante ) ||\
+    (PIECE(FROM) == BPAWN && SQUARE_RANK(FROM) == '4' && \
+     (*TO) == (GAME).enpassante ) )
 /*
 const char QUEEN_MOVES[8][2] = {
   {1,0}, {1,1}, {0,1}, {-1,1},
@@ -84,6 +55,17 @@ const char KNIGHT_MOVES[8][2] = {
   {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
 */
 
+// 8 bits of the flags (unsigned char)
+#define MOVE_NORMAL 0
+#define MOVE_CAPTURE 1
+#define MOVE_PROMOTION 2
+#define MOVE_ENPASSANTE 4
+#define MOVE_kCASTLE 8
+#define MOVE_KCASTLE 16
+#define MOVE_qCASTLE 32
+#define MOVE_QCASTLE 64
+#define MOVE_CHECK 128
+
 const char KNIGHT_MOVES[8] = 
   { 14, 25, 23, 10, -14, -25, -23, -10 };
 const char QUEEN_MOVES[8] =
@@ -96,46 +78,6 @@ const char WPAWN_MOVES[4] =
   { -11, -13, -12, -24 }; 
 const char BPAWN_MOVES[4] = 
   { 11, 13, 12, 24 };   
-
-static inline unsigned char SQUARE64(char * s){
-  return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
-}
-
-// 8 bits of the flags (unsigned char)
-#define MOVE_NORMAL 0
-#define MOVE_CAPTURE 1
-#define MOVE_PROMOTION 2
-#define MOVE_ENPASSANTE 4
-#define MOVE_kCASTLE 8
-#define MOVE_KCASTLE 16
-#define MOVE_qCASTLE 32
-#define MOVE_QCASTLE 64
-#define MOVE_CHECK 128
-
-//Identifying rank, file, piece color
-#define PIECE_COLOR(SQUARE) ((SQUARE).piece & 1)
-#define BOARD_FILE(SQUARE)  ('a' + (SQUARE).square%8)
-#define BOARD_RANK(SQUARE)  ('0' + 8 - (SQUARE).square/8)
-#define BOARD_PIECE(SQUARE) (MAPPING[(SQUARE).piece])
-
-//conditions to check while moving piece from 'FROM' to 'TO'
-#define IS_OUTSIDE(SQUARE)  ((SQUARE).piece == OUTSIDE)
-#define IS_EMPTY(SQUARE)    ((SQUARE).piece == EMPTY)
-#define IS_PIECE(SQUARE)    (!IS_OUTSIDE(SQUARE) && \
-  !IS_EMPTY(SQUARE) )
-#define IS_NORMAL(FROM,TO)  ((TO).piece == EMPTY)
-#define IS_BLOCKED(FROM,TO) (IS_PIECE(TO) && \
-  (PIECE_COLOR(FROM) == PIECE_COLOR(TO)) )
-#define IS_CAPTURE(FROM,TO) (IS_PIECE(TO) && \
-  (PIECE_COLOR(FROM) != PIECE_COLOR(TO)) )
-#define IS_PROMOTION(FROM,TO)\
-  ( (( (FROM).piece == WPAWN) && (BOARD_RANK(TO) == '8')) || \
-    (( (FROM).piece == BPAWN) && (BOARD_RANK(TO) == '1')) )
-#define IS_ENPASSANTE(FROM,TO,GAME) \
-  ( ((FROM).piece == WPAWN && BOARD_RANK(FROM) == '5' && \
-     (TO).square == (GAME).enpassante ) ||\
-    ((FROM).piece == BPAWN && BOARD_RANK(FROM) == '4' && \
-     (TO).square == (GAME).enpassante ) )
  
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -202,28 +144,17 @@ void array_shrink (Array * a)
 --------------------------------------------------------- */
 
 typedef struct {
-  unsigned char piece;
-  unsigned char square;
-}_GameSquare;
-
-typedef struct {
   /* In case of promotion (flags & PROMOTION == 1), 
   .. "promotion" will store the promoted piece */
-  _GameSquare from, to;
+  unsigned char from, to;
   unsigned char flags, promotion;
   char SAN[8];
 }_GameMove;
 
 typedef struct {
-  //8x8 board with padding
-  _GameSquare ** board;  
-  //location of kings
-	_GameSquare * king[2]; 
-  unsigned char enpassante, castling, color;
-  unsigned char halfclock, fullclock, npieces;
-  unsigned char check;
-  //Game Status; 
-  unsigned int status; 
+  //Board and the board status metadata
+  _Board * board;
+  //Other Info
   char fen[FEN_MAXSIZE];
   Array * moves, * history;
 }_Game;
@@ -245,7 +176,7 @@ static inline void GamePrintFEN(_Game * g){
 }
 
 void GamePrintBoard(_Game * g, int persist) {
-  _GameSquare ** board = g->board;
+  unsigned char * pieces = g->board->pieces;
   
   //if persist. It clears the window
   if(persist) {
@@ -257,21 +188,16 @@ void GamePrintBoard(_Game * g, int persist) {
     printf("\033[1;1H");     //Cursor on the left top left
   } 
   fprintf(stdout,"\nBoard");
-    
   GamePrintFEN(g);
-
   for (int i=0; i<8; ++i){
     fprintf(stdout,"\n %c ", '0'+8-i);
-    for (int j=0; j<8; ++j) {
-      unsigned char piece = board[i][j].piece;
-      fprintf(stdout," %c", MAPPING[piece]);
-    }
+    for (int j=0; j<8; ++j) 
+      fprintf(stdout," %c", MAPPING[*piece++]);
   }
     
   fprintf(stdout,"\n\n   ");
-  for (int j=0; j<8; ++j) {
+  for (int j=0; j<8; ++j) 
     fprintf(stdout," %c", 'a'+j);
-  }
   fprintf(stdout,"\n");
 }
 
@@ -284,6 +210,8 @@ void GamePrintBoard(_Game * g, int persist) {
 --------------------------------------------------------- */
 
 void GameSetBoard(_Game * g, char * _fen) {
+
+  
   char _fen0[] = 
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
   char * fen = _fen ? _fen : _fen0;
@@ -297,112 +225,7 @@ void GameSetBoard(_Game * g, char * _fen) {
     g->fen[i] = fen[i];
     g->fen[i+1] = '\0';  
   }
-
-  g->npieces = 0; 
-  g->king[WHITE] = NULL; g->king[BLACK] = NULL;
-
-  /* Set board from FEN */ 
-  _GameSquare ** rank = g->board;
-  _GameSquare * square = rank[0];
-  unsigned char sid = 0; // square id
-  while(*fen != '\0') {
-    char c = *fen;
-    ++fen;
-    /* Empty squares */ 
-    if (isdigit(c)) {
-      int nempty = c - '0';
-      assert(nempty > 0 && nempty <= 8);
-      for (int i=0; i<nempty; ++i) {
-        square->piece = 0; // EMpty piece
-        square++->square = sid++; //Square id [0:64)
-      }
-    }
-    else if (c == '/') {
-      assert( sid%8 == 0 ); 
-        //Make sure all squares of this rank are filled
-      ++rank;
-      square = rank[0];
-    } 
-    else if (c == ' '){
-      assert( sid == 64 ); //Make sure all squares are filled
-      break;
-    }
-    else{
-      square->piece =  MAPPING2[c - 'A']; // occupied square
-      if(square->piece == WKING) {
-        assert(!g->king[WHITE]); 
-        //There cannot be multiple kings
-        g->king[WHITE] = square;
-      }
-      else if(square->piece == BKING) {
-        assert(!g->king[BLACK]); 
-        //There cannot be multiple kings
-        g->king[BLACK] = square; 
-      }
-      else { 
-        assert((g->npieces)++ < 30);
-      }
-      square++->square = sid++; //Square id [0:64)
-    }
-  }
-  //Make sure that there are both 'k' and 'K' in the FEN;
-  assert(g->king[WHITE] && g->king[BLACK]);
-
-  //Let's see whose turn is now ('w'/'b')
-  g->color = (*fen == 'w') ? WHITE : BLACK;
-  assert(*fen == 'w' || *fen == 'b');
-  assert(*(++fen) == ' '); 
-
-  g->castling = '\0';
-  while(*(++fen) != '\0') {
-    char c = *fen;
-    if (c == ' ')
-      break;
-    if (c == 'k')
-      g->castling |= MOVE_kCASTLE;
-    if (c == 'q')
-      g->castling |= MOVE_qCASTLE;
-    if (c == 'K')
-      g->castling |= MOVE_KCASTLE;
-    if (c == 'Q')
-      g->castling |= MOVE_QCASTLE;
-  }
-  assert(*fen++ == ' ');
-
-  g->enpassante = 64;
-  if(*fen != '-'){
-    g->enpassante = SQUARE64(fen);
-    ++fen;
-  }
-  assert(*(++fen) == ' ');
-
-  //Halfmove clocks are reset during a capture/a pawn advance
-  g->halfclock = 0;
-  while(*(++fen) != '\0'){
-    char c = *fen;
-    if( c == ' ' )
-      break;
-    assert(isdigit(c));
-    g->halfclock = 10*g->halfclock + (c - '0');
-    assert(g->halfclock <= 50);
-  }
-  assert(*fen == ' ');
-
-  g->fullclock = 0;
-  while(*(++fen) != '\0'){
-    char c = *fen;
-    assert(isdigit(c));
-    g->fullclock = 10*g->fullclock + (c - '0');
-    // No recorded FIDE game exceeded 300 moves.
-    // .. I don't know the theoretical limit. 
-    // .. I think draw (by 50moves rule) would have ..
-    // .. occured before 1000 moves??
-    assert(g->fullclock <= 10000);
-  }
-  assert(g->fullclock); //has to be greater than 0;
-  assert(*fen == '\0');
-
-  return;
+  BoardSetFromFEN(g->b, g->fen);
 }
 
 /* ---------------------------------------------------------
@@ -995,7 +818,7 @@ void GamePawnMoves(_Game * g, _GameSquare * from,
     }
 
     //double advance only for starting pawns
-    if( BOARD_RANK(*from) != (g->color ? '2' : '7') )
+    if( SQUARE_RANK(*from) != (g->color ? '2' : '7') )
       break;  
   }
 }
@@ -1265,29 +1088,6 @@ unsigned int Game(_Game * g) {
     GameDestroy(Game * g);
 ------------------------------------------------------------
 --------------------------------------------------------- */
-
-static inline 
-_GameSquare ** GameBoard(){
-  //Allocate mem for 2-D board (8x8) with ..
-  //.. 2 layer padding on each sides (12x12).
-  //accessible: board[-2:9][-2:9]
-  //Valid part: board[0:7][0:7]
-  int b = 8, p = 2;
-  int tb = b + 2*p;
-  _GameSquare ** board = (_GameSquare **)
-    malloc(tb*sizeof(_GameSquare *));
-  board[0] = (_GameSquare *)
-    malloc(tb*tb*sizeof(_GameSquare));
-  for(int i=1; i<tb; ++i)
-    board[i] = board[i-1] + tb;
-  for(int i=0; i<tb; ++i) {
-    for(int j=0; j<tb; ++j)
-      board[i][j].piece = OUTSIDE; 
-    board[i] += p;
-  }
-  board += p;
-  return board;
-}
 
 _Game * GameNew(char * fen){
 
