@@ -51,25 +51,36 @@ const unsigned char MAPPING2[58] =
   };
 
 
-unsigned char ** GAMEBOARD = NULL; //Square  
-unsigned char * PIECES = NULL;    //store pieces/empty square
-
 static inline unsigned char BoardSquareParse(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
 }
 
-//Square or "S" is a pointer whose content is in [0,64]
+//Squares [-2:9]x[-2:9] with [0:7]x[0:7] is inside
+unsigned char ** GAMEBOARD = NULL; 
+unsigned char * PIECES = NULL;    //store pieces/empty square
+//Below: A square "S" is a pointer whose content is in [0,64]
 #define IS_OUTSIDE(S)   ((*S) == OUTSIDE)
-#define PIECE(S)        (IS_OUTSIDE(S) ? 16 : PIECES[*S])
-#define PIECE_COLOR(S)  (PIECE(S) & 1)
+#define SQUARE_PIECE(S) (IS_OUTSIDE(S) ? 16 : PIECES[*S])
+#define PIECE_COLOR(S)  (SQUARE_PIECE(S) & 1)
 #define SQUARE_FILE(S)  ('a' + (*S)%8)
 #define SQUARE_RANK(S)  ('0' + 8 - (*S)/8)
-#define PIECE_ASCII(S)  (MAPPING[PIECE(S)])
-#define IS_EMPTY(S)     (PIECE(S) == EMPTY)
+#define PIECE_ASCII(S)  (MAPPING[SQUARE_PIECE(S)])
+#define IS_EMPTY(S)     (SQUARE_PIECE(S) == EMPTY)
 #define IS_PIECE(S)     (!IS_OUTSIDE(S) && !IS_EMPTY(S))
 
+// 8 bits of the flags (unsigned char)
+#define MOVE_NORMAL     0
+#define MOVE_CAPTURE    1
+#define MOVE_PROMOTION  2
+#define MOVE_ENPASSANTE 4
+#define MOVE_kCASTLE    8
+#define MOVE_KCASTLE   16
+#define MOVE_qCASTLE   32
+#define MOVE_QCASTLE   64
+#define MOVE_CHECK    128
+
 typedef struct {
-  //64 pieces
+  //64 pieces corresponding to each square on GAMEBOARD[][]
   unsigned char * pieces;
 
   /** -----------Game Status Metadata--------------*/
@@ -79,6 +90,8 @@ typedef struct {
   unsigned char castling, check;
   //numbers (guaranteed below UCHAR_MAX)
   unsigned char halfclock, fullclock, npieces;
+  //whose turn  
+  unsigned char color;
   //Game Status; 
   unsigned int status; 
 }_Board;
@@ -95,16 +108,16 @@ void BoardInitIterator(){
   int tb = b + 2*p;
   unsigned char ** gboard = (unsigned char **)
     malloc(tb*sizeof(unsigned char *));
-  board[0] = (unsigned char *)
+  gboard[0] = (unsigned char *)
    malloc(tb*tb*sizeof(unsigned char));
   for(int i=1; i<tb; ++i)
-    gboard[i] = board[i-1] + tb;
+    gboard[i] = gboard[i-1] + tb;
   for(int i=0; i<tb; ++i)
     gboard[i] += p;
   gboard += p;
   for(int r=-2;r<10; ++r)
     for(int f=-2; f<10; ++f) {
-      unsigned char square = 8*r + f;
+      char square = 8*r + f;
       gboard[r][f] = (square >=0 && square < 64) ?
         square : OUTSIDE;
     }
@@ -113,8 +126,8 @@ void BoardInitIterator(){
 
 void BoardCopy(_Board * b, _Board * source){
   unsigned char * pieces = b->pieces;
-  memcpy (board, source, sizeof(_Board));
-  memcpy (pieces, source->piece, 64*sizeof(unsigned char));
+  memcpy (b, source, sizeof(_Board));
+  memcpy (pieces, source->pieces, 64*sizeof(unsigned char));
   b->pieces = pieces;
 }
 
@@ -140,7 +153,7 @@ void BoardDestroy(_Board * b){
   free(b);
 }
 
-char ** BoardMakeAvailable(_Board * b){
+unsigned char ** BoardMakeAvailable(_Board * b){
   PIECES = b->pieces; 
   assert(GAMEBOARD);
   return GAMEBOARD; 
@@ -152,7 +165,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
   b->king[BLACK] = OUTSIDE;
 
   /* Set board from FEN */
-  unsigned char * pieces = b->pieces;
+  unsigned char * piece = b->pieces;
   unsigned char square = 0; // square id
   while(*fen != '\0') {
     assert(square <= OUTSIDE);
@@ -179,16 +192,16 @@ void BoardSetFromFEN(_Board * b, char * fen){
       // occupied square
       *piece++ =  MAPPING2[c - 'A']; 
       if(c == 'K' || c == 'k') {
-        unsigned char color = 'K' ? WHITE : BLACK;
+        unsigned char color = (c == 'K') ? WHITE : BLACK;
         //There cannot be multiple kings
         assert(b->king[color] == OUTSIDE); 
         b->king[color] = square; //where is the king?
       }
       else {
-        //occupied by a another piece 
+        //occupied by a piece other than 'kings'
         assert((b->npieces)++ < 30);
       }
-      square++;
+      ++square;
     }
   }
   //Make sure that there are both 'k' and 'K' in the FEN;
@@ -218,7 +231,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
 
   b->enpassante = OUTSIDE;
   if(*fen != '-'){
-    b->enpassante = BoardSquareSparse(fen);
+    b->enpassante = BoardSquareParse(fen);
     ++fen;
   }
   assert(*(++fen) == ' ');
@@ -252,9 +265,9 @@ void BoardSetFromFEN(_Board * b, char * fen){
   return;
 }
 
-void BoardSetFEN(_Board * b, char * fen) {
+void BoardFEN(_Board * b, char * fen) {
   unsigned char * piece = b->pieces;
-  unsigned char nempty, square = 0;
+  unsigned char nempty;
   //traverse through board
   for(int i=0; i<8; ++i) {
     nempty = 0;
@@ -284,13 +297,13 @@ void BoardSetFEN(_Board * b, char * fen) {
   if(!b->castling)
     *fen++ = '-';
   else{
-    if(g->castling & MOVE_KCASTLE)
+    if(b->castling & MOVE_KCASTLE)
       *fen++ = 'K';
-    if(g->castling & MOVE_QCASTLE)
+    if(b->castling & MOVE_QCASTLE)
       *fen++ = 'Q';
-    if(g->castling & MOVE_kCASTLE)
+    if(b->castling & MOVE_kCASTLE)
       *fen++ = 'k';
-    if(g->castling & MOVE_qCASTLE)
+    if(b->castling & MOVE_qCASTLE)
       *fen++ = 'q';
   }
   *fen++ = ' ';
@@ -309,7 +322,7 @@ void BoardSetFEN(_Board * b, char * fen) {
   for(int i=0; i<2; ++i) {
     unsigned int n = gameclock[i], pos = 4;
     //otherwise: weird clocknumbers
-    assert(n <= i ? 5000 : 50); 
+    assert(n <= (i ? 5000 : 50)); 
     unsigned char h[5];
     h[pos] = i ? '\0' : ' ';
     while(pos) {
@@ -323,6 +336,7 @@ void BoardSetFEN(_Board * b, char * fen) {
 }
 
 void BoardPrint(_Board * board){
+  /* ASCII Board */
   unsigned char * piece = board->pieces;
   fprintf(stdout,"\nBoard");
   for (int i=0; i<8; ++i){
@@ -336,15 +350,47 @@ void BoardPrint(_Board * board){
     fprintf(stdout," %c", 'a'+j);
   fprintf(stdout,"\n");
 }
+
+/*------------------------------------------------------------
+conditions to check while moving piece from 'FROM' to 'TO'
+--------------------------------------------------------- */
+#define IS_NORMAL(FROM,TO)  ( IS_EMPTY(TO) )
+#define IS_BLOCKED(FROM,TO) ( IS_PIECE(TO) && \
+  (PIECE_COLOR(FROM) == PIECE_COLOR(TO)) )
+#define IS_CAPTURE(FROM,TO) ( IS_PIECE(TO) && \
+  (PIECE_COLOR(FROM) != PIECE_COLOR(TO)) )
+#define IS_PROMOTION(FROM,TO)\
+  ( (( PIECE(FROM) == WPAWN) && (SQUARE_RANK(TO) == '8')) || \
+    (( PIECE(FROM) == BPAWN) && (SQUARE_RANK(TO) == '1')) )
+#define IS_ENPASSANTE(FROM,TO,G) \
+  ( (PIECE(FROM) == WPAWN && SQUARE_RANK(FROM) == '5' && \
+     (*TO) == (G)->enpassante ) ||\
+    (PIECE(FROM) == BPAWN && SQUARE_RANK(FROM) == '4' && \
+     (*TO) == (G)->enpassante ) )
+/*
+const char QUEEN_MOVES[8][2] = {
+  {1,0}, {1,1}, {0,1}, {-1,1},
+  {-1,0}, {-1,-1}, {0,-1}, {1,-1} };
+const char BISHOP_MOVES[4][2] = {
+  {1,1}, {-1,1}, {-1,-1}, {1,-1} };
+const char ROOK_MOVES[4][2] = {
+  {1,0}, {0,1}, {-1,0}, {0,-1} };
+const char KNIGHT_MOVES[8][2] = {
+  {2,1}, {1,2}, {1,-2}, {2,-1},
+  {-2,-1}, {-1,-2}, {-1,2}, {-2,1} };
+*/
+
+
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   The function
-    GameMovePiece(g, move);
+    BoardMove(b, move);
   .. temporarily updates the board of the game "g" with ..
   .. the move "move" (i.e. only board is updated, move ..
-  .. is not finalised.). And the function
-    GameUnmovePiece(g, move);
-  .. undo the effect of GameMovePiece(g,move);
+  .. is not finalised.).
+  And the function
+    BoardUnmove(b, move);
+  .. undo the effect of BoardMovePiece(g,move);
 ------------------------------------------------------------
 --------------------------------------------------------- */
 typedef struct {
@@ -373,7 +419,7 @@ void BoardMove(_Board * b, _BoardMove * move){
     move->promotion : move->from.piece;
 
   if(pieces[to] == WKING) {
-    g->king[WHITE] = to;
+    b->king[WHITE] = to;
     if(move->flags & MOVE_QCASTLE) {
       pieces[56] = EMPTY;
       pieces[59] = WROOK;
@@ -386,7 +432,7 @@ void BoardMove(_Board * b, _BoardMove * move){
     }
   }
   else if(pieces[to] == BKING) {
-    g->king[BLACK] = to;
+    b->king[BLACK] = to;
     if(move->flags & MOVE_qCASTLE) {
       pieces[0] = EMPTY;
       pieces[3] = BROOK;
@@ -400,12 +446,12 @@ void BoardMove(_Board * b, _BoardMove * move){
   }
 
   if(move->flags & MOVE_ENPASSANTE) { 
-    assert(g->enpassante == to + (g->color ? 8 : -8));
-    pieces[to + (g->color ? 8 : -8)] = EMPTY;
+    assert(b->enpassante == to + (b->color ? 8 : -8));
+    pieces[to + (b->color ? 8 : -8)] = EMPTY;
   }
 } 
   
-void BoardUnmove(_Board * b, _GameMove * move){
+void BoardUnmove(_Board * b, _BoardMove * move){
   assert(move);
   unsigned char from = move->from.square,
     to = move->to.square;
@@ -415,7 +461,7 @@ void BoardUnmove(_Board * b, _GameMove * move){
   pieces[to]   = move->to.piece;
 
   if(pieces[from] == WKING) {
-    g->king[WHITE] = from;
+    b->king[WHITE] = from;
     if(move->flags & MOVE_QCASTLE) {
       pieces[56] = WROOK;
       pieces[59] = EMPTY;
@@ -428,7 +474,7 @@ void BoardUnmove(_Board * b, _GameMove * move){
     }
   }
   else if(pieces[from] == BKING) {
-    g->king[BLACK] = from;
+    b->king[BLACK] = from;
     if(move->flags & MOVE_qCASTLE) {
       pieces[0] = BROOK;
       pieces[3] = EMPTY;
@@ -442,8 +488,8 @@ void BoardUnmove(_Board * b, _GameMove * move){
   }
    
   if(move->flags & MOVE_ENPASSANTE) {
-    assert(g->enpassante == to + (g->color ? 8 : -8)); 
-    pieces[to + (g->color ? 8 : -8)] 
-      = g->color ? BPAWN : WPAWN;
+    assert(b->enpassante == to + (b->color ? 8 : -8)); 
+    pieces[to + (b->color ? 8 : -8)] 
+      = b->color ? BPAWN : WPAWN;
   }
 } 
