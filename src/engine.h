@@ -79,7 +79,8 @@ int EngineOverRideNNUE(_Game * g, int * eval) {
 
 int GameEvaluate(_Game * g) {
   int Eval = 0;
-  if(g->status)
+  if(g->status) 
+    //Game is theoretically over. So no need to evaluate ?
     if(EngineOverRideNNUE(g, &Eval))
       return Eval;
 

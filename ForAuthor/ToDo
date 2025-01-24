@@ -8,8 +8,13 @@
 ~~7)  include NNUE (give credit)~~
 8)  write your own NNUE; (Can you dow it in C?? Too much)
 9)  websocket: (a) uninterrupted game interface, (b) using ligtweight C code
-10) Minimax
-11) Alpha-Beta Pruning
+10) (a) Minimax 
+    (b) Alpha-Beta Pruning
+    (c)
+    
 12) Memory evaluation. To check memory allocated and free are equal during the entire program;
 
-
+Tree should be modified as
+Node = {uchar ** Board, uchar metadata[]} //Minimal. Board shouldn't malloc(); Get allocated from an already created memBlock;
+Edge = {Node * from, GameMove move};   
+Tree = {Node * root, Edge ** edges}
