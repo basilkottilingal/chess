@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <time.h>
 #include <math.h>
+#include <stdint.h>
 
 
 // Square is either empty ('0')
@@ -49,7 +50,6 @@ const unsigned char MAPPING2[58] =
     BKNIGHT, 'o', BPAWN, BQUEEN, BROOK, 's', 't', 
     'u', 'v', 'w', 'x', 'y', 'z'
   };
-
 
 static inline unsigned char BoardSquareParse(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
@@ -338,7 +338,7 @@ void BoardFEN(_Board * b, char * fen) {
 void BoardPrint(_Board * board){
   /* ASCII Board */
   unsigned char * piece = board->pieces;
-  fprintf(stdout,"\nBoard");
+  fprintf(stdout,"\n        BOARD");
   for (int i=0; i<8; ++i){
     fprintf(stdout,"\n %c ", '0'+8-i);
     for (int j=0; j<8; ++j) 

@@ -26,13 +26,20 @@ Dependency hierarchy
 .   |
 .  move.h
 .   |
+.   |
+.  game.h
+.   |
 .   |         nnue/misc.h
 .  tree.h       |
 .   |           |
 .   |         nnue/nnue.h
-.   |           |
-.   |           |
-.   |   --------
-.   |   |
+.   |            |
+.   |            |
+.   |           /
+.   |          /
+.   |         /
+.   |        /
+.   |       /
+.   |      /
 .  engine.h 
 

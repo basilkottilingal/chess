@@ -81,141 +81,6 @@ void array_shrink (Array * a)
     a->max = a->len;
   }
 }
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  3 structs commonly used in this header file.
-  a) unsigned char : A square of the chessboard
-  b) _GameMove : Info corresponding to a move from ..
-    the current board location
-  c) _Game : Store all the information corresponding to ..
-    a chess game including board information, other ..
-    informations like whose move, location of each kings,
-    any active en-passante, are castling available, etc.
-------------------------------------------------------------
---------------------------------------------------------- */
-
-typedef struct {
-  //Board and the board status metadata
-  _Board * board;
-  //Other Info
-  char fen[FEN_MAXSIZE];
-  Array * moves, * history;
-}_Game;
-
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  Function to print the current FEN to stdout:
-    GamePrintFEN(_Game * g);
-  Function to print the current board to stdout.
-    GamePrintBoard(_Game * g, int persist);
-  In the above function use "persist" as 1 to print ..
-  .. the board on the left top of the screen with a time ..
-  .. small delay (0.4 s);
-------------------------------------------------------------
---------------------------------------------------------- */
-
-static inline void GamePrintFEN(_Game * g){
-  fprintf(stdout, "\n%s", g->fen);
-}
-
-void GamePrintBoard(_Game * g, int persist) {
-  
-  //if persist. It clears the window
-  if(persist) {
-    clock_t start_time = clock();
-    clock_t wait_time = 0.01*CLOCKS_PER_SEC ; //sleep time 
-    while (clock() - start_time < wait_time) {};
-
-    printf("\033[2J");       // Clear the screen
-    printf("\033[1;1H");     //Cursor on the left top left
-  } 
-  GamePrintFEN(g);
-  BoardPrint(g->board);
-}
-
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  The following function
-    GameSetBoard(_Game * g, char * _fen); //.. 
-  .. sets the game and board from the parsed FEN "_fen"
-------------------------------------------------------------
---------------------------------------------------------- */
-const char FEN_DEFAULT[] = 
-    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
-void GameSetBoard(_Game * g, char * _fen) {
-  char * fen = _fen ? _fen : FEN_DEFAULT;
-  g->fen[0] = '\0';
-  for (int i=0; fen[i] != '\0'; ++i){
-    if(i == FEN_MAXSIZE - 1){
-      fprintf(stderr, "Error: Very Long FEN");
-      fflush(stderr);
-      exit(-1);
-    }
-    g->fen[i] = fen[i];
-    g->fen[i+1] = '\0';  
-  }
-  BoardSetFromFEN(g->b, g->fen);
-}
-
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  Updating the game history. The functions ..
-    GamePushHistory(_Game * g); 
-  .. may be called after each move, in case you need to ..
-  .. revert any move (while analysing the game) or you ..
-  .. want to save the game. 
-  The function
-    GamePopHistory(_Game * g);
-  .. undo the last move.
-------------------------------------------------------------
---------------------------------------------------------- */
-
-void GamePushHistory(_Game * g){
-  /** Add current FEN to history */
-  array_append ( g->history, g->fen, FEN_MAXSIZE);
-  //TODO: Add move also to the history 
-}
-
-void GamePopHistory(_Game * g){
-  /** Remove last move from history. ..
-  .. In case of reverting a move */
-  Array * h = g->history;
-  if(!h->len){
-    fprintf(stderr, "Warning: Empty history");
-    return;
-  }
-  h->len -= FEN_MAXSIZE;
-  char * fen = (char *) (h->p) + h->len;
-  GameSetBoard(g, fen); 
-}
-
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  Update current FEN (using the board "g->board") after ..
-  .. the move. The FEN is required to update history.
-------------------------------------------------------------
---------------------------------------------------------- */
-void GameFEN(_Game * g){
-  /* Get FEN from Board */
-  BoardSetFEN(g->board, g->fen);
-}
-
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  The function 
-    GameIsAttackedByPiece (from, rays[], nrays, depth, sq);
-  .. can be used to see if a square "sq" is attacked by ..
-  .. the the piece in the square "from". The array  ..
-  .. "rays[]" stores the rays along which piece can move.
-  .. "nrays" is the size of "rays[]", "depth" is the ..
-  .. the max depth along the ray the piece can move. It ..
-  .. 7 or rook, queen, and bishop.
-  Function pointers corresponding to each chesspiece, that ..
-  .. can see if a square is attacked by this piece are ..
-  .. listed. 
-------------------------------------------------------------
---------------------------------------------------------- */
 
 
 static inline 
@@ -361,185 +226,295 @@ int BoardIsMoveValid(_Board * b, _BoardMove * move) {
     return valid;
 }
 
+static inline void  BoardMovesFrom( unsigned char * from, 
+    const char rays[], int nrays, int depth, Array * moves) {
+  
+  unsigned char piece = from->piece;
+  //'from' square can be neither empty nor outside the box
+  assert ( !IS_OUTSIDE(from) && !IS_EMPTY(from) );
 
-_GameMove * GameBot(_Game * g) {
-  // Algorithm Not yet implemented
-  // Random move (As of now)
-  _GameMove * move = NULL;
-      
-  int random_number = rand();
-  if(g->moves->len) {
+  for(int i=0; i<nrays; ++i) {
+    unsigned char * to = from;
+    for(int j=0; j<depth; ++j) {
+      to += rays[i];
+      // Cannot move along the ray, will end up outside board 
+      if(IS_OUTSIDE(to))
+        break; 
+      // Occupied by same color; 'break' moving along the ray
+      if(IS_BLOCKED(from, to))
+        break;
+      unsigned char flags = IS_EMPTY(to)  
+        ? MOVE_NORMAL : MOVE_CAPTURE;
+      //create a new array for moves if not already created; 
+      _BoardMove move = {
+        .from.piece = from->piece,
+        .from.square = from->square,
+        .to.piece = to->piece,
+        .to.square = to->square,
+        .flags = flags
+      };
+      //Add to the list of possible moves.
+      array_append( moves, &move, sizeof(move) );
+
+      // Cannot move further beyond a capture.
+      if(flags & MOVE_CAPTURE)
+        break;
+    }
+  }
+}
+
+void BoardQueenMoves(_Board *b, unsigned char *from, Array *m){
+  BoardMovesFrom(from, QUEEN_MOVES, 8, 7, m); 
+}
+
+void BoardKingMoves(_Board *b, unsigned char *from, Array *m){
+  BoardMovesFrom(from, QUEEN_MOVES, 8, 1, m);
+  //Check for castling ability
+  if ( (MOVE_kCASTLE << b->color) & (b->castling) ) {
+    //King Side castling
+    int available = 1;
+    unsigned char * king = &(BOARDPIECES[b->color][4]);
+    assert(SQUARE_PIECE(king) == (BKING|b->color));
+    assert(king == from);
+    assert(king[3] == (b->color ? WROOK : BROOK));  
+    for(int i=1; i<3; ++i) {
+      // see if 2 squares b/w king and rook are empty
+      if(!IS_EMPTY(king[i])) {
+        available = 0;
+        break;
+      }
+    }
+    if(available) {
+      for(int i=0; i<4; ++i) {
+        // see if king, rook and the 2 squares in b/w them ..
+        // .. are under attack
+        if(GameIsSquareAttacked (g, king + i, !b->color)) {
+          available = 0;
+          break;
+        }
+      }
+    }
     
-    int nmoves = (g->moves->len) / sizeof(_GameMove);
-
-    move = (_GameMove *) g->moves->p;
-    int imove = floor (((double) nmoves)*rand()/RAND_MAX);
-    move += imove;
-  }
-
-  return move;
-}
-
-void GameError(unsigned int error) {
-  if (error & 15) {
-    unsigned int e = error & 15;
-    if (e == 1) {
-      fprintf(stderr, "Warning: Loaded game has no moves");
+    if(available) {
+      _BoardMove move = {
+        .from.piece = kinb->piece,
+        .from.square = kinb->square,
+        .to.piece = EMPTY,
+        .to.square = king[2].square,
+        .flags = MOVE_kCASTLE << b->color
+      };
+      array_append(b->moves,&move, sizeof(move));
     }
-    fflush(stderr);
   }
-  if( error & 16) {
-    fprintf(stdout, "\n %s wins by %s", 
-      error & 32 ? "WHITE" : "BLACK",
-      error & 64 ? "time" : "checkmate");
+  if ( (MOVE_qCASTLE << b->color) & (b->castling) ) {
+    //Queen Side castling
+    int available = 1;
+    unsigned char * king = b->king[b->color];
+    assert(kinb->square == (4 + 8*7*(b->color)));
+    assert(king == from);
+    assert(king[-4].piece == (b->color ? WROOK : BROOK));  
+    for(int i=-3; i<0; ++i) {
+      // see if 3 squares b/w king and rook are empty
+      if(!IS_EMPTY(king[i])) {
+        available = 0;
+        break;
+      }
+    }
+    if(available) {
+      for(int i=-4; i<1; ++i) {
+        // see if king, rook and the 3 squares in b/w them ..
+        // .. are under attack
+        if(GameIsSquareAttacked (g, king + i, !b->color)) {
+          available = 0;
+          break;
+        }
+      }
+    }
+    
+    if(available) {
+      _BoardMove move = {
+        .from.piece = kinb->piece,
+        .from.square = kinb->square,
+        .to.piece = EMPTY,
+        .to.square = king[-2].square,
+        .flags = MOVE_qCASTLE << b->color
+      };
+      array_append(b->moves,&move, sizeof(move));
+    }
   }
-  else if (error & 128) {
-    unsigned int e = (error >> 8) & (1 | 2 | 4);
-    fprintf(stdout, "\n Draw:");
-    if(e == 0)
-      fprintf(stdout, "Stalemate");
-    else if (e == 1)
-      fprintf(stdout, "Insufficient Material");
-    else if (e == 2)
-      fprintf(stdout, "Fifty-Move Rule");
-    else if (e == 3)
-      fprintf(stdout, "Threefold rule");
-    else if (e == 4)
-      fprintf(stdout, 
-        "BLACK runs out of time and WHITE cannot win");
-    else if (e == 5)
-      fprintf(stdout, 
-        "WHITE runs out of time and BLACK cannot win");
-    else
-      fprintf(stderr, "Error : Unknown Draw Reason");
-  }
-  fflush(stdout);
 }
 
-//Next Move
-int GameMove(_Game * g, _GameMove * move){
-
-  unsigned char * board = g->board[0];
-
-  if(!move) {
-    fprintf(stderr, "\nError: Move not chosen by bot");
-    fprintf(stderr, "\nProbably loaded game is over");
-    fflush(stdout);
-    return 1; //Game Stopped
-  }
-
-  //Move
-  GameMovePiece(g, move); 
-
-  //Udate the halfclock, fullclock
-  g->fullclock += (!g->color);
-  g->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
-    ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
-      ? 0 : (g->halfclock + 1));
-  //Change the Turn
-  g->color = !g->color;
-  //Is the board on Check?
-  g->check = move->flags & MOVE_CHECK;
-  //Set En-Passante square while double pawn advance
-  if( move->from.piece == WPAWN &&
-      (move->from.square - move->to.square == 16) ) 
-    g->enpassante = move->from.square - 8;
-  else if( move->from.piece == BPAWN && 
-      (move->to.square - move->from.square == 16) ) 
-    g->enpassante = move->from.square + 8;
-  else
-    g->enpassante = OUTSIDE;
-  
-  if(g->castling) {
-    //Switching off castling if king move moves
-    if(move->from.square == 4)
-      g->castling &= ~(MOVE_qCASTLE | MOVE_kCASTLE);
-    else if (move->from.square == 60)
-      g->castling &= ~(MOVE_QCASTLE | MOVE_KCASTLE);
-  
-    //Switching off castling if corner rooks move/captured
-    if(move->from.square == 0 || move->to.square == 0)
-      g->castling &= ~MOVE_qCASTLE;
-    if(move->from.square == 7 || move->to.square == 7)
-      g->castling &= ~MOVE_kCASTLE;
-    if(move->from.square == 56 || move->to.square == 56)
-      g->castling &= ~MOVE_QCASTLE;
-    if(move->from.square == 63 || move->to.square == 63)
-      g->castling &= ~MOVE_KCASTLE;
-  }
-
-  //Total number of pieces
-  if(move->flags & MOVE_CAPTURE)
-    --(g->board->npieces);
-
-  //move is completed
-  //move = NULL;
-  
-  //Update FEN
-  GameFEN(g);
-  //Creates list of moves for the new board
-  //Game continues if (g->status == 0)
-  return (GameAllMoves(g));
+void BoardBishopMoves(_Board * b, unsigned char * from){
+  BoardMovesFrom(from, BISHOP_MOVES, 4, 7, b->moves); 
 }
 
-unsigned int Game(_Game * g) {
-  srand(time(0)); 
-  while ( !g->status ){
-    _GameMove * move = NULL;
-    if(1)
-      move = GameBot(g);
+void BoardKnightMoves(_Board * b, unsigned char * from){
+  BoardMovesFrom(from, KNIGHT_MOVES, 8, 1, b->moves); 
+}
+
+void BoardRookMoves(_Board * b, unsigned char * from){
+  BoardMovesFrom(from, ROOK_MOVES, 4, 7, b->moves); 
+}
+
+void BoardPawnMoves(_Board * b, unsigned char * from, 
+    const char rays[]){
+
+  for(int j=0; j<2; j++) {
+    //Diagonal advance of pawn
+    unsigned char * to = from + rays[j];
+    unsigned char flags = IS_CAPTURE(*from,*to) ? 
+      MOVE_CAPTURE : IS_ENPASSANTE(*from,*to,*g) ?
+      MOVE_ENPASSANTE : 0;
+  
+    //Pawn move diagonally only if it's a  ..
+    //.. capture or an "en-passante" capture
+    if(!flags) 
+      continue;
+
+    flags |= IS_PROMOTION(*from, *to) ? MOVE_PROMOTION : 0;
+
+    _BoardMove move = {
+      .from.piece = from->piece,
+      .from.square = from->square,
+      .to.piece = to->piece,
+      .to.square = to->square,
+      .flags = flags
+    };
+     
+    Array * moves = b->moves;
+    if(flags & MOVE_PROMOTION) {
+      move.promotion = from->piece;
+      for(int i=0; i<4; ++i) {
+        //'p' is promoted to 'r','b','n' and 'q'
+        move.promotion += 1 << PIECE_SHIFT; 
+        array_append (moves, &move, sizeof(move));
+      } 
+    }
     else {
-      //Input from an input device
+      array_append (moves, &move, sizeof(move));
     }
-    GameMove(g, move); 
-    GamePrintBoard(g, 1);
+  
   }
-  assert(g->status); //Game is over
-  return (g->status);
+  //FIXME: can be made into :for(int j=0; j<4; ++j) {}
+  for(int j=2; j<4; j++) {
+    //vertical advance of pawn
+    unsigned char * to = from + rays[j];
+    if(!IS_EMPTY(*to))
+      break; //capture, block, outside leads to "break"
+    unsigned char flags = MOVE_NORMAL;
+    flags |= IS_PROMOTION(*from, *to) ? MOVE_PROMOTION : 0;
+    _BoardMove move = {
+      .from.piece = from->piece,
+      .from.square = from->square,
+      .to.piece = to->piece,
+      .to.square = to->square,
+      .flags = flags
+    };
+     
+    Array * moves = b->moves;
+    if(flags & MOVE_PROMOTION) {
+      move.promotion = from->piece;
+      for(int i=0; i<4; ++i) {
+        //'p' is promoted to 'r','b','n' and 'q'
+        move.promotion += 1 << PIECE_SHIFT; 
+        array_append (moves, &move, sizeof(move));
+      } 
+    }
+    else {
+      array_append (moves, &move, sizeof(move));
+    }
+
+    //double advance only for starting pawns
+    if( SQUARE_RANK(*from) != (b->color ? '2' : '7') )
+      break;  
+  }
 }
+
+void BoardBPawnMoves(_Board * b, unsigned char * from){
+  BoardPawnMoves(g, from, BPAWN_MOVES);
+}
+
+void BoardWPawnMoves(_Board * b, unsigned char * from){
+  BoardPawnMoves(g, from, WPAWN_MOVES);
+}
+
+void (*GamePieceMoves[14]) (_Game *, unsigned char *) = 
+  { NULL, NULL, BoardBPawnMoves, BoardWPawnMoves, 
+    BoardRookMoves, BoardRookMoves,
+    BoardKnightMoves, BoardKnightMoves,
+    BoardBishopMoves, BoardBishopMoves,
+    BoardQueenMoves, BoardQueenMoves,
+    BoardKingMoves, BoardKingMoves };
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
-  To create a game (_Game) instance, call
-    GameNew(char * fen);
-  To start with default board position, call as
-    GameNew(NULL);
-  To free the memory created for the game instance, call ..
-    GameDestroy(Game * g);
+  Functions that generate moves for each pieces . 
+  Each Function pointers orresonding to each pieces ..
+  .. can be called as 
+   BoardPieceMoves[from->piece](g, from);
+  The possible moves are appended to the array "b->moves".
+  NOTE: The moves generated include illegal moves ( or ..
+  .. those moves that allow the king on "attack" ). Those ..
+  .. moves will be later removed. For more, Read the function
+   BoardAllMoves(_Board * b);
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-_Game * GameNew(char * fen){
-  BoardInitIterator();
-  //Game instance
-  _Game * g = (_Game *) malloc (sizeof (_Game));
-  g->board = Board(NULL);
-  //Allocate memory for possible moves,
-  g->moves = array_new();
-  //Allocate memory for game history.
-  g->history = array_new();
-  //Set the Chessboard
-  GameSetBoard(g, fen);
-  //FIXME:BoardStatus();
-  //See if the king (whose turn) is on check    
-  g->check = GameIsKingAttacked(g, g->color);
-  //Creates list of moves for the new board
-  GameAllMoves(g);
-  if(g->status) {
-    fprintf(stderr, "\nWARNING : Game loaded has no moves");
-    GameError(g->status);
+Array * BoardAllMoves(_Board * b, Array * m){
+  /* Find all moves by rule*/ 
+  b->status = 0;
+  //Look for draw
+  if(b->halfclock == 50) {
+    b->status = (128 | (2 << 8)); //Draw by 50 moves rule.
   }
- 
-  return g; 
+  if (!b->npieces) {
+    b->status = (128 | (1 << 8)); //Insufficient pieces
+  }
+
+  if(b->status) {
+    if(m) m->len = 0;
+    //There is no valid moves
+    return (m ? m : NULL);
+  }
+      
+  Array * moves = !m ? array_new() : m;
+  moves->len = 0;
+
+  unsigned char ** board = b->board;
+  for (int i=0; i<8; ++i)
+    for(int j=0; j<8; ++j) {
+      unsigned char * from = &(board[i][j]);
+      if( IS_EMPTY(*from) )
+  continue; //empty
+      if( PIECE_COLOR(*from) != b->color )
+  continue; //Occupied by the other color
+      //Generate possible moves with the 'piece' 
+     BoardPieceMoves[from->piece](g, from);
+    }
   
-} 
+  //Removing Invalid Moves
+  size_t smove = sizeof(_BoardMove);
+  int nmoves =  (int) (moves->len / smove);
+  _BoardMove * move = (_BoardMove *) (b->moves->p);
+  _BoardMove * m = move;
+  for(int i=0; i<nmoves; ++i, ++move) {
+    if(GameIsMoveValid(g, move)) {
+      if(!(m == move)) //To avoid memcpy to same dest
+        memcpy(m, move, smove);
+      ++m;
+    }
+    else 
+      moves->len -= smove;
+  }
 
-void GameDestroy(_Game * g) {
-  BoardDestroy(g->board);
-  if(g->moves) 
-    array_free(g->moves);
-  if(g->history)
-    array_free(g->history);
-  free(g);
+  //See if theBoard is over. Bcs no moves available
+  if(!b->moves->len) {
+    if(b->check)
+      b->status = (16 | (b->color ? 0 : 32)); //someone wins 
+    else
+      b->status = 128; //stalemate 
+  } 
+  
+  return b->status; //Game continues if (b->status == 0)
+    
 }
-
