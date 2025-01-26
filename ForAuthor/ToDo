@@ -30,8 +30,8 @@ Dependency hierarchy
 .  game.h
 .   |
 .   |         nnue/misc.h
-.  tree.h       |
-.   |           |
+.  tree.h        |
+.   |            |
 .   |         nnue/nnue.h
 .   |            |
 .   |            |

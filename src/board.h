@@ -32,16 +32,20 @@
 
 #define FEN_MAXSIZE 80
 
+//Datatpes.To avoid c
+typedef uint8_t Square;
+typedef uint8_t Piece;
+typedef uint8_t Flag;
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
-const unsigned char MAPPING[16] = 
+const char MAPPING[16] = 
   { '.', '.',
     'p', 'P', 'r', 'R', 'n', 'N',
     'b', 'B', 'q', 'Q', 'k', 'K',
     '.', 'x' 
   };
 
-const unsigned char MAPPING2[58] = 
+const Piece MAPPING2[58] = 
   { 'A', WBISHOP, 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
     WKING, 'L', 'M', WKNIGHT, 'O', WPAWN, WQUEEN, 
     WROOK, 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 
@@ -50,14 +54,13 @@ const unsigned char MAPPING2[58] =
     BKNIGHT, 'o', BPAWN, BQUEEN, BROOK, 's', 't', 
     'u', 'v', 'w', 'x', 'y', 'z'
   };
-
-static inline unsigned char BoardSquareParse(char * s){
+static inline Square BoardSquareParse(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
 }
 
 //Squares [-2:9]x[-2:9] with [0:7]x[0:7] is inside
-unsigned char ** GAMEBOARD = NULL; 
-unsigned char * PIECES = NULL;    //store pieces/empty square
+Square ** GAMEBOARD = NULL; 
+Piece * PIECES = NULL;    //store pieces/empty square
 //Below: A square "S" is a pointer whose content is in [0,64]
 #define IS_OUTSIDE(S)   ((*S) == OUTSIDE)
 #define SQUARE_PIECE(S) (IS_OUTSIDE(S) ? 16 : PIECES[*S])
@@ -81,20 +84,27 @@ unsigned char * PIECES = NULL;    //store pieces/empty square
 
 typedef struct {
   //64 pieces corresponding to each square on GAMEBOARD[][]
-  unsigned char * pieces;
-
+  Piece * pieces;
   /** -----------Game Status Metadata--------------*/
   //squares to store WKING, BKING, ENPASS \in [0,63)
-  unsigned char king[2], enpassante;
+  Square king[2], enpassante;
   //some flags: castling available?,  game on check?
-  unsigned char castling, check;
+  Flag castling, check;
   //numbers (guaranteed below UCHAR_MAX)
   unsigned char halfclock, fullclock, npieces;
   //whose turn  
-  unsigned char color;
+  Flag color;
   //Game Status; 
-  unsigned int status; 
+  Flag status; 
 }_Board;
+
+
+void BoardCopy(_Board * b, _Board * source){
+  Piece * pieces = b->pieces;
+  memcpy (b, source, sizeof(_Board));
+  memcpy (pieces, source->pieces, 64*sizeof(Piece));
+  b->pieces = pieces;
+}
 
 void BoardInitIterator(){
   if(GAMEBOARD) 
@@ -102,45 +112,39 @@ void BoardInitIterator(){
     
   // Allocate mem for 2-D GAMEBOARD (8x8) with ..
   // .. 2 layer padding on each sides (12x12).
-  // accessible: board[-2:9][-2:9]
-  // Valid part: board[0:7][0:7]
+  // accessible: squareBoard[-2:9][-2:9]
+  // Valid part: squareBoard[0:7][0:7]
   int b = 8, p = 2;
   int tb = b + 2*p;
-  unsigned char ** gboard = (unsigned char **)
-    malloc(tb*sizeof(unsigned char *));
-  gboard[0] = (unsigned char *)
-   malloc(tb*tb*sizeof(unsigned char));
+  Square ** squareBoard = (Square **)
+    malloc(tb*sizeof(Square *));
+  squareBoard[0] = (Square *)
+     malloc(tb*tb*sizeof(Square));
   for(int i=1; i<tb; ++i)
-    gboard[i] = gboard[i-1] + tb;
+    squareBoard[i] = squareBoard[i-1] + tb;
   for(int i=0; i<tb; ++i)
-    gboard[i] += p;
-  gboard += p;
+    squareBoard[i] += p;
+  squareBoard += p;
   for(int r=-2;r<10; ++r)
     for(int f=-2; f<10; ++f) {
       char square = 8*r + f;
-      gboard[r][f] = (square >=0 && square < 64) ?
-        square : OUTSIDE;
+      squareBoard[r][f] = (square >=0 && square < 64) ?
+        (Square) square : OUTSIDE;
     }
-  GAMEBOARD = gboard;
-}
-
-void BoardCopy(_Board * b, _Board * source){
-  unsigned char * pieces = b->pieces;
-  memcpy (b, source, sizeof(_Board));
-  memcpy (pieces, source->pieces, 64*sizeof(unsigned char));
-  b->pieces = pieces;
+  GAMEBOARD = squareBoard;
 }
 
 _Board * Board(_Board * source) {
   /* GAMEBOARD is a bit different from "board". .. 
   .. GAMEBOARD is more like an iterator. It's global for ..
-  .. any game, and helppt to iterate through the pieces*/
+  .. any game, and help through each ..
+  .. square ( = GAMEBOARD[r][c])  of the board ..
+  .. and can be used to find the piece = (PIECES[square]) */
   if(!GAMEBOARD)
     BoardInitIterator();
      
   _Board * board = (_Board *) malloc (sizeof (_Board));
-  unsigned char * pieces = (unsigned char *) 
-    malloc(64* sizeof (unsigned char));
+  Piece * pieces = (Piece *) malloc(64* sizeof(Piece));
   board->pieces = pieces;
   if(source) 
     //Copy in case there is a source specified 
@@ -165,8 +169,8 @@ void BoardSetFromFEN(_Board * b, char * fen){
   b->king[BLACK] = OUTSIDE;
 
   /* Set board from FEN */
-  unsigned char * piece = b->pieces;
-  unsigned char square = 0; // square id
+  Piece * piece = b->pieces;
+  Square square = 0; // square id
   while(*fen != '\0') {
     assert(square <= OUTSIDE);
     char c = *fen;
@@ -192,10 +196,10 @@ void BoardSetFromFEN(_Board * b, char * fen){
       // occupied square
       *piece++ =  MAPPING2[c - 'A']; 
       if(c == 'K' || c == 'k') {
-        unsigned char color = (c == 'K') ? WHITE : BLACK;
-        //There cannot be multiple kings
+        Flag color = (c == 'K') ? WHITE : BLACK;
+        //There cannot be multiple kings of same color
         assert(b->king[color] == OUTSIDE); 
-        b->king[color] = square; //where is the king?
+        b->king[color] = square; //the king is here
       }
       else {
         //occupied by a piece other than 'kings'
@@ -205,7 +209,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
     }
   }
   //Make sure that there are both 'k' and 'K' in the FEN;
-  for(unsigned char c=0; c<2; ++c)
+  for(Flag c=0; c<2; ++c)
     assert(b->king[c] != OUTSIDE);
 
   //Let's see whose turn is now ('w'/'b')
@@ -266,7 +270,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
 }
 
 void BoardFEN(_Board * b, char * fen) {
-  unsigned char * piece = b->pieces;
+  Piece * piece = b->pieces;
   unsigned char nempty;
   //traverse through board
   for(int i=0; i<8; ++i) {
@@ -318,9 +322,9 @@ void BoardFEN(_Board * b, char * fen) {
   *fen++ = ' ';
 
   //clocks
-  unsigned int gameclock[2] = {b->halfclock, b->fullclock};
+  unsigned char gameclock[2] = {b->halfclock, b->fullclock};
   for(int i=0; i<2; ++i) {
-    unsigned int n = gameclock[i], pos = 4;
+    unsigned char n = gameclock[i], pos = 4;
     //otherwise: weird clocknumbers
     assert(n <= (i ? 5000 : 50)); 
     unsigned char h[5];
@@ -337,7 +341,7 @@ void BoardFEN(_Board * b, char * fen) {
 
 void BoardPrint(_Board * board){
   /* ASCII Board */
-  unsigned char * piece = board->pieces;
+  Piece * piece = board->pieces;
   fprintf(stdout,"\n        BOARD");
   for (int i=0; i<8; ++i){
     fprintf(stdout,"\n %c ", '0'+8-i);
@@ -394,25 +398,26 @@ const char KNIGHT_MOVES[8][2] = {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 typedef struct {
-  unsigned char piece, square;
+  Piece piece;
+  Square square;
 }_BoardSquare;
 
 typedef struct {
   /* In case of promotion (flags & MOVE_PROMOTION == 1), 
   .. "promotion" will store the promoted piece */
   _BoardSquare from, to;
-  unsigned char flags, promotion;
+  Flag flags;
+  Piece promotion;
   char SAN[8];
 }_BoardMove;
  
 void BoardMove(_Board * b, _BoardMove * move){
 
   assert(move);
-  unsigned char from = move->from.square,
+  Square from = move->from.square,
     to = move->to.square;
-  unsigned char * pieces = b->pieces;
-
-  assert(pieces[from] = move->from.piece);
+  Piece * pieces = b->pieces;
+  assert(pieces[from] == move->from.piece);
   
   pieces[from] = EMPTY;
   pieces[to]   = (move->flags & MOVE_PROMOTION) ? 
@@ -453,9 +458,9 @@ void BoardMove(_Board * b, _BoardMove * move){
   
 void BoardUnmove(_Board * b, _BoardMove * move){
   assert(move);
-  unsigned char from = move->from.square,
+  Square from = move->from.square,
     to = move->to.square;
-  unsigned char * pieces = b->pieces;
+  Piece * pieces = b->pieces;
 
   pieces[from] = move->from.piece;
   pieces[to]   = move->to.piece;
