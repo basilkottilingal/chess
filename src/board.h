@@ -8,6 +8,7 @@
 #include <math.h>
 #include <stdint.h>
 
+#define NOT_UNUSED(x) (void)(x)
 
 // Square is either empty ('0')
 // .. Or occupied by a piece '2' : '13'
@@ -157,7 +158,7 @@ void BoardDestroy(_Board * b){
   free(b);
 }
 
-unsigned char ** BoardMakeAvailable(_Board * b){
+Square ** BoardMakeAvailable(_Board * b){
   PIECES = b->pieces; 
   assert(GAMEBOARD);
   return GAMEBOARD; 
@@ -364,13 +365,15 @@ conditions to check while moving piece from 'FROM' to 'TO'
 #define IS_CAPTURE(FROM,TO) ( IS_PIECE(TO) && \
   (PIECE_COLOR(FROM) != PIECE_COLOR(TO)) )
 #define IS_PROMOTION(FROM,TO)\
-  ( (( PIECE(FROM) == WPAWN) && (SQUARE_RANK(TO) == '8')) || \
-    (( PIECE(FROM) == BPAWN) && (SQUARE_RANK(TO) == '1')) )
+  ( (( SQUARE_PIECE(FROM) == WPAWN) && \
+     (SQUARE_RANK(TO) == '8')) || \
+    (( SQUARE_PIECE(FROM) == BPAWN) && \
+     (SQUARE_RANK(TO) == '1')) )
 #define IS_ENPASSANTE(FROM,TO,G) \
-  ( (PIECE(FROM) == WPAWN && SQUARE_RANK(FROM) == '5' && \
-     (*TO) == (G)->enpassante ) ||\
-    (PIECE(FROM) == BPAWN && SQUARE_RANK(FROM) == '4' && \
-     (*TO) == (G)->enpassante ) )
+  ( (SQUARE_PIECE(FROM) == WPAWN && SQUARE_RANK(FROM) == '5' \
+      && (*TO) == (G)->enpassante ) ||\
+    (SQUARE_PIECE(FROM) == BPAWN && SQUARE_RANK(FROM) == '4' \
+      && (*TO) == (G)->enpassante ) )
 /*
 const char QUEEN_MOVES[8][2] = {
   {1,0}, {1,1}, {0,1}, {-1,1},

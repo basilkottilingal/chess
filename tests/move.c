@@ -24,6 +24,7 @@ rn2k1n1/pBp1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6
 */
 
 int main(){
+  _Board * b = Board(NULL);
   //_Game * g = GameNew(NULL);
   //_Game * g = GameNew("8/P7/8/8/8/8/8/k6K w - - 0 1");
   //_Game * g = GameNew("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -33,18 +34,18 @@ int main(){
   //_Game * g = GameNew("8/k7/8/K7/8/8/8/8 b - - 0 1");
   //_Game * g = GameNew("k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
   //_Game * g = GameNew("rn1qk1n1/pBp1ppbr/8/4P1p1/3p3p/NP5Q/P1PP1PPP/1RB1K1NR w Kq - 1 2");
-  _Game * g = GameNew("rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6");
+  BoardSetFromFEN(b, "rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6");
 
   //GamePrintBoard(g, 0);
   //_GameSquare * from = &(g->board[7][1]);
   //GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
   //GameAllMoves(g);
-  GamePrintBoard(g, 1);
+  BoardPrint(b);
 
-  unsigned int status = Game(g);
-  GameError(status);
+  //unsigned int status = Game(g);
+  //GameError(status);
 
-  GameDestroy(g);
+  BoardDestroy(b);
 
   return 0;
 }
