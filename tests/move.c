@@ -42,6 +42,8 @@ int main(){
   //GameAllMoves(g);
   BoardPrint(b);
 
+  Array * moves = BoardAllMoves(b, NULL);
+
   //unsigned int status = Game(g);
   //GameError(status);
 

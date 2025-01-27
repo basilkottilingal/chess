@@ -71,6 +71,10 @@ Piece * PIECES = NULL;    //store pieces/empty square
 #define PIECE_ASCII(S)  (MAPPING[SQUARE_PIECE(S)])
 #define IS_EMPTY(S)     (SQUARE_PIECE(S) == EMPTY)
 #define IS_PIECE(S)     (!IS_OUTSIDE(S) && !IS_EMPTY(S))
+static inline Square * SquarePointer(Square s) {
+  //assert(s<=OUTSIDE);
+  return &(GAMEBOARD[s/8][s%8]);
+}
 
 // 8 bits of the flags (unsigned char)
 #define MOVE_NORMAL     0
@@ -420,7 +424,15 @@ void BoardMove(_Board * b, _BoardMove * move){
   Square from = move->from.square,
     to = move->to.square;
   Piece * pieces = b->pieces;
-  assert(pieces[from] == move->from.piece);
+  //assert(pieces[from] == move->from.piece);
+  if(pieces[from] != move->from.piece) {
+    Square * A = SquarePointer(from);
+    Square * B = SquarePointer(to);
+    fprintf(stdout, "\n %c%c %c/%c -> %c%c %c",
+      SQUARE_FILE(A), SQUARE_RANK(A), 
+      MAPPING[pieces[from]], MAPPING[move->from.piece],
+      SQUARE_FILE(B), SQUARE_RANK(B), MAPPING[move->to.piece]);
+  }
   
   pieces[from] = EMPTY;
   pieces[to]   = (move->flags & MOVE_PROMOTION) ? 

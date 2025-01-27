@@ -82,10 +82,6 @@ void array_shrink (Array * a)
   }
 }
 
-static inline Square * SquarePointer(Square s) {
-  //assert(s<=OUTSIDE);
-  return &(GAMEBOARD[s/8][s%8]);
-}
 
 static inline 
 Flag BoardIsAttackedByPiece ( Square * from, 
@@ -453,13 +449,16 @@ void (*BoardPieceMoves[14]) (_Board *, Square *, Array * )
       BoardKingMoves, BoardKingMoves };
 
 enum GAME_STATUS{
-  GAME_CONTINUE = 0, //Game continues;
-  GAME_STATUS_ERROR = 1, //unknown status
-  GAME_WINS = 2, //
-  GAME_WHO_WINS = 4,
-  GAME_WIN_BY_TIME = 8,
-  GAME_WIN_BY_FORFEIT = 16,
-  GAME_DRAWS = 32,
+  GAME_CONTINUE = 0,      // Game continues;
+  GAME_IS_A_WIN = 16,     // One wins
+  GAME_IS_A_DRAW = 32,    // Draws
+  GAME_STATUS_ERROR = 64, // Unknown status
+  /* Info on WIN */
+  GAME_WHO_WINS = 1,
+  GAME_IS_WON_BY_TIME = 2,
+  GAME_IS_WON_BY_FORFEIT = 4,
+  /* Info on draw = (STATS & GAME_DRAW_INFO)*/
+  GAME_DRAW_INFO = 15,
   GAME_STALEMATE = 0,
   GAME_INSUFFICIENT = 1,
   GAME_FIFTY_MOVES = 2,
@@ -484,24 +483,33 @@ enum GAME_STATUS{
 --------------------------------------------------------- */
 
 Array * BoardAllMoves(_Board * b, Array * m){
+
+  BoardMakeAvailable(b);
+
   /* Find all moves by rule*/ 
-  b->status = 0;
+
+  b->status = GAME_CONTINUE;
   //Look for draw
   if(b->halfclock == 50) {
-    b->status = (GAME_DRAWS | (2 << 8)); //Draw by 50 moves rule.
+    //Draw by 50 moves rule.
+    b->status = (GAME_IS_A_DRAW | GAME_FIFTY_MOVES); 
   }
   if (!b->npieces) {
-    b->status = (128 | (1 << 8)); //Insufficient pieces
+    //Insufficient pieces
+    b->status = (GAME_IS_A_DRAW | GAME_INSUFFICIENT); 
   }
 
   if(b->status) {
+    //Game over
     if(m)
       m->len = 0;       
     return NULL;
   }
       
-  Array * moves = !m ? array_new() : m;
+  Array * moves = (m == NULL) ? array_new() : m;
   moves->len = 0;
+
+  fprintf(stdout, "A"); fflush(stdout);
 
   for (int i=0; i<8; ++i)
     for(int j=0; j<8; ++j) {
@@ -513,6 +521,7 @@ Array * BoardAllMoves(_Board * b, Array * m){
       //Generate possible moves with the 'piece' 
       BoardPieceMoves[SQUARE_PIECE(from)](b, from, moves);
     }
+  fprintf(stdout, "B"); fflush(stdout);
   
   //Removing Invalid Moves
   size_t smove = sizeof(_BoardMove);
@@ -532,9 +541,10 @@ Array * BoardAllMoves(_Board * b, Array * m){
   //See if theBoard is over. Bcs no moves available
   if(!moves->len) {
     if(b->check)
-      b->status = (16 | (b->color ? 0 : 32)); //someone wins 
+      //someone wins 
+      b->status = (GAME_IS_A_WIN | b->color); 
     else
-      b->status = 128; //stalemate 
+      b->status = (GAME_IS_A_DRAW | GAME_STALEMATE); 
     if(!m) {
       array_free(moves);
       return NULL;
@@ -543,6 +553,7 @@ Array * BoardAllMoves(_Board * b, Array * m){
 
   if(!m)
     array_shrink(moves);
+  
+  /* Array * moves contains all legal moves */
   return moves; 
-    
 }
