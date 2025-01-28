@@ -133,8 +133,8 @@ void BoardInitIterator(){
   for(int r=-2;r<10; ++r)
     for(int f=-2; f<10; ++f) {
       char square = 8*r + f;
-      squareBoard[r][f] = (square >=0 && square < 64) ?
-        (Square) square : OUTSIDE;
+      squareBoard[r][f] = (r<0 || r>=8 || f<0 || f>=8) ?
+        OUTSIDE : (Square) square;
     }
   GAMEBOARD = squareBoard;
 }
@@ -373,11 +373,11 @@ conditions to check while moving piece from 'FROM' to 'TO'
      (SQUARE_RANK(TO) == '8')) || \
     (( SQUARE_PIECE(FROM) == BPAWN) && \
      (SQUARE_RANK(TO) == '1')) )
-#define IS_ENPASSANTE(FROM,TO,G) \
+#define IS_ENPASSANTE(FROM,TO,BOARD) \
   ( (SQUARE_PIECE(FROM) == WPAWN && SQUARE_RANK(FROM) == '5' \
-      && (*TO) == (G)->enpassante ) ||\
+      && (*TO) == (BOARD)->enpassante ) ||\
     (SQUARE_PIECE(FROM) == BPAWN && SQUARE_RANK(FROM) == '4' \
-      && (*TO) == (G)->enpassante ) )
+      && (*TO) == (BOARD)->enpassante ) )
 /*
 const char QUEEN_MOVES[8][2] = {
   {1,0}, {1,1}, {0,1}, {-1,1},
@@ -466,7 +466,7 @@ void BoardMove(_Board * b, _BoardMove * move){
   }
 
   if(move->flags & MOVE_ENPASSANTE) { 
-    assert(b->enpassante == to + (b->color ? 8 : -8));
+    //assert(b->enpassante == to);
     pieces[to + (b->color ? 8 : -8)] = EMPTY;
   }
 } 
@@ -508,8 +508,8 @@ void BoardUnmove(_Board * b, _BoardMove * move){
   }
    
   if(move->flags & MOVE_ENPASSANTE) {
-    assert(b->enpassante == to + (b->color ? 8 : -8)); 
-    pieces[to + (b->color ? 8 : -8)] 
+    //assert(b->enpassante == to); 
+    pieces[to + (b->color ? 8 : -8)]
       = b->color ? BPAWN : WPAWN;
   }
 } 

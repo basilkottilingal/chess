@@ -244,7 +244,7 @@ void BoardMovesFrom( Square * from,
         ? MOVE_NORMAL : MOVE_CAPTURE;
       //create a new array for moves if not already created; 
       _BoardMove move = {
-        .from.piece = SQUARE_PIECE(to),
+        .from.piece = SQUARE_PIECE(from),
         .from.square = *from,
         .to.piece = SQUARE_PIECE(to),
         .to.square = *to,
