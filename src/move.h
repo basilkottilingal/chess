@@ -532,7 +532,7 @@ Flag BoardAllMoves(_Board * b, Array * moves){
   //See if theBoard is over. Bcs no moves available
   if(!moves->len) {
     b->status =  b->check ?     // was the board on check?
-      (GAME_IS_A_WIN | b->color) : // then: someone wins 
+      (GAME_IS_A_WIN | (!b->color)) : // then: someone wins 
       (GAME_IS_A_DRAW | GAME_STALEMATE); // otherwise:Stalemate
   } 
 
@@ -569,7 +569,7 @@ BoardUpdate(_Board * b, _BoardMove * move, Array * moves){
       (move->to.square - move->from.square == 16) ) 
     b->enpassante = move->from.square + 8;
   else
-    b->enpassante = OUTSIDE;
+    b->enpassante = OUTSIDE+1;
   
   if(b->castling) {
     //Switching off castling if king move moves
@@ -604,16 +604,17 @@ void BoardStatusPrint(_Board * b) {
     fflush(stdout);
     return;
   }
-  Flag cases = 0;
+  Flag WinOrDraw = 0;
   if (f & GAME_IS_A_WIN) {
-    ++cases;
+    ++WinOrDraw;
     fprintf(stdout, "\n %s wins by %s", 
-      f & GAME_WHO_WINS ? "WHITE" : "BLACK",
+      f & GAME_WHO_WINS ? "White" : "Black",
       (f & GAME_IS_WON_BY_TIME) ? "time" : 
       (f & GAME_IS_WON_BY_FORFEIT) ? "opponent's forfeit" :
       "checkmate");
   }
   if (f & GAME_IS_A_DRAW) {
+    ++WinOrDraw;
     fprintf(stdout, "\n Draw : ");
     Flag info = f & GAME_DRAW_INFO;
     fprintf(stdout, "%s",
@@ -622,13 +623,15 @@ void BoardStatusPrint(_Board * b) {
       (info == GAME_FIFTY_MOVES)  ? "Fifty moves rule" :
       (info == GAME_THREE_FOLD)  ? "Three fold rule" :
       (info == GAME_WHITE_CANNOT)  ? 
-        "Black runs out of time and white cannot win" :
+        "Black ran of time and White cannot win" :
       (info == GAME_BLACK_CANNOT)  ? 
-        "White runs out of time and black cannot win" :
+        "White ran of time and Black cannot win" :
       (info == GAME_AGREES)  ? "Players agree" :
         "UNKNOWN GAME STATUS"); 
   }
-  assert(cases == 1);
-
   fflush(stdout);
+  if(WinOrDraw != 1) {
+    fprintf(stderr, "Error: UNKNOWN GAME STATUS"); 
+    fflush(stderr);
+  }
 }

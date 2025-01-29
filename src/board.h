@@ -238,7 +238,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
   }
   assert(*fen++ == ' ');
 
-  b->enpassante = OUTSIDE;
+  b->enpassante = OUTSIDE+1;
   if(*fen != '-'){
     b->enpassante = BoardSquareParse(fen);
     ++fen;
@@ -424,15 +424,16 @@ void BoardMove(_Board * b, _BoardMove * move){
   Square from = move->from.square,
     to = move->to.square;
   Piece * pieces = b->pieces;
-  assert(pieces[from] == move->from.piece);
-  /*if(pieces[from] != move->from.piece) {
+if(pieces[from] != move->from.piece) {
     Square * A = SquarePointer(from);
     Square * B = SquarePointer(to);
     fprintf(stdout, "\n %c%c %c/%c -> %c%c %c",
       SQUARE_FILE(A), SQUARE_RANK(A), 
       MAPPING[pieces[from]], MAPPING[move->from.piece],
       SQUARE_FILE(B), SQUARE_RANK(B), MAPPING[move->to.piece]);
-  }*/
+fflush(stdout);
+}
+  assert(pieces[from] == move->from.piece);
   
   pieces[from] = EMPTY;
   pieces[to]   = (move->flags & MOVE_PROMOTION) ? 

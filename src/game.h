@@ -1,9 +1,10 @@
+#include "move.h"
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   3 structs commonly used in this header file.
   a) unsigned char : A square of the chessboard
-  b) _GameMove : Info corresponding to a move from ..
+  b) _BoardMove : Info corresponding to a move from ..
     the current board location
   c) _Game : Store all the information corresponding to ..
     a chess game including board information, other ..
@@ -22,8 +23,6 @@ typedef struct {
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
-  Function to print the current FEN to stdout:
-    GamePrintFEN(_Game * g);
   Function to print the current board to stdout.
     GamePrintBoard(_Game * g, int persist);
   In the above function use "persist" as 1 to print ..
@@ -31,10 +30,6 @@ typedef struct {
   .. small delay (0.4 s);
 ------------------------------------------------------------
 --------------------------------------------------------- */
-
-static inline void GamePrintFEN(_Game * g){
-  fprintf(stdout, "\n%s", g->fen);
-}
 
 void GamePrintBoard(_Game * g, int persist) {
   
@@ -47,7 +42,7 @@ void GamePrintBoard(_Game * g, int persist) {
     printf("\033[2J");       // Clear the screen
     printf("\033[1;1H");     //Cursor on the left top left
   } 
-  GamePrintFEN(g);
+  fprintf(stdout, "\n%s", g->fen);
   BoardPrint(g->board);
 }
 
@@ -73,7 +68,7 @@ void GameSetBoard(_Game * g, char * _fen) {
     g->fen[i] = fen[i];
     g->fen[i+1] = '\0';  
   }
-  BoardSetFromFEN(g->b, g->fen);
+  BoardSetFromFEN(g->board, g->fen);
 }
 
 /* ---------------------------------------------------------
@@ -116,7 +111,7 @@ void GamePopHistory(_Game * g){
 --------------------------------------------------------- */
 void GameFEN(_Game * g){
   /* Get FEN from Board */
-  BoardSetFEN(g->board, g->fen);
+  BoardFEN(g->board, g->fen);
 }
 
 /* ---------------------------------------------------------
@@ -135,17 +130,17 @@ void GameFEN(_Game * g){
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-_GameMove * GameBot(_Game * g) {
+_BoardMove * GameBot(_Game * g) {
   // Algorithm Not yet implemented
   // Random move (As of now)
-  _GameMove * move = NULL;
+  _BoardMove * move = NULL;
       
   int random_number = rand();
   if(g->moves->len) {
     
-    int nmoves = (g->moves->len) / sizeof(_GameMove);
+    int nmoves = (g->moves->len) / sizeof(_BoardMove);
 
-    move = (_GameMove *) g->moves->p;
+    move = (_BoardMove *) g->moves->p;
     int imove = floor (((double) nmoves)*rand()/RAND_MAX);
     move += imove;
   }
@@ -153,22 +148,22 @@ _GameMove * GameBot(_Game * g) {
   return move;
 }
 
-void GameError(_Game * g) {
-  BoardStatusPrint(g->board);
-}
+//void GameError(_Game * g) {
+//  BoardStatusPrint(g->board);
+//}
 
 //Next Move
-Flag GameMove(_Game * g, _GameMove * move){
-  Flag status = BoardUpdate(g->board,move);
+Flag GameMove(_Game * g, _BoardMove * move){
+  Flag status = BoardUpdate(g->board,move,g->moves);
   GameFEN(g);
   return status;
 }
 
 Flag Game(_Game * g) {
   srand(time(0));
-  Array * move; 
-  while ( !g->status ){
-    _GameMove * move = NULL;
+  _Board * b = g->board;
+  while ( b->status == GAME_CONTINUE ){
+    _BoardMove * move = NULL;
     if(1)
       move = GameBot(g);
     else {
@@ -177,8 +172,9 @@ Flag Game(_Game * g) {
     GameMove(g, move); 
     GamePrintBoard(g, 1);
   }
-  assert(g->status); //Game is over
-  return (g->status);
+  //assert(b->status); //Game is over
+  BoardStatusPrint(b);
+  return (b->status);
 }
 
 /* ---------------------------------------------------------
@@ -196,25 +192,25 @@ _Game * GameNew(char * fen){
   BoardInitIterator();
   //Game instance
   _Game * g = (_Game *) malloc (sizeof (_Game));
-  g->board = Board(NULL);
-  //Allocate memory for possible moves,
-  g->moves = array_new();
-  //Allocate memory for game history.
-  g->history = array_new();
-  //Set the Chessboard
+  _Board * b = Board(NULL);
+  g->board = b; 
   GameSetBoard(g, fen);
-  //FIXME:BoardStatus();
+  //Allocate memory for possible moves,
+  Array * moves = array_new();
+  g->moves = moves; 
+  //Allocate memory for game history.
+  Array * history = array_new();
+  g->history = history;
   //See if the king (whose turn) is on check    
-  g->check = GameIsKingAttacked(g, g->color);
+  b->check = BoardIsKingAttacked(b, b->color);
   //Creates list of moves for the new board
-  GameAllMoves(g);
-  if(g->status) {
+  BoardAllMoves(b, g->moves);
+  if(b->status) {
     fprintf(stderr, "\nWARNING : Game loaded has no moves");
-    GameError(g->status);
+    BoardStatusPrint(b);
   }
  
   return g; 
-  
 } 
 
 void GameDestroy(_Game * g) {
