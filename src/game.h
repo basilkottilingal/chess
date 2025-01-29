@@ -192,59 +192,8 @@ void GameError(unsigned int error) {
 //Next Move
 int GameMove(_Game * g, _GameMove * move){
 
-  unsigned char * board = g->board[0];
-
-  if(!move) {
-    fprintf(stderr, "\nError: Move not chosen by bot");
-    fprintf(stderr, "\nProbably loaded game is over");
-    fflush(stdout);
-    return 1; //Game Stopped
-  }
-
-  //Move
-  GameMovePiece(g, move); 
-
-  //Udate the halfclock, fullclock
-  g->fullclock += (!g->color);
-  g->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
-    ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
-      ? 0 : (g->halfclock + 1));
-  //Change the Turn
-  g->color = !g->color;
-  //Is the board on Check?
-  g->check = move->flags & MOVE_CHECK;
-  //Set En-Passante square while double pawn advance
-  if( move->from.piece == WPAWN &&
-      (move->from.square - move->to.square == 16) ) 
-    g->enpassante = move->from.square - 8;
-  else if( move->from.piece == BPAWN && 
-      (move->to.square - move->from.square == 16) ) 
-    g->enpassante = move->from.square + 8;
-  else
-    g->enpassante = OUTSIDE;
+  BoardUpdate(g->board,move);
   
-  if(g->castling) {
-    //Switching off castling if king move moves
-    if(move->from.square == 4)
-      g->castling &= ~(MOVE_qCASTLE | MOVE_kCASTLE);
-    else if (move->from.square == 60)
-      g->castling &= ~(MOVE_QCASTLE | MOVE_KCASTLE);
-  
-    //Switching off castling if corner rooks move/captured
-    if(move->from.square == 0 || move->to.square == 0)
-      g->castling &= ~MOVE_qCASTLE;
-    if(move->from.square == 7 || move->to.square == 7)
-      g->castling &= ~MOVE_kCASTLE;
-    if(move->from.square == 56 || move->to.square == 56)
-      g->castling &= ~MOVE_QCASTLE;
-    if(move->from.square == 63 || move->to.square == 63)
-      g->castling &= ~MOVE_KCASTLE;
-  }
-
-  //Total number of pieces
-  if(move->flags & MOVE_CAPTURE)
-    --(g->board->npieces);
-
   //move is completed
   //move = NULL;
   
@@ -252,7 +201,6 @@ int GameMove(_Game * g, _GameMove * move){
   GameFEN(g);
   //Creates list of moves for the new board
   //Game continues if (g->status == 0)
-  return (GameAllMoves(g));
 }
 
 unsigned int Game(_Game * g) {

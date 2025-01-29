@@ -42,10 +42,11 @@ int main(){
   //GameAllMoves(g);
   BoardPrint(b);
 
-  Array * moves = BoardAllMoves(b, NULL);
-  if(moves) {
-    _BoardMove * move = moves->p;
-    for(int i=0; i<(int) moves->len/sizeof(_BoardMove); ++i, ++move){
+  Array moves = {.p = NULL, .len = 0, .max = 0};
+  Flag status = BoardAllMoves(b, &moves);
+  if(status == GAME_CONTINUE) {
+    _BoardMove * move = moves.p;
+    for(int i=0; i<(int) moves.len/sizeof(_BoardMove); ++i, ++move){
 {
       clock_t start_time = clock();
       clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 

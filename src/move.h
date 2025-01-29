@@ -482,34 +482,26 @@ enum GAME_STATUS{
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-Array * BoardAllMoves(_Board * b, Array * m){
+Flag BoardAllMoves(_Board * b, Array * moves){
 
+  assert(moves);
   BoardMakeAvailable(b);
 
   /* Find all moves by rule*/ 
 
   b->status = GAME_CONTINUE;
   //Look for draw
-  if(b->halfclock == 50) {
+  if(b->halfclock == 50) 
     //Draw by 50 moves rule.
     b->status = (GAME_IS_A_DRAW | GAME_FIFTY_MOVES); 
-  }
-  if (!b->npieces) {
+  if (!b->npieces) 
     //Insufficient pieces
     b->status = (GAME_IS_A_DRAW | GAME_INSUFFICIENT); 
-  }
 
-  if(b->status) {
-    //Game over
-    if(m)
-      m->len = 0;       
-    return NULL;
-  }
-      
-  Array * moves = (m == NULL) ? array_new() : m;
   moves->len = 0;
-
-  fprintf(stdout, "A"); fflush(stdout);
+  if(b->status) 
+    //Game over
+    return b->status;
 
   for (int i=0; i<8; ++i)
     for(int j=0; j<8; ++j) {
@@ -521,18 +513,17 @@ Array * BoardAllMoves(_Board * b, Array * m){
       //Generate possible moves with the 'piece' 
       BoardPieceMoves[SQUARE_PIECE(from)](b, from, moves);
     }
-  fprintf(stdout, "B"); fflush(stdout);
   
   //Removing Invalid Moves
   size_t smove = sizeof(_BoardMove);
   int nmoves =  (int) (moves->len / smove);
   _BoardMove * move = (_BoardMove *) (moves->p);
-  _BoardMove * _move = move;
+  _BoardMove * m = move;
   for(int i=0; i<nmoves; ++i, ++move) {
     if(BoardIsMoveValid(b, move)) {
-      if(!(_move == move)) //To avoid memcpy to same dest
-        memcpy(_move, move, smove);
-      ++_move;
+      if(!(m == move)) //To avoid memcpy to same dest
+        memcpy(m, move, smove);
+      ++m;
     }
     else 
       moves->len -= smove;
@@ -540,20 +531,68 @@ Array * BoardAllMoves(_Board * b, Array * m){
 
   //See if theBoard is over. Bcs no moves available
   if(!moves->len) {
-    if(b->check)
-      //someone wins 
-      b->status = (GAME_IS_A_WIN | b->color); 
-    else
-      b->status = (GAME_IS_A_DRAW | GAME_STALEMATE); 
-    if(!m) {
-      array_free(moves);
-      return NULL;
-    } 
+    b->status =  b->check ?     // was the board on check?
+      (GAME_IS_A_WIN | b->color) : // then: someone wins 
+      (GAME_IS_A_DRAW | GAME_STALEMATE); // otherwise:Stalemate
   } 
 
-  if(!m)
-    array_shrink(moves);
+  return b->status; 
+}
+
+Flag  
+BoardUpdate(_Board * b, _BoardMove * move, Array * moves){
+
+  if(!move) {
+    fprintf(stderr, "\nError: Move not chosen");
+    fprintf(stderr, "\nProbably loaded game is over");
+    fflush(stdout);
+    return 1; //Game Stopped
+  }
+
+  //Move
+  BoardMove(b, move); 
+
+  //Udate the halfclock, fullclock
+  b->fullclock += (!b->color);
+  b->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
+    ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
+      ? 0 : (b->halfclock + 1));
+  //Change the Turn
+  b->color = !b->color;
+  //Is the board on Check?
+  b->check = move->flags & MOVE_CHECK;
+  //Set En-Passante square while double pawn advance
+  if( move->from.piece == WPAWN &&
+      (move->from.square - move->to.square == 16) ) 
+    b->enpassante = move->from.square - 8;
+  else if( move->from.piece == BPAWN && 
+      (move->to.square - move->from.square == 16) ) 
+    b->enpassante = move->from.square + 8;
+  else
+    b->enpassante = OUTSIDE;
   
-  /* Array * moves contains all legal moves */
-  return moves; 
+  if(b->castling) {
+    //Switching off castling if king move moves
+    if(move->from.square == 4)
+      b->castling &= ~(MOVE_qCASTLE | MOVE_kCASTLE);
+    else if (move->from.square == 60)
+      b->castling &= ~(MOVE_QCASTLE | MOVE_KCASTLE);
+  
+    //Switching off castling if corner rooks move/captured
+    if(move->from.square == 0 || move->to.square == 0)
+      b->castling &= ~MOVE_qCASTLE;
+    if(move->from.square == 7 || move->to.square == 7)
+      b->castling &= ~MOVE_kCASTLE;
+    if(move->from.square == 56 || move->to.square == 56)
+      b->castling &= ~MOVE_QCASTLE;
+    if(move->from.square == 63 || move->to.square == 63)
+      b->castling &= ~MOVE_KCASTLE;
+  }
+
+  //Total number of pieces
+  if(move->flags & MOVE_CAPTURE)
+    --(b->npieces);
+ 
+  //Update the list of moves; 
+  return(BoardAllMoves(b, moves));
 }
