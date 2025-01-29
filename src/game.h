@@ -153,58 +153,20 @@ _GameMove * GameBot(_Game * g) {
   return move;
 }
 
-void GameError(unsigned int error) {
-  if (error & 15) {
-    unsigned int e = error & 15;
-    if (e == 1) {
-      fprintf(stderr, "Warning: Loaded game has no moves");
-    }
-    fflush(stderr);
-  }
-  if( error & 16) {
-    fprintf(stdout, "\n %s wins by %s", 
-      error & 32 ? "WHITE" : "BLACK",
-      error & 64 ? "time" : "checkmate");
-  }
-  else if (error & 128) {
-    unsigned int e = (error >> 8) & (1 | 2 | 4);
-    fprintf(stdout, "\n Draw:");
-    if(e == 0)
-      fprintf(stdout, "Stalemate");
-    else if (e == 1)
-      fprintf(stdout, "Insufficient Material");
-    else if (e == 2)
-      fprintf(stdout, "Fifty-Move Rule");
-    else if (e == 3)
-      fprintf(stdout, "Threefold rule");
-    else if (e == 4)
-      fprintf(stdout, 
-        "BLACK runs out of time and WHITE cannot win");
-    else if (e == 5)
-      fprintf(stdout, 
-        "WHITE runs out of time and BLACK cannot win");
-    else
-      fprintf(stderr, "Error : Unknown Draw Reason");
-  }
-  fflush(stdout);
+void GameError(_Game * g) {
+  BoardStatusPrint(g->board);
 }
 
 //Next Move
-int GameMove(_Game * g, _GameMove * move){
-
-  BoardUpdate(g->board,move);
-  
-  //move is completed
-  //move = NULL;
-  
-  //Update FEN
+Flag GameMove(_Game * g, _GameMove * move){
+  Flag status = BoardUpdate(g->board,move);
   GameFEN(g);
-  //Creates list of moves for the new board
-  //Game continues if (g->status == 0)
+  return status;
 }
 
-unsigned int Game(_Game * g) {
-  srand(time(0)); 
+Flag Game(_Game * g) {
+  srand(time(0));
+  Array * move; 
   while ( !g->status ){
     _GameMove * move = NULL;
     if(1)

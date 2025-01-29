@@ -596,3 +596,39 @@ BoardUpdate(_Board * b, _BoardMove * move, Array * moves){
   //Update the list of moves; 
   return(BoardAllMoves(b, moves));
 }
+
+void BoardStatusPrint(_Board * b) {
+  Flag f = b->status;
+  if(f == GAME_CONTINUE) {
+    fprintf(stdout, " Game Not Over Yet");
+    fflush(stdout);
+    return;
+  }
+  Flag cases = 0;
+  if (f & GAME_IS_A_WIN) {
+    ++cases;
+    fprintf(stdout, "\n %s wins by %s", 
+      f & GAME_WHO_WINS ? "WHITE" : "BLACK",
+      (f & GAME_IS_WON_BY_TIME) ? "time" : 
+      (f & GAME_IS_WON_BY_FORFEIT) ? "opponent's forfeit" :
+      "checkmate");
+  }
+  if (f & GAME_IS_A_DRAW) {
+    fprintf(stdout, "\n Draw : ");
+    Flag info = f & GAME_DRAW_INFO;
+    fprintf(stdout, "%s",
+      (info == GAME_STALEMATE)  ? "Stalemate" :
+      (info == GAME_INSUFFICIENT)  ? "Insufficient Material" :
+      (info == GAME_FIFTY_MOVES)  ? "Fifty moves rule" :
+      (info == GAME_THREE_FOLD)  ? "Three fold rule" :
+      (info == GAME_WHITE_CANNOT)  ? 
+        "Black runs out of time and white cannot win" :
+      (info == GAME_BLACK_CANNOT)  ? 
+        "White runs out of time and black cannot win" :
+      (info == GAME_AGREES)  ? "Players agree" :
+        "UNKNOWN GAME STATUS"); 
+  }
+  assert(cases == 1);
+
+  fflush(stdout);
+}
