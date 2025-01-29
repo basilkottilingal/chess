@@ -31,12 +31,13 @@ typedef struct {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-void GamePrintBoard(_Game * g, int persist) {
+void GamePrintBoard(_Game * g, Flag microSec) {
   
   //if persist. It clears the window
-  if(persist) {
+  if(microSec) {  
+    microSec = microSec > 1000 ? 1000 : microSec;
     clock_t start_time = clock();
-    clock_t wait_time = 0.01*CLOCKS_PER_SEC ; //sleep time 
+    clock_t wait_time = (0.001*microSec)*CLOCKS_PER_SEC ; //sleep time 
     while (clock() - start_time < wait_time) {};
 
     printf("\033[2J");       // Clear the screen
@@ -59,6 +60,9 @@ const char FEN_DEFAULT[] =
 void GameSetBoard(_Game * g, char * _fen) {
   char * fen = _fen ? _fen : FEN_DEFAULT;
   g->fen[0] = '\0';
+  Flag isEnd = 0;
+  for (int i=0; i < FEN_MAXSIZE; ++i)
+    if(
   for (int i=0; fen[i] != '\0'; ++i){
     if(i == FEN_MAXSIZE - 1){
       fprintf(stderr, "Error: Very Long FEN");
@@ -170,7 +174,7 @@ Flag Game(_Game * g) {
       //Input from an input device
     }
     GameMove(g, move); 
-    GamePrintBoard(g, 1);
+    GamePrintBoard(g, 500);
   }
   //assert(b->status); //Game is over
   BoardStatusPrint(b);

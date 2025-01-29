@@ -132,34 +132,10 @@ void BoardInitIterator(){
   squareBoard += p;
   for(int r=-2;r<10; ++r)
     for(int f=-2; f<10; ++f) {
-      char square = 8*r + f;
       squareBoard[r][f] = (r<0 || r>=8 || f<0 || f>=8) ?
-        OUTSIDE : (Square) square;
+        OUTSIDE : (Square)  (8*r + f);
     }
   GAMEBOARD = squareBoard;
-}
-
-_Board * Board(_Board * source) {
-  /* GAMEBOARD is a bit different from "board". .. 
-  .. GAMEBOARD is more like an iterator. It's global for ..
-  .. any game, and help through each ..
-  .. square ( = GAMEBOARD[r][c])  of the board ..
-  .. and can be used to find the piece = (PIECES[square]) */
-  if(!GAMEBOARD)
-    BoardInitIterator();
-     
-  _Board * board = (_Board *) malloc (sizeof (_Board));
-  Piece * pieces = (Piece *) malloc(64* sizeof(Piece));
-  board->pieces = pieces;
-  if(source) 
-    //Copy in case there is a source specified 
-    BoardCopy(board, source);
-  return board;
-}
-
-void BoardDestroy(_Board * b){
-  free(b->pieces);
-  free(b);
 }
 
 Square ** BoardMakeAvailable(_Board * b){
@@ -318,7 +294,7 @@ void BoardFEN(_Board * b, char * fen) {
   *fen++ = ' ';
 
   //enpassante
-  if(b->enpassante == OUTSIDE)
+  if(b->enpassante == OUTSIDE+1)
     *fen++ = '-';
   else {  
     *fen++ = 'a' + (b->enpassante)%8;
@@ -342,6 +318,39 @@ void BoardFEN(_Board * b, char * fen) {
     for(int j=pos; j<5; ++j)
       *fen++ = h[j];
   }
+}
+
+_Board * Board(_Board * source, char * fen) {
+  /* GAMEBOARD is a bit different from "board". .. 
+  .. GAMEBOARD is more like an iterator. It's global for ..
+  .. any game, and help through each ..
+  .. square ( = GAMEBOARD[r][c])  of the board ..
+  .. and can be used to find the piece = (PIECES[square]) */
+  if(!GAMEBOARD)
+    BoardInitIterator();
+     
+  _Board * board = (_Board *) malloc (sizeof (_Board));
+  Piece * pieces = (Piece *) malloc(64* sizeof(Piece));
+  board->pieces = pieces;
+  if(source) 
+    //Copy in case there is a source specified 
+    BoardCopy(board, source);
+  else if (fen) 
+    //Set board from FEN;
+    BoardSetFromFEN(board, fen);
+  else {
+    fprintf(stderr, 
+      "ERROR: Neither source board nor FEN specified");
+    fflush(stderr);
+    exit(-1);
+  }   
+  
+  return board;
+}
+
+void BoardDestroy(_Board * b){
+  free(b->pieces);
+  free(b);
 }
 
 void BoardPrint(_Board * board){

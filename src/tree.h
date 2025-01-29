@@ -5,42 +5,6 @@ TODO: mempool for board and moves. Cap a limit too the pool.
 Parallel Tree Generation, Traversal etc
 */
 
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  Copying a _Game instance (_g) to a newly .. 
-  .. created instance (g).
-------------------------------------------------------------
---------------------------------------------------------- */
-_Game * GameCopy(_Game * _g) {
-  // Create and copy.
-  _Game * g = (_Game *) malloc (sizeof (_Game));
-  memcpy (g, _g, sizeof(_Game));
-
-  // Now update all the pointers
-
-  // Create New board and content the copy of board
-  g->board = GameBoard();
-  memcpy( &(g->board[-2][-2]), &(_g->board[-2][-2]), 
-    144*sizeof(_GameSquare) );
-
-  // Not used.
-  g->history = NULL; 
-
-  // Copy moves from "_g->moves" rather than generating moves.
-  // And shrink the array to avoid using larger memory for ..
-  // .. smaller sized data
-  g->moves = array_new();
-  array_append(g->moves, _g->moves->p, _g->moves->len);
-  array_shrink(g->moves);
-
-  // Update the pointers for King location
-  for(int i=0; i<2; ++i) {
-    unsigned char k = _g->king[i]->square;
-    g->king[i] = &(g->board[k/8][k%8]);
-  }
- 
-  return g; 
-}
 
 
 /* ---------------------------------------------------------
@@ -57,22 +21,20 @@ _Game * GameCopy(_Game * _g) {
   .. expand further from that node. 
 ------------------------------------------------------------
 --------------------------------------------------------- */
-typedef struct _TreeNode{
+typedef struct _Tree{
   //unsigned int id; 
-  _Game * g;
-  //unsigned int gstatus;
+  _Board * b;
 
-  //level. level in [0, depth)
-  unsigned char level; // [0,8) ??
-  unsigned char flags; //identify 
+  Flag level; // level \in [0,8) ??
+  Flag flags; // identify type of node
  
-  int eval;//board evaluation value \in [-5000, 5000]
-  _GameMove * move; //preferred move using evaluation
+  int eval;   //board evaluation value \in [-5000, 5000]
 
   //Graph Connection using pointers
-  unsigned char nchildren;
-  struct _TreeNode * parent; 
-  struct _TreeNode * children; 
+  Flag nchildren;
+  struct _Tree * root;     //this node
+  struct _Tree * parent;   //parent node
+  struct _Tree * children; //children
 } _TreeNode;
 
 #define TREE_MAX_DEPTH 4
@@ -91,11 +53,10 @@ typedef struct _TreeNode{
 --------------------------------------------------------- */
 
 void TreeNode(_TreeNode * node, _TreeNode * parent, 
-    _Game * g, _GameMove * move) {
-  //node->id = rand();
+    _Board * b, _BoardMove * move) {
 
-  assert(!g->status);
-  node->g = GameCopy(g);
+  assert(b->status == GAME_CONTINUE);
+  node->b = Board();
   node->flags = IS_LEAF_NODE;
   if(parent == NULL) { 
     //New node is the root node

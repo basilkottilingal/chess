@@ -387,7 +387,7 @@ void BoardPawnMoves(_Board * b, Square * from,
     };
      
     if(flags & MOVE_PROMOTION) {
-      move.from.piece = SQUARE_PIECE(from);
+      move.promotion = SQUARE_PIECE(from);
       for(int i=0; i<4; ++i) {
         //'p' is promoted to 'r','b','n' and 'q'
         move.promotion += 1 << PIECE_SHIFT; 
@@ -415,7 +415,7 @@ void BoardPawnMoves(_Board * b, Square * from,
       .flags = flags
     };
     if(flags & MOVE_PROMOTION) {
-      move.from.piece = SQUARE_PIECE(from);
+      move.promotion = SQUARE_PIECE(from);
       for(int i=0; i<4; ++i) {
         //'p' is promoted to 'r','b','n' and 'q'
         move.promotion += 1 << PIECE_SHIFT; 
