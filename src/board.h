@@ -320,7 +320,7 @@ void BoardFEN(_Board * b, char * fen) {
   }
 }
 
-_Board * Board(_Board * source, char * fen) {
+_Board * Board(_Board * source) {
   /* GAMEBOARD is a bit different from "board". .. 
   .. GAMEBOARD is more like an iterator. It's global for ..
   .. any game, and help through each ..
@@ -335,15 +335,6 @@ _Board * Board(_Board * source, char * fen) {
   if(source) 
     //Copy in case there is a source specified 
     BoardCopy(board, source);
-  else if (fen) 
-    //Set board from FEN;
-    BoardSetFromFEN(board, fen);
-  else {
-    fprintf(stderr, 
-      "ERROR: Neither source board nor FEN specified");
-    fflush(stderr);
-    exit(-1);
-  }   
   
   return board;
 }
@@ -426,6 +417,30 @@ typedef struct {
   Piece promotion;
   char SAN[8];
 }_BoardMove;
+
+enum GAME_STATUS{
+  GAME_CONTINUE = 0,      // Game continues;
+  GAME_IS_A_WIN = 16,     // One wins
+  GAME_IS_A_DRAW = 32,    // Draws
+  /* Intermediate stages of board.*/
+  GAME_METADATA_NOTUPDATED = 64, //
+  GAME_STATUS_NOTUPDATED = 64|128, //
+  /* Encode unknown error*/
+  GAME_ERROR_UNKNOWN = 128,
+  /* Info on WIN */
+  GAME_WHO_WINS = 1,
+  GAME_IS_WON_BY_TIME = 2,
+  GAME_IS_WON_BY_FORFEIT = 4,
+  /* Info on draw = (STATS & GAME_DRAW_INFO)*/
+  GAME_DRAW_INFO = 15,
+  GAME_STALEMATE = 0,
+  GAME_INSUFFICIENT = 1,
+  GAME_FIFTY_MOVES = 2,
+  GAME_THREE_FOLD = 3,
+  GAME_WHITE_CANNOT = 4,
+  GAME_BLACK_CANNOT = 5,
+  GAME_AGREES = 6
+};
  
 void BoardMove(_Board * b, _BoardMove * move){
 
@@ -479,9 +494,14 @@ fflush(stdout);
     //assert(b->enpassante == to);
     pieces[to + (b->color ? 8 : -8)] = EMPTY;
   }
+  
+  b->status |= GAME_METADATA_NOTUPDATED;
 } 
   
 void BoardUnmove(_Board * b, _BoardMove * move){
+  
+  //assert(b->status == GAME_METADATA_NOTUPDATED);
+  b->status &= ~GAME_METADATA_NOTUPDATED;
   assert(move);
   Square from = move->from.square,
     to = move->to.square;

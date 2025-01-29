@@ -448,26 +448,6 @@ void (*BoardPieceMoves[14]) (_Board *, Square *, Array * )
       BoardQueenMoves, BoardQueenMoves,
       BoardKingMoves, BoardKingMoves };
 
-enum GAME_STATUS{
-  GAME_CONTINUE = 0,      // Game continues;
-  GAME_IS_A_WIN = 16,     // One wins
-  GAME_IS_A_DRAW = 32,    // Draws
-  GAME_STATUS_ERROR = 64, // Unknown status
-  /* Info on WIN */
-  GAME_WHO_WINS = 1,
-  GAME_IS_WON_BY_TIME = 2,
-  GAME_IS_WON_BY_FORFEIT = 4,
-  /* Info on draw = (STATS & GAME_DRAW_INFO)*/
-  GAME_DRAW_INFO = 15,
-  GAME_STALEMATE = 0,
-  GAME_INSUFFICIENT = 1,
-  GAME_FIFTY_MOVES = 2,
-  GAME_THREE_FOLD = 3,
-  GAME_WHITE_CANNOT = 4,
-  GAME_BLACK_CANNOT = 5,
-  GAME_AGREES = 6
-};
-
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   Functions that generate moves for each pieces . 
@@ -539,18 +519,8 @@ Flag BoardAllMoves(_Board * b, Array * moves){
   return b->status; 
 }
 
-Flag  
-BoardUpdate(_Board * b, _BoardMove * move, Array * moves){
-
-  if(!move) {
-    fprintf(stderr, "\nError: Move not chosen");
-    fprintf(stderr, "\nProbably loaded game is over");
-    fflush(stdout);
-    return 1; //Game Stopped
-  }
-
-  //Move
-  BoardMove(b, move); 
+void
+BoardUpdateMetadata(_Board * b, _BoardMove * move) {
 
   //Udate the halfclock, fullclock
   b->fullclock += (!b->color);
@@ -592,8 +562,27 @@ BoardUpdate(_Board * b, _BoardMove * move, Array * moves){
   //Total number of pieces
   if(move->flags & MOVE_CAPTURE)
     --(b->npieces);
+
+  assert(b->status == GAME_METADATA_NOTUPDATED);
+  b->status = GAME_STATUS_NOTUPDATED;
+}
+
+Flag  
+BoardNext(_Board * b, _BoardMove * move, Array * moves){
+
+  if(!move) {
+    fprintf(stderr, "\nERROR: Move not chosen");
+    fprintf(stderr, "\nProbably loaded game is over");
+    fflush(stdout);
+    return 1; //Game Stopped
+  }
+
+  //Move the bitboard 
+  BoardMove(b, move); 
+  //Update the associated metadata of the board
+  BoardUpdateMetadata(b, move);
  
-  //Update the list of moves; 
+  //Store the list of moves in ; 
   return(BoardAllMoves(b, moves));
 }
 
@@ -615,9 +604,8 @@ void BoardStatusPrint(_Board * b) {
   }
   if (f & GAME_IS_A_DRAW) {
     ++WinOrDraw;
-    fprintf(stdout, "\n Draw : ");
     Flag info = f & GAME_DRAW_INFO;
-    fprintf(stdout, "%s",
+    fprintf(stdout, "\n Draw : %s",
       (info == GAME_STALEMATE)  ? "Stalemate" :
       (info == GAME_INSUFFICIENT)  ? "Insufficient Material" :
       (info == GAME_FIFTY_MOVES)  ? "Fifty moves rule" :
@@ -627,11 +615,24 @@ void BoardStatusPrint(_Board * b) {
       (info == GAME_BLACK_CANNOT)  ? 
         "White ran of time and Black cannot win" :
       (info == GAME_AGREES)  ? "Players agree" :
-        "UNKNOWN GAME STATUS"); 
+        "ERROR: Unkown reason for a draw!! "); 
   }
   fflush(stdout);
   if(WinOrDraw != 1) {
-    fprintf(stderr, "Error: UNKNOWN GAME STATUS"); 
+    fprintf(stderr, 
+      "\nERROR: Game 'ended' has to be exclusively draw/win"); 
     fflush(stderr);
   }
+  else
+    return;
+  if(f == GAME_METADATA_NOTUPDATED)
+    fprintf(stderr, 
+      "\nERROR: Incomplete Move. Metadata/status not updated");
+  else if (f == GAME_STATUS_NOTUPDATED)
+    fprintf(stderr, 
+      "\nERROR: Incomplete Move. Status not updated");
+  else
+    fprintf(stderr, 
+      "\nERROR: Unknown game status");
+  fflush(stderr);
 }

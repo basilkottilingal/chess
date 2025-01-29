@@ -23,18 +23,17 @@ Parallel Tree Generation, Traversal etc
 --------------------------------------------------------- */
 typedef struct _Tree{
   //unsigned int id; 
-  _Board * b;
+  _Board * board;
 
-  Flag level; // level \in [0,8) ??
-  Flag flags; // identify type of node
- 
-  int eval;   //board evaluation value \in [-5000, 5000]
-
-  //Graph Connection using pointers
-  Flag nchildren;
-  struct _Tree * root;     //this node
+  //Tree Connection using pointers
   struct _Tree * parent;   //parent node
   struct _Tree * children; //children
+
+  Flag level;     // level \in [0,MAX_TREE_MAX_DEPTH) ??
+  Flag flags;     // identify type of node
+  Flag nchildren; // number of possible moves 
+ 
+  int eval;   //board evaluation value \in [-5000, 5000]
 } _TreeNode;
 
 #define TREE_MAX_DEPTH 4
@@ -52,24 +51,32 @@ typedef struct _Tree{
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-void TreeNode(_TreeNode * node, _TreeNode * parent, 
+void TreeNode(_Tree * node, _Tree * parent, 
     _Board * b, _BoardMove * move) {
 
   assert(b->status == GAME_CONTINUE);
-  node->b = Board();
+
   node->flags = IS_LEAF_NODE;
+  node->board = Board(b);
   if(parent == NULL) { 
-    //New node is the root node
     node->flags |= IS_ROOT_NODE;
-    node->level = 0;
+    node->level = 0; 
   }
   else {
     node->level = parent->level + 1;
-    GameMove(node->g, move);
+    BoardMove(board, move);
+    BoardUpdateMetadata(board, move);
   }
+  node->parent = parent;
+  node->nchildren = 0;
+  node->children = NULL;
+
+  return;
+}
 //fprintf(stdout, "NewNode @ %d", node->level);
 
-  if(!node->g->status) {
+  /*
+  if(board->status == GAME_CONTINUE) {
     // This node is potential to expand; 
     // Or the game still not over.
     node->flags |= IS_PRUNED_NODE;
@@ -78,18 +85,14 @@ void TreeNode(_TreeNode * node, _TreeNode * parent,
   }
   else {
     // Redundant; bcs Not used in case (node->children == NULL)
-    node->nchildren = 0;
+    
     // assume the node is not the root node.
     // Bcs, make a tree with no possible moves is useless.
     assert( !(node->flags & IS_ROOT_NODE) );  
   }
+  */
 
-  //tree links
-  node->parent = parent;
-  node->children = NULL;
 
-  return;
-}
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   Free Memory associated with a Node 
@@ -98,15 +101,15 @@ void TreeNode(_TreeNode * node, _TreeNode * parent,
 --------------------------------------------------------- */
 
 //Destroy Leaf Nodes;
-int TreeNodeDestroy(_TreeNode * node) {
+int TreeNodeDestroy(_Tree * node) {
   // Make sure that it's leaf node; 
   assert( node->flags & IS_LEAF_NODE );
   assert( node->children == NULL );
   // Destroy associated memory created for "node". ..
   // Note: Assume memory for "node->children" are  ..
   // .. destroyed before.
-  GameDestroy( node->g );
-  node->g = NULL;
+  BoardDestroy( node->board );
+  node->board = NULL;
   return 1;  
 }
 
@@ -117,11 +120,14 @@ int TreeNodeDestroy(_TreeNode * node) {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-int TreeNodeExpand(_TreeNode * node) {
+int TreeNodeExpand(_Tree * node) {
 
+  /*
   if( !(node->flags & IS_PRUNED_NODE) ) {
     return 0; //Cannot expand this node; 
   }
+  */
+  
 
   //to avoid uncontrolled expansion of tree 
   assert( node->level < TREE_MAX_DEPTH );

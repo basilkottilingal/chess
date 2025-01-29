@@ -60,12 +60,9 @@ const char FEN_DEFAULT[] =
 void GameSetBoard(_Game * g, char * _fen) {
   char * fen = _fen ? _fen : FEN_DEFAULT;
   g->fen[0] = '\0';
-  Flag isEnd = 0;
-  for (int i=0; i < FEN_MAXSIZE; ++i)
-    if(
   for (int i=0; fen[i] != '\0'; ++i){
     if(i == FEN_MAXSIZE - 1){
-      fprintf(stderr, "Error: Very Long FEN");
+      fprintf(stderr, "\nERROR: Very Long FEN");
       fflush(stderr);
       exit(-1);
     }
@@ -158,7 +155,7 @@ _BoardMove * GameBot(_Game * g) {
 
 //Next Move
 Flag GameMove(_Game * g, _BoardMove * move){
-  Flag status = BoardUpdate(g->board,move,g->moves);
+  Flag status = BoardNext(g->board,move,g->moves);
   GameFEN(g);
   return status;
 }
@@ -174,7 +171,7 @@ Flag Game(_Game * g) {
       //Input from an input device
     }
     GameMove(g, move); 
-    GamePrintBoard(g, 500);
+    GamePrintBoard(g, 300);
   }
   //assert(b->status); //Game is over
   BoardStatusPrint(b);
@@ -210,6 +207,7 @@ _Game * GameNew(char * fen){
   //Creates list of moves for the new board
   BoardAllMoves(b, g->moves);
   if(b->status) {
+    BoardPrint(b);
     fprintf(stderr, "\nWARNING : Game loaded has no moves");
     BoardStatusPrint(b);
   }
