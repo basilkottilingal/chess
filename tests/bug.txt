@@ -1,0 +1,167 @@
+make tree.tst && ./run
+gcc -Wall -Wextra  tree.c ../src/nnue/nnue.cpp ../src/nnue/misc.cpp -o run -lm
+tree.c: In function ‘main’:
+tree.c:54:11: warning: unused variable ‘tree’ [-Wunused-variable]
+   54 |   _Tree * tree = Tree(b, TREE_MAX_DEPTH);
+      |           ^~~~
+tree.c: In function ‘TreeNodePrint’:
+tree.c:32:1: warning: control reaches end of non-void function [-Wreturn-type]
+   32 | }
+      | ^
+
+        BOARD
+ 8  . . . r . n . .
+ 7  . . . . . . . .
+ 6  . b . . k . . .
+ 5  . . . . . . P .
+ 4  . . p . . . K .
+ 3  . p . . . . . .
+ 2  . . . . p . B .
+ 1  . . . . . . . .
+
+    a b c d e f g h
+<Root><expand L0 3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120>
+        BOARD
+ 8  . . . r . n . .
+ 7  . . . . . . . .
+ 6  . b . . k . . .
+ 5  . . . . . . P .
+ 4  . . p . . . K .
+ 3  . p . . . . . .
+ 2  . . . . p . B .
+ 1  . . . . . . . .
+
+    a b c d e f g h
+0|
+ <child 4rn2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>1|
+ <child 5n2/3r4/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>2|
+ <child 5n2/8/1b1rk3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>3|
+ <child 5n2/8/1b2k3/3r2P1/2p3K1/1p6/4p1B1/8 w - - 3 121>4|
+ <child 5n2/8/1b2k3/6P1/2pr2K1/1p6/4p1B1/8 w - - 3 121>5|
+ <child 5n2/8/1b2k3/6P1/2p3K1/1p1r4/4p1B1/8 w - - 3 121>6|
+ <child 5n2/8/1b2k3/6P1/2p3K1/1p6/3rp1B1/8 w - - 3 121>7|
+ <child 5n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/3r4 w - - 3 121>8|
+ <child 2r2n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>9|
+ <child 1r3n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>10|
+ <child r4n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>11|
+ <child 3r4/7n/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>12|
+ <child 3r4/8/1b2k1n1/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>13|
+ <child 3r4/3n4/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>14|
+ <child 3r1n2/8/4k3/2b3P1/2p3K1/1p6/4p1B1/8 w - - 3 121>15|
+ <child 3r1n2/8/4k3/6P1/2pb2K1/1p6/4p1B1/8 w - - 3 121>16|
+ <child 3r1n2/8/4k3/6P1/2p3K1/1p2b3/4p1B1/8 w - - 3 121>17|
+ <child 3r1n2/8/4k3/6P1/2p3K1/1p6/4pbB1/8 w - - 3 121>18|
+ <child 3r1n2/8/4k3/6P1/2p3K1/1p6/4p1B1/6b1 w - - 3 121>19|
+ <child 3r1n2/8/4k3/b5P1/2p3K1/1p6/4p1B1/8 w - - 3 121>20|
+ <child 3r1n2/b7/4k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>21|
+ <child 3r1n2/2b5/4k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>22|
+ <child 3r1n2/8/1b6/4k1P1/2p3K1/1p6/4p1B1/8 w - - 3 121>23|
+ <child 3r1n2/8/1b1k4/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>24|
+ <child 3r1n2/3k4/1b6/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>25|
+ <child 3r1n2/4k3/1b6/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>26|
+ <child 3r1n2/5k2/1b6/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>27|
+ <child 3r1n2/8/1b2k3/6P1/6K1/1pp5/4p1B1/8 w - - 0 121>28|
+ <child 3r1n2/8/1b2k3/6P1/2p3K1/8/1p2p1B1/8 w - - 0 121>29|
+ <child 3r1n2/8/1b2k3/6P1/2p3K1/1p6/6B1/4r3 w - - 0 121>30|
+ <child 3r1n2/8/1b2k3/6P1/2p3K1/1p6/6B1/4n3 w - - 0 121>31|
+ <child 3r1n2/8/1b2k3/6P1/2p3K1/1p6/6B1/4b3 w - - 0 121>32|
+ <child 3r1n2/8/1b2k3/6P1/2p3K1/1p6/6B1/4q3 w - - 0 121>><expand L1 4rn2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 w - - 3 121>
+        BOARD
+ 8  . . . . r n . .
+ 7  . . . . . . . .
+ 6  . b . . k . . .
+ 5  . . . . . . P .
+ 4  . . p . . . K .
+ 3  . p . . . . . .
+ 2  . . . . p . B .
+ 1  . . . . . . . .
+
+    a b c d e f g h
+0|
+  <child 4rn2/8/1b2k1P1/8/2p3K1/1p6/4p1B1/8 b - - 0 121>1|
+  <child 4rn2/8/1b2k3/6P1/2p4K/1p6/4p1B1/8 b - - 4 121>2|
+  <child 4rn2/8/1b2k3/6P1/2p5/1p5K/4p1B1/8 b - - 4 121>3|
+  <child 4rn2/8/1b2k3/6P1/2p5/1p4K1/4p1B1/8 b - - 4 121>4|
+  <child 4rn2/8/1b2k3/6P1/2p5/1p3K2/4p1B1/8 b - - 4 121>5|
+  <child 4rn2/8/1b2k3/6P1/2p2K2/1p6/4p1B1/8 b - - 4 121>6|
+  <child 4rn2/8/1b2k3/6PK/2p5/1p6/4p1B1/8 b - - 4 121>7|
+  <child 4rn2/8/1b2k3/6P1/2p3K1/1p6/4p3/7B b - - 4 121>8|
+  <child 4rn2/8/1b2k3/6P1/2p3K1/1p6/4p3/5B2 b - - 4 121>9|
+  <child 4rn2/8/1b2k3/6P1/2p3K1/1p3B2/4p3/8 b - - 4 121>10|
+  <child 4rn2/8/1b2k3/6P1/2p1B1K1/1p6/4p3/8 b - - 4 121>11|
+  <child 4rn2/8/1b2k3/3B2P1/2p3K1/1p6/4p3/8 b - - 4 121>12|
+  <child 4rn2/8/1bB1k3/6P1/2p3K1/1p6/4p3/8 b - - 4 121>13|
+  <child 4rn2/1B6/1b2k3/6P1/2p3K1/1p6/4p3/8 b - - 4 121>14|
+  <child B3rn2/8/1b2k3/6P1/2p3K1/1p6/4p3/8 b - - 4 121>15|
+  <child 4rn2/8/1b2k3/6P1/2p3K1/1p5B/4p3/8 b - - 4 121>><expand L2 4rn2/8/1b2k1P1/8/2p3K1/1p6/4p1B1/8 b - - 0 121>
+        BOARD
+ 8  . . . . r n . .
+ 7  . . . . . . . .
+ 6  . b . . k . P .
+ 5  . . . . . . . .
+ 4  . . p . . . K .
+ 3  . p . . . . . .
+ 2  . . . . p . B .
+ 1  . . . . . . . .
+
+    a b c d e f g h
+0|
+   <child 5n2/4r3/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>1|
+   <child 3r1n2/8/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>2|
+   <child 2r2n2/8/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>3|
+   <child 1r3n2/8/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>4|
+   <child r4n2/8/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>5|
+   <child 4r3/7n/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>6|
+   <child 4r3/8/1b2k1n1/8/2p3K1/1p6/4p1B1/8 w - - 0 122>7|
+   <child 4r3/3n4/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>8|
+   <child 4rn2/8/4k1P1/2b5/2p3K1/1p6/4p1B1/8 w - - 1 122>9|
+   <child 4rn2/8/4k1P1/8/2pb2K1/1p6/4p1B1/8 w - - 1 122>10|
+   <child 4rn2/8/4k1P1/8/2p3K1/1p2b3/4p1B1/8 w - - 1 122>11|
+   <child 4rn2/8/4k1P1/8/2p3K1/1p6/4pbB1/8 w - - 1 122>12|
+   <child 4rn2/8/4k1P1/8/2p3K1/1p6/4p1B1/6b1 w - - 1 122>13|
+   <child 4rn2/8/4k1P1/b7/2p3K1/1p6/4p1B1/8 w - - 1 122>14|
+   <child 4rn2/b7/4k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>15|
+   <child 4rn2/2b5/4k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>16|
+   <child 3brn2/8/4k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>17|
+   <child 4rn2/8/1b3kP1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>18|
+   <child 4rn2/8/1b4P1/4k3/2p3K1/1p6/4p1B1/8 w - - 1 122>19|
+   <child 4rn2/8/1b1k2P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>20|
+   <child 4rn2/3k4/1b4P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>21|
+   <child 4rn2/4k3/1b4P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>22|
+   <child 4rn2/8/1b2k1P1/8/6K1/1pp5/4p1B1/8 w - - 0 122>23|
+   <child 4rn2/8/1b2k1P1/8/2p3K1/8/1p2p1B1/8 w - - 0 122>24|
+   <child 4rn2/8/1b2k1P1/8/2p3K1/1p6/6B1/4r3 w - - 0 122>25|
+   <child 4rn2/8/1b2k1P1/8/2p3K1/1p6/6B1/4n3 w - - 0 122>26|
+   <child 4rn2/8/1b2k1P1/8/2p3K1/1p6/6B1/4b3 w - - 0 122>27|
+   <child 4rn2/8/1b2k1P1/8/2p3K1/1p6/6B1/4q3 w - - 0 122>><expand L3 5n2/4r3/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122>
+        BOARD
+ 8  . . . . . n . .
+ 7  . . . . r . . .
+ 6  . b . . k . P .
+ 5  . . . . . . . .
+ 4  . . p . . . K .
+ 3  . p . . . . . .
+ 2  . . . . p . B .
+ 1  . . . . . . . .
+
+    a b c d e f g h
+0|
+    <child 5n2/4r1P1/1b2k3/8/2p3K1/1p6/4p1B1/8 b - - 0 122>1|
+    <child 8/4r3/1b2k1n1/8/2p3K1/1p6/4p1B1/8 b - - 2 122>2|
+    <child 5n2/7r/1b2k1P1/8/2p3K1/1p6/4p1B1/8 b - - 2 122>3|
+    <child
+        BOARD
+ 8  . . . . . n . .
+ 7  . . . . r . . .
+ 6  . b . . k . P .
+ 5  . . . . . . . .
+ 4  . . p . . . K .
+ 3  . p . . . . . .
+ 2  . . . . p . B .
+ 1  . . . . . . . .
+
+    a b c d e f g h
+
+ h7 ./r -> h5 .run: ../src/board.h:466: BoardMove: Assertion `pieces[from] == move->from.piece' failed.
+Aborted (core dumped)
+
