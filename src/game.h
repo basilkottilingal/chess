@@ -31,7 +31,7 @@ typedef struct {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-void GamePrintBoard(_Game * g, Flag microSec) {
+void GamePrintBoard(_Game * g, unsigned int microSec) {
   
   //if persist. It clears the window
   if(microSec) {  
@@ -57,7 +57,7 @@ void GamePrintBoard(_Game * g, Flag microSec) {
 const char FEN_DEFAULT[] = 
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-void GameSetBoard(_Game * g, char * _fen) {
+void GameSetBoard(_Game * g, const char * _fen) {
   char * fen = _fen ? _fen : FEN_DEFAULT;
   g->fen[0] = '\0';
   for (int i=0; fen[i] != '\0'; ++i){
@@ -136,7 +136,6 @@ _BoardMove * GameBot(_Game * g) {
   // Random move (As of now)
   _BoardMove * move = NULL;
       
-  int random_number = rand();
   if(g->moves->len) {
     
     int nmoves = (g->moves->len) / sizeof(_BoardMove);

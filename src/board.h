@@ -444,19 +444,23 @@ enum GAME_STATUS{
  
 void BoardMove(_Board * b, _BoardMove * move){
 
+  b->status |= GAME_METADATA_NOTUPDATED;
   assert(move);
   Square from = move->from.square,
     to = move->to.square;
   Piece * pieces = b->pieces;
-if(pieces[from] != move->from.piece) {
+
+  /*
+  if(pieces[from] != move->from.piece) {
     Square * A = SquarePointer(from);
     Square * B = SquarePointer(to);
     fprintf(stdout, "\n %c%c %c/%c -> %c%c %c",
       SQUARE_FILE(A), SQUARE_RANK(A), 
       MAPPING[pieces[from]], MAPPING[move->from.piece],
       SQUARE_FILE(B), SQUARE_RANK(B), MAPPING[move->to.piece]);
-fflush(stdout);
-}
+    fflush(stdout);
+  }
+  */
   assert(pieces[from] == move->from.piece);
   
   pieces[from] = EMPTY;
@@ -495,7 +499,6 @@ fflush(stdout);
     pieces[to + (b->color ? 8 : -8)] = EMPTY;
   }
   
-  b->status |= GAME_METADATA_NOTUPDATED;
 } 
   
 void BoardUnmove(_Board * b, _BoardMove * move){
