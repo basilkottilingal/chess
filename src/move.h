@@ -523,7 +523,8 @@ void
 BoardUpdateMetadata(_Board * b, _BoardMove * move) {
 
   //Udate the halfclock, fullclock
-  b->fullclock += (!b->color);
+  if(!b->color)
+    ++(b->fullclock);
   b->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
     ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
       ? 0 : (b->halfclock + 1));

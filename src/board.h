@@ -33,10 +33,11 @@
 
 #define FEN_MAXSIZE 80
 
-//Datatpes.To avoid c
+//Datatpes.To avoid unwarned type cast
 typedef uint8_t Square;
 typedef uint8_t Piece;
 typedef uint8_t Flag;
+//typedef unsigned int Lflag;
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
 const char MAPPING[16] = 
@@ -96,7 +97,7 @@ typedef struct {
   //some flags: castling available?,  game on check?
   Flag castling, check;
   //numbers (guaranteed below UCHAR_MAX)
-  unsigned char halfclock, fullclock, npieces;
+  unsigned int halfclock, fullclock, npieces;
   //whose turn  
   Flag color;
   //Game Status; 
@@ -228,7 +229,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
     if( c == ' ' )
       break;
     assert(isdigit(c));
-    b->halfclock = 10*b->halfclock + (c - '0');
+    b->halfclock = 10*b->halfclock + (unsigned int) (c - '0');
     assert(b->halfclock <= 50);
   }
   assert(*fen == ' ');
@@ -237,7 +238,7 @@ void BoardSetFromFEN(_Board * b, char * fen){
   while(*(++fen) != '\0'){
     char c = *fen;
     assert(isdigit(c));
-    b->fullclock = 10*b->fullclock + (c - '0');
+    b->fullclock = 10*b->fullclock + (unsigned int) (c - '0');
     // No recorded FIDE game exceeded 300 moves.
     // .. I don't know the theoretical limit. 
     // .. I think draw (by 50moves rule) would have ..
@@ -303,9 +304,9 @@ void BoardFEN(_Board * b, char * fen) {
   *fen++ = ' ';
 
   //clocks
-  unsigned char gameclock[2] = {b->halfclock, b->fullclock};
+  unsigned int gameclock[2] = {b->halfclock, b->fullclock};
   for(int i=0; i<2; ++i) {
-    unsigned char n = gameclock[i], pos = 4;
+    unsigned int n = gameclock[i], pos = 4;
     //otherwise: weird clocknumbers
     assert(n <= (i ? 5000 : 50)); 
     unsigned char h[5];
