@@ -14,7 +14,7 @@ typedef struct {
  
  
 //Engine prototype
-typedef _BoardMove * (* EngineType)(_Engine * e);
+typedef _BoardMove * (* EngineType)(_Engine * e, Flag imove);
 
 //Not yet assigned which engines represent each colors
 EngineType Engines[2] = {NULL, NULL}; 
@@ -40,7 +40,7 @@ const int MAPPING_NNUE[14] =
   }; //converting to nnue.h format
 
 #define ENGINE_EVAL_MAX 5000
-int EngineOverRideNNUE(_Game * g, int * eval) {
+int EngineOverRideNnue(_Game * g, int * eval) {
   /* Nnue engines doesn't return +-5000 for a win, ..
      .. or 0 for a stalemate/3Fold/InsuffMaterial/50Moves ..
      .. draw. But when to override?? is a debatable one. We ..
@@ -81,7 +81,7 @@ int NnueEvaluate(_Board * b) {
   int Eval = 0;
   if(b->status) 
     //Game is theoretically over. So no need to evaluate ?
-    if(EngineOverRideNNUE(g, &Eval))
+    if(EngineOverRideNnue(g, &Eval))
       return Eval;
 
   Piece * _piece_ = board->pieces;
@@ -140,9 +140,6 @@ Flag TreeNodeNegamax(_TreeNode * node) {
   if(!node->depth) 
     //FIXME: use/search hashtable. Implement table 1st
     node->eval = NnueEvaluate(node->board);
-  if(node->flags & IS_ROOT_NODE) {
-    return 0; // would be already set by children
-  }
   else if(node->flags & IS_LEAF_NODE) {
     node->eval = GameEvaluate(node->g);
   }

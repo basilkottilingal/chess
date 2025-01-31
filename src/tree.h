@@ -34,7 +34,8 @@ typedef struct _Tree{
   // For root node, depthmax <= TREE_MAX_DEPTH
   Flag level;             // level \in [0, root->depth) 
   Flag flags;             // identify type of node
-  Flag nchildren;         // number of possible moves 
+  Flag nchildren;         // number of possible moves
+  Flag ichild;            // which child is chosen by engine.
  
   int eval;   //board evaluation value \in [-5000, 5000]
 } _Tree;
