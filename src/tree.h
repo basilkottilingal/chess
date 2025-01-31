@@ -159,7 +159,7 @@ Flag TreeNodeExpand(_Tree * node) {
       // If not allowed to expand further, update the ..
       // .. board->status by calling BoardAllMoves();
       if(!BoardAllMoves(child->board, &MOVES_ARRAY))
-        //i.e GAME_CONTINUE
+        //i.e (status == GAME_CONTINUE)
         child->flags |= IS_PRUNED_NODE;
       // else 
       //  No possibility to expand any way: The game is OVER
@@ -191,6 +191,7 @@ Flag TreeNodePrune(_Tree * node) {
   //free "children" and associated memory for it's objects.
   for(int i=0; i<node->nchildren; ++i, ++child) {
     assert( child->flags & IS_LEAF_NODE ); 
+    assert( child->depth == 0);
     TreeNodeDestroy( child );
   }
   free(node->children);
@@ -284,11 +285,11 @@ void TreeEachNode(_Tree * node,
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( node ) {
+      TreeUpdateParentDepth(node);
       if( --TREE_STACK[node->level] > 0 ) {  
         ++node; 
         break;
       }
-      TreeUpdateParentDepth(node);
       node = node->parent;
     } 
   }
@@ -306,7 +307,7 @@ void TreeEachNodePostOrder(_Tree * node, Flag depth,
       
       /* Going down the tree */
       if(node->depth == 0) {  //Cannot go down further
-        assert(node->children == NULL);
+        //assert(node->children == NULL);
         assert(node->flags & IS_LEAF_NODE);
         break; 
       }
@@ -324,14 +325,14 @@ void TreeEachNodePostOrder(_Tree * node, Flag depth,
       if(rfunc)
         rfunc(node);
       /* End of "Do something with node here"*/ 
- 
+
+      // Making sure depth is always updated  as the tree ..
+      // .. is dynamic.
+      TreeUpdateParentDepth(node);
       if( --TREE_STACK[node->level] > 0 ) {  
         ++node; 
         break;
       }
-      // Making sure depth is always updated  as the tree ..
-      // .. is dynamic.
-      TreeUpdateParentDepth(node);
       node = node->parent;
     } 
   }

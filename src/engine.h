@@ -7,14 +7,14 @@ ToDo: Naive eval function. MiniMax. a-b pruning.
 
 typedef struct {
   //which color is this Engine representing;
-  unsigned char mycolor; 
+  Flag mycolor; 
   //Tree from which you deduce the 'best' moves
   _Tree * tree;
 }_Engine;
  
  
 //Engine prototype
-typedef _GameMove * (* EngineType)(_Engine * e);
+typedef _BoardMove * (* EngineType)(_Engine * e);
 
 //Not yet assigned which engines represent each colors
 EngineType Engines[2] = {NULL, NULL}; 
@@ -29,7 +29,7 @@ EngineType Engines[2] = {NULL, NULL};
 #include <stdint.h>
 #include "./nnue/nnue.h"
 
-void init_nnue(const char * filename) {
+void NnueInit(const char * filename) {
   nnue_init(filename);
 }
 
@@ -77,20 +77,20 @@ int EngineOverRideNNUE(_Game * g, int * eval) {
   return 0;//doesn't override as of now
 }
 
-int GameEvaluate(_Game * g) {
+int NnueEvaluate(_Board * b) {
   int Eval = 0;
-  if(g->status) 
+  if(b->status) 
     //Game is theoretically over. So no need to evaluate ?
     if(EngineOverRideNNUE(g, &Eval))
       return Eval;
 
-  _GameSquare ** board = g->board;
+  Piece * _piece_ = board->pieces;
   int player = !g->color; //NNUE color notation
   int pieces[33], squares[33];
   int ipieces = 2;
   for(int i=0; i<8; i++) {
     for(int j=0; j<8; j++) {
-      int p = board[i][j].piece;
+      int p = (int) *_piece_;
       if(p == EMPTY) continue;
       int ip = (p == WKING) ? 0 : (p == BKING) ? 1 : ipieces;
       ipieces += ((p != WKING) && (p!=BKING)) ? 1 : 0;
@@ -104,8 +104,11 @@ int GameEvaluate(_Game * g) {
   return nnue_evaluate(player, pieces, squares);
 }
 
-int GameEvaluateFEN(_Game * g) {
-  return nnue_evaluate_fen(g->fen);
+int NnueEvaluateFEN(_Board * b) {
+  //slow. use only for verificn
+  char fen[FEN_MAXSIZE];
+  BoardFEN(b,fen);
+  return nnue_evaluate_fen(fen);
 }
 #else
 /*
@@ -114,7 +117,7 @@ double TreeGameEvalNaive(_TreeNode * node,
   assert(node->flags & IS_LEAF_NODE);
 }
 */
-int GameEvaluate(_Game * g) {
+int NnueEvaluate(_Game * g) {
   assert(0);//Not yet implemented
 }
 #endif
@@ -133,7 +136,10 @@ int negaMax( int depth ) {
 }
 */
 
-int TreeNodeNegamax(_TreeNode * node) {
+Flag TreeNodeNegamax(_TreeNode * node) {
+  if(!node->depth) 
+    //FIXME: use/search hashtable. Implement table 1st
+    node->eval = NnueEvaluate(node->board);
   if(node->flags & IS_ROOT_NODE) {
     return 0; // would be already set by children
   }

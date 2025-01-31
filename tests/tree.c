@@ -46,15 +46,16 @@ int main(){
   //BoardSetFromFEN(b, "rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6");
   //BoardSetFromFEN(b,"8/8/8/8/p3k3/4p3/5bK1/8 w - - 0 145");
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
-  BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
+  //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
+  BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
   BoardPrint(b);
 
   //unsigned int status = Game(g);
   //GameError(status);
   _Tree * tree = Tree(b, TREE_MAX_DEPTH);
   TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-  //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
-  //TreeDestroy(tree);
+  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
+  TreeDestroy(tree);
 
   //GameDestroy(b);
 
