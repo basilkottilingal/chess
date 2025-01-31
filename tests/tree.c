@@ -19,9 +19,9 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 8/k7/8/K7/8/8/8/8 b - - 0 1
 */
 
-int TreeNodePrint(_Tree * node){
+Flag TreeNodePrint(_Tree * node){
   clock_t start_time = clock();
-  clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 
+  clock_t wait_time = 0.01*CLOCKS_PER_SEC ; //sleep time 
   while (clock() - start_time < wait_time) {};
   printf("\033[2J");   // Clear the screen
   printf("\033[1;1H");     //Cursor on the left top left
@@ -52,7 +52,7 @@ int main(){
   //unsigned int status = Game(g);
   //GameError(status);
   _Tree * tree = Tree(b, TREE_MAX_DEPTH);
-  //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
+  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
   //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
   //TreeDestroy(tree);
 

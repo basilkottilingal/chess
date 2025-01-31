@@ -56,7 +56,6 @@ Array MOVES_ARRAY = {.p = NULL, .len = 0, .max = 0};
 --------------------------------------------------------- */
 
 void TreeRootNode(_Tree * root, _Board * b, Flag depthmax) {
-fprintf(stdout, "<Root"); fflush(stdout);
   assert(b->status == GAME_CONTINUE);
 
   root->depth = 0;
@@ -69,7 +68,6 @@ fprintf(stdout, "<Root"); fflush(stdout);
   root->children = NULL;
   // create new board & copy content from 'b'
   root->board = Board(b); 
-fprintf(stdout, ">"); fflush(stdout);
 }
 
 void TreeChildNode(_Tree * child, _Tree * parent, 
@@ -83,10 +81,6 @@ void TreeChildNode(_Tree * child, _Tree * parent,
   child->level = parent->level + 1;
   child->flags = IS_LEAF_NODE;
   child->nchildren = 0;
-fprintf(stdout, "\n"); fflush(stdout);
-for(int i=0; i<child->level; ++i)
-fprintf(stdout, " ");
-fprintf(stdout, "<child"); fflush(stdout);
   //Tree connectivity
   child->parent = parent;
   child->children = NULL;
@@ -96,16 +90,6 @@ fprintf(stdout, "<child"); fflush(stdout);
   BoardUpdateMetadata(board, move); 
   child->board = board; 
   //NOTE:Status not updated yet. Moves not created
-
-  if(child->depthmax == 0)  
-    // If not allowed to expand further, update the ..
-    // .. board->status by calling BoardAllMoves();
-    if(BoardAllMoves(board, &MOVES_ARRAY) == GAME_CONTINUE) 
-      child->flags |= IS_PRUNED_NODE;
-    //else 
-    // There is no need to expand any way: The game is OVER
-char fen[FEN_MAXSIZE]; BoardFEN(child->board, fen);
-fprintf(stdout, " %s>", fen); fflush(stdout);
 }
 
 /* ---------------------------------------------------------
@@ -147,11 +131,6 @@ Flag TreeNodeExpand(_Tree * node) {
   _Board * b = node->board;
   // Once moves created, status is also updated.
   BoardAllMoves( b, &MOVES_ARRAY );
-fprintf(stdout, "<expand L%d", node->level);
-char fen[FEN_MAXSIZE]; BoardFEN(node->board, fen);
-fprintf(stdout, " %s>", fen); 
-BoardPrint(node->board);
-fflush(stdout);
   
   if( b->status != GAME_CONTINUE ) {
     return 0; // cannot expand as the game is over
@@ -169,18 +148,27 @@ fflush(stdout);
   node->nchildren = nmoves; 
   node->children = child;
 
-  /* Inheritance */
-  for (int i=0; i<nmoves; ++i, ++child, ++move){ 
-fprintf(stdout, "%d|",i); fflush(stdout);
+  // Set child properties
+  for (int i=0; i<nmoves; ++i, ++child, ++move) 
     TreeChildNode(child, node, move);
-  }
+ 
+  // In case children are at max depth
+  child  = node->children;
+  for (int i=0; i<nmoves; ++i, ++child) 
+    if(child->depthmax == 0)  
+      // If not allowed to expand further, update the ..
+      // .. board->status by calling BoardAllMoves();
+      if(!BoardAllMoves(child->board, &MOVES_ARRAY))
+        //i.e GAME_CONTINUE
+        child->flags |= IS_PRUNED_NODE;
+      // else 
+      //  No possibility to expand any way: The game is OVER
 
   //node is not a leaf anymore;
   node->flags &= ~(IS_LEAF_NODE | IS_PRUNED_NODE);
   node->flags |=  IS_PARENT_NODE;
   node->depth = 1;
   
-fprintf(stdout, ">"); fflush(stdout);
   return nmoves;
 }
 /* ---------------------------------------------------------
