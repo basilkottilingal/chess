@@ -49,24 +49,31 @@ int main(){
   //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
   //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
   //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  _Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
+  //_Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
+  //_Game * g = GameNew("8/6p1/6p1/6PP/8/8/8/5k1K w - - 0 1");
+  _Game * g = GameNew(NULL);
 
   //unsigned int status = Game(g);
   //GameError(status);
   //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
   while(GameStatus(g) == GAME_CONTINUE) {
-    _Engine * e = EngineNew(g, g->board->color);
+    if(g->board->color == BLACK){
+      GameBot(g);
+    }
+    else {
+      _Engine * e = EngineNew(g, g->board->color);
     
-    assert(e);
+      assert(e);
 
-    //verigying validity of tree
-    TreeEachNode(e->tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
+      //verigying validity of tree
+      TreeEachNode(e->tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
 
-    Engine(e);
-    GamePrintBoard(g, 500);
+      Engine(e);
+      GamePrintBoard(g, 100);
 
-    //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-    EngineDestroy(e);
+      //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
+      EngineDestroy(e);
+    }
   }
   BoardStatusPrint(g->board);
 

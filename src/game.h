@@ -42,7 +42,8 @@ void GamePrintBoard(_Game * g, unsigned int microSec) {
 
     printf("\033[2J");       // Clear the screen
     printf("\033[1;1H");     //Cursor on the left top left
-  } 
+  }
+  BoardFEN(g->board, g->fen); 
   fprintf(stdout, "\n%s", g->fen);
   BoardPrint(g->board);
 }
@@ -134,8 +135,18 @@ void GameFEN(_Game * g){
   .. listed. 
 ------------------------------------------------------------
 --------------------------------------------------------- */
+//void GameError(_Game * g) {
+//  BoardStatusPrint(g->board);
+//}
 
-_BoardMove * GameBot(_Game * g) {
+//Next Move
+Flag GameMove(_Game * g, _BoardMove * move){
+  Flag status = BoardNext(g->board,move,g->moves);
+  GameFEN(g);
+  return status;
+}
+
+Flag GameBot(_Game * g) {
   // Algorithm Not yet implemented
   // Random move (As of now)
   _BoardMove * move = NULL;
@@ -148,37 +159,24 @@ _BoardMove * GameBot(_Game * g) {
     int imove = floor (((double) nmoves)*rand()/RAND_MAX);
     move += imove;
   }
-
-  return move;
+      
+  return GameMove(g, move); 
 }
 
-//void GameError(_Game * g) {
-//  BoardStatusPrint(g->board);
-//}
-
-//Next Move
-Flag GameMove(_Game * g, _BoardMove * move){
-  Flag status = BoardNext(g->board,move,g->moves);
-  GameFEN(g);
-  return status;
-}
 
 Flag Game(_Game * g) {
   srand(time(0));
-  _Board * b = g->board;
-  while ( b->status == GAME_CONTINUE ){
-    _BoardMove * move = NULL;
+  while ( GameStatus(g) == GAME_CONTINUE ){
     if(1)
-      move = GameBot(g);
+      GameBot(g);
     else {
       //Input from an input device
     }
-    GameMove(g, move); 
     GamePrintBoard(g, 300);
   }
   //assert(b->status); //Game is over
-  BoardStatusPrint(b);
-  return (b->status);
+  BoardStatusPrint(g->board);
+  return (g->board->status);
 }
 
 /* ---------------------------------------------------------
