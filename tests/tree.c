@@ -28,7 +28,7 @@ Flag TreeNodePrint(_Tree * node){
  
   fprintf(stdout, "\nl%d d%d, max%d", 
     node->level, node->depth, node->depthmax);
-  BoardPrint(node->board);
+  BoardPrint(&node->board);
   return 1;
 }
 

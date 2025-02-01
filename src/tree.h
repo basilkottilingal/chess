@@ -1,5 +1,5 @@
 #include "game.h"
-//#include "mempool.h"
+#include "mempool.h"
 
 /**
 TODO: mempool for board and moves. Cap a limit too the pool.
@@ -21,14 +21,13 @@ Parallel Tree Generation, Traversal etc
   .. expand further from that node. 
 ------------------------------------------------------------
 --------------------------------------------------------- */
-typedef struct _Tree{
+typedef struct _Tree {
   //size_t id; 
-  _Board * board;
+  _Board board;
 
   //Tree Connection using pointers
   struct _Tree * parent;   //parent node
   struct _Tree * children; //children
-
                           
   Flag depth, depthmax;   // depth <= depthmax
   // depthmax is the max allowed depth. 
@@ -40,6 +39,8 @@ typedef struct _Tree{
  
   int eval;   //board evaluation value \in [-5000, 5000]
 } _Tree;
+
+_MemPool * TreePool = NULL;
 
 #ifndef TREE_MAX_DEPTH
 #define TREE_MAX_DEPTH 4 
@@ -71,14 +72,15 @@ void TreeRootNode(_Tree * root, _Board * b, Flag depthmax) {
   root->parent = NULL;
   root->children = NULL;
   // create new board & copy content from 'b'
-  root->board = Board(b); 
+  //root->board = Board(b); 
+  BoardCopy(&root->board, b);
 }
 
 void TreeChildNode(_Tree * child, _Tree * parent, 
     _BoardMove * move) {
 
   assert(parent && move);
-  assert(parent->board->status == GAME_CONTINUE);
+  assert(parent->board.status == GAME_CONTINUE);
 
   child->depth = 0;
   child->depthmax = parent->depthmax - 1;
@@ -89,10 +91,10 @@ void TreeChildNode(_Tree * child, _Tree * parent,
   child->parent = parent;
   child->children = NULL;
   //Create the board of the child.
-  _Board * board = Board(parent->board);
+  _Board * board = &child->board;
+  BoardCopy(board, &parent->board);
   BoardMove(board, move);
   BoardUpdateMetadata(board, move); 
-  child->board = board; 
   //NOTE:Status not updated yet. Moves not created
 }
 
@@ -111,8 +113,8 @@ Flag TreeNodeDestroy(_Tree * node) {
   // Destroy associated memory created for "node". ..
   // Note: Assume memory for "node->children" are  ..
   // .. destroyed before.
-  BoardDestroy( node->board );
-  node->board = NULL;
+  //BoardDestroy( node->board );
+  //node->board = NULL;
   return 1;  
 }
 
@@ -132,7 +134,7 @@ Flag TreeNodeExpand(_Tree * node) {
   assert( node->children == NULL );
   //assert( node->board->status == GAME_STATUS_NOTUPDATED );
 
-  _Board * b = node->board;
+  _Board * b = &(node->board);
   // Once moves created, status is also updated.
   BoardAllMoves( b, &MOVES_ARRAY );
   
@@ -162,7 +164,8 @@ Flag TreeNodeExpand(_Tree * node) {
     if(child->depthmax == 0)  
       // If not allowed to expand further, update the ..
       // .. board->status by calling BoardAllMoves();
-      if(!BoardAllMoves(child->board, &MOVES_ARRAY))
+      //if(!BoardAllMoves(child->board, &MOVES_ARRAY))
+      if(!BoardAllMoves(&(child->board), &MOVES_ARRAY))
         //i.e (status == GAME_CONTINUE)
         child->flags |= IS_PRUNED_NODE;
       // else 
@@ -400,7 +403,7 @@ void TreeDestroy(_Tree * tree) {
 
 Flag TreeNodeCheckFlags(_Tree * node) {
   /* For debugging */
-  _Board * b = node->board;
+  _Board * b = &(node->board);
   assert(b);
 
   /* Verifying inequalities related to level, depth, ..*/

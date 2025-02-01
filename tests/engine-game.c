@@ -29,7 +29,7 @@ Flag TreeNodePrint(_Tree * node){
  
   fprintf(stdout, "\nl%d d%d, max%d", 
     node->level, node->depth, node->depthmax);
-  BoardPrint(node->board);
+  BoardPrint(&node->board);
 }
 
 
@@ -56,6 +56,7 @@ int main(){
 
   //unsigned int status = Game(g);
   //GameError(status);
+  srand(time(0));
   //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
   while(GameStatus(g) == GAME_CONTINUE) {
     if(g->board->color == BLACK){

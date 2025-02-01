@@ -13,15 +13,16 @@ typedef struct {
   size_t object_size;  // Size of each object
   size_t block_size;   // Number of objects in the block
   void * memory_block;  // Pointer to the memory block
-  /* NOTE: Make sure you make blocks that align with ..
+  /* NOTE: Perfer making blocks that align with ..
   .. multiples of kB or MB */
   _FreeNode * free_list; // Linked list of free slots
 } _MemPool;
 
-// Initialize the memory pool
 _MemPool* MemPool(size_t object_size, size_t block_size) {
+  // Initialize the memory pool
+  // FIXME: Redo this:
 
-  if(objectSize < sizeof (void *)){
+  if(object_size < sizeof (void *)){
     fprintf(stderr, "\nERROR: \
 Oject size should be atleast %ld ", sizeof(void *));
     // Otherwise you might overwrite when typecasting ..
@@ -31,7 +32,7 @@ Oject size should be atleast %ld ", sizeof(void *));
   }
     
   _MemPool * pool = 
-    (_MemoryPool*)malloc(sizeof(_MemoryPool));
+    (_MemPool*)malloc(sizeof(_MemPool));
   if (!pool) {
     fprintf(stderr, "\nERROR: \
 Failed to allocate memory for the pool.\n");
@@ -51,9 +52,9 @@ Failed to allocate memory block for the pool.");
 
   // Initialize the free list
   pool->free_list = NULL;
-  char * block = (char *)  pool->memory_black;
+  char * block = (char *)  pool->memory_block;
   for (size_t i = 0; i < block_size; i++,block+= object_size) {
-    _FreeNode * node = (FreeNode*) block;
+    _FreeNode * node = (_FreeNode*) block;
     node->next = pool->free_list;
     pool->free_list = node;
   }

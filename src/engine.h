@@ -144,7 +144,7 @@ int negaMax( int depth ) {
 Flag TreeNodeNegamax(_Tree * node) {
   if(!node->depth)  {
     //FIXME: use/search hashtable. Implement table 1st
-    node->eval = NnueEvaluate(node->board);
+    node->eval = NnueEvaluate(&node->board);
   }
   else {
     node->ichild = node->nchildren; //An invalid number
@@ -171,7 +171,7 @@ _Board * EngineMinimax(_Engine * e) {
   next += root->ichild; //this is the most "ideal" move acc to engine
   //BoardPrint(next->board);
 
-  return next->board;
+  return &next->board;
 }
 
 
