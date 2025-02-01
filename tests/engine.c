@@ -1,4 +1,4 @@
-#include "../src/tree.h"
+#include "../src/engine.h"
 
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
@@ -29,12 +29,10 @@ Flag TreeNodePrint(_Tree * node){
   fprintf(stdout, "\nl%d d%d, max%d", 
     node->level, node->depth, node->depthmax);
   BoardPrint(node->board);
-  return 1;
 }
 
 
 int main(){
-  _Board * b = Board(NULL);
   //BoardSetFromFEN(b,NULL);
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -49,17 +47,30 @@ int main(){
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
-  BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
-  BoardPrint(b);
+  //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
+  //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
+  _Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
 
   //unsigned int status = Game(g);
   //GameError(status);
-  _Tree * tree = Tree(b, TREE_MAX_DEPTH);
-  //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
-  TreeDestroy(tree);
+  //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
+  while(GameStatus(g) == GAME_CONTINUE) {
+    _Engine * e = EngineNew(g, g->board->color);
+    
+    assert(e);
 
-  //GameDestroy(b);
+    //verigying validity of tree
+    TreeEachNode(e->tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
+
+    Engine(e);
+    GamePrintBoard(g, 500);
+
+    //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
+    EngineDestroy(e);
+  }
+  BoardStatusPrint(g->board);
+
+  GameDestroy(g);
 
   return 0;
 }

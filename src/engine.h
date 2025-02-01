@@ -6,6 +6,7 @@ ToDo: Naive eval function. MiniMax. a-b pruning.
 #include "tree.h"
 
 typedef struct {
+  _Game * game;
   //which color is this Engine representing;
   Flag mycolor; 
   //Tree from which you deduce the 'best' moves
@@ -24,6 +25,7 @@ EngineType Engines[2] = {NULL, NULL};
   Evaluate the board.
 ------------------------------------------------
 ------------------------------------------------*/
+#define ENGINE_EVAL_MAX 5000
 
 #ifdef NNUE
 #include <stdint.h>
@@ -39,8 +41,10 @@ const int MAPPING_NNUE[14] =
     10, 4, 8, 2, 7, 1,
   }; //converting to nnue.h format
 
-#define ENGINE_EVAL_MAX 5000
-int EngineOverRideNnue(_Game * g, int * eval) {
+int EngineOverRideNnue(_Board * b, int * eval) {
+  NOT_UNUSED(b);
+  NOT_UNUSED(eval);
+  //assert(tree->depth == 0);
   /* Nnue engines doesn't return +-5000 for a win, ..
      .. or 0 for a stalemate/3Fold/InsuffMaterial/50Moves ..
      .. draw. But when to override?? is a debatable one. We ..
@@ -81,16 +85,17 @@ int NnueEvaluate(_Board * b) {
   int Eval = 0;
   if(b->status) 
     //Game is theoretically over. So no need to evaluate ?
-    if(EngineOverRideNnue(g, &Eval))
+    if(EngineOverRideNnue(b, &Eval))
       return Eval;
 
-  Piece * _piece_ = board->pieces;
-  int player = !g->color; //NNUE color notation
+  Piece * sqpiece = b->pieces;
+  int player = !b->color; //NNUE color notation
   int pieces[33], squares[33];
   int ipieces = 2;
   for(int i=0; i<8; i++) {
     for(int j=0; j<8; j++) {
-      int p = (int) *_piece_;
+      int p = (int) (*sqpiece);
+      ++sqpiece;
       if(p == EMPTY) continue;
       int ip = (p == WKING) ? 0 : (p == BKING) ? 1 : ipieces;
       ipieces += ((p != WKING) && (p!=BKING)) ? 1 : 0;
@@ -112,7 +117,7 @@ int NnueEvaluateFEN(_Board * b) {
 }
 #else
 /*
-double TreeGameEvalNaive(_TreeNode * node, 
+double TreeGameEvalNaive(_Tree * node, 
     unsigned char mycolor) {
   assert(node->flags & IS_LEAF_NODE);
 }
@@ -136,28 +141,59 @@ int negaMax( int depth ) {
 }
 */
 
-Flag TreeNodeNegamax(_TreeNode * node) {
-  if(!node->depth) 
+Flag TreeNodeNegamax(_Tree * node) {
+  if(!node->depth)  {
     //FIXME: use/search hashtable. Implement table 1st
     node->eval = NnueEvaluate(node->board);
-  else if(node->flags & IS_LEAF_NODE) {
-    node->eval = GameEvaluate(node->g);
-  }
-  int eval = node->eval;
-  _TreeNode * parent = node->parent;
-  //assert(parent);
-  /*
-  if(node == parent->children) { //it's parent's 1st child
-    parent->eval = 
-      (-ENGINE_EVAL_MAX > -eval) ? -eval 
-    parent->move = (_GameMove *) parent->g->moves->p;
   }
   else {
+    node->ichild = node->nchildren; //An invalid number
+    _Tree * child = node->children;
+    assert(child);
+    node->eval = -ENGINE_EVAL_MAX;
+    for(int i=0; i<node->nchildren; ++i, ++child) {
+      if( (-child->eval) > node->eval) {  
+        node->eval =  -child->eval;
+        node->ichild = i;
+      } 
+    }
+    assert(node->ichild < node->nchildren);
   }
-  */
+  return 1;
 }
 
-_GameMove * EngineMinimax(_Engine * e) {
-  _Tree * t = e->tree;
+_Board * EngineMinimax(_Engine * e) {
+
+  /* Run the minimax evaluate algo*/
+  _Tree * root = e->tree;
+  TreeEachNodePostOrder(root, root->depth, TreeNodeNegamax);
+  _Tree * next = root->children;
+  next += root->ichild; //this is the most "ideal" move acc to engine
+  //BoardPrint(next->board);
+
+  return next->board;
 }
 
+
+_Engine * EngineNew(_Game * g, Flag mycolor) {
+  _Tree * tree = Tree(g->board, TREE_MAX_DEPTH);
+  if(!tree) 
+    return NULL;
+  _Engine * e = (_Engine *) malloc (sizeof(_Engine));
+  e->tree = tree;
+  e->game = g; 
+  e->mycolor = mycolor;
+  return e;
+}
+
+void Engine(_Engine * e){
+  _Board * boardNow  = e->game->board;
+  _Board * boardNext = EngineMinimax(e);      
+  BoardCopy(boardNow, boardNext);
+  BoardAllMoves(boardNow, e->game->moves);
+}
+
+void EngineDestroy(_Engine * e){
+  TreeDestroy(e->tree);
+  free(e);
+}

@@ -47,6 +47,10 @@ void GamePrintBoard(_Game * g, unsigned int microSec) {
   BoardPrint(g->board);
 }
 
+Flag GameStatus(_Game * g) {
+  return g->board->status;
+}
+
 /* ---------------------------------------------------------
 ------------------------------------------------------------
   The following function
