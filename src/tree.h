@@ -1,4 +1,5 @@
 #include "game.h"
+//#include "mempool.h"
 
 /**
 TODO: mempool for board and moves. Cap a limit too the pool.
@@ -40,7 +41,9 @@ typedef struct _Tree{
   int eval;   //board evaluation value \in [-5000, 5000]
 } _Tree;
 
-#define TREE_MAX_DEPTH 3 
+#ifndef TREE_MAX_DEPTH
+#define TREE_MAX_DEPTH 4 
+#endif
 #define TREE_MIN_DEPTH 2
 #define IS_LEAF_NODE   1
 #define IS_ROOT_NODE   2

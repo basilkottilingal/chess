@@ -1,4 +1,4 @@
-#define TREE_MAX_DEPTH 2
+#define TREE_MAX_DEPTH 3
 #include "../src/engine.h"
 
 //Run this test script using
@@ -52,15 +52,16 @@ int main(){
   //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
   //_Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
   //_Game * g = GameNew("8/6p1/6p1/6PP/8/8/8/5k1K w - - 0 1");
-  //_Game * g = GameNew(NULL);
-  //_Game * g = GameNew("rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/1PPPPPPP/RNBQKBNR w KQkq - 0 6");
-  _Game * g = GameNew("rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/8/7K w kq - 0 1");
+  _Game * g = GameNew(NULL);
 
   //unsigned int status = Game(g);
   //GameError(status);
   //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
-  //while(GameStatus(g) == GAME_CONTINUE) {}
-  if(GameStatus(g) == GAME_CONTINUE) { //Just one move  
+  while(GameStatus(g) == GAME_CONTINUE) {
+    if(g->board->color == BLACK){
+      GameBot(g);
+    }
+    else {
       _Engine * e = EngineNew(g, g->board->color);
     
       assert(e);
@@ -71,10 +72,11 @@ int main(){
 
       //Run the engine 
       Engine(e);
-      GamePrintBoard(g, 100);
 
       //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
       EngineDestroy(e);
+    }
+    GamePrintBoard(g, 100);
   }
   BoardStatusPrint(g->board);
 

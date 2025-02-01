@@ -1,89 +1,120 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define MEMPOOL 
+
 // Define a struct for the free list node
-typedef struct FreeNode {
-    struct FreeNode *next; // Pointer to the next free slot
-} FreeNode;
+typedef struct _FreeNode {
+  struct _FreeNode *next; // Pointer to the next free slot
+}_FreeNode;
 
 // Define the memory pool struct
 typedef struct {
-    size_t object_size;  // Size of each object
-    size_t block_size;   // Number of objects in the block
-    void *memory_block;  // Pointer to the memory block
-    FreeNode *free_list; // Linked list of free slots
-} MemoryPool;
+  size_t object_size;  // Size of each object
+  size_t block_size;   // Number of objects in the block
+  void * memory_block;  // Pointer to the memory block
+  /* NOTE: Make sure you make blocks that align with ..
+  .. multiples of kB or MB */
+  _FreeNode * free_list; // Linked list of free slots
+} _MemPool;
 
 // Initialize the memory pool
-MemoryPool* init_memory_pool(size_t object_size, size_t block_size) {
-    MemoryPool *pool = (MemoryPool*)malloc(sizeof(MemoryPool));
-    if (!pool) {
-        fprintf(stderr, "Failed to allocate memory for the pool.\n");
-        return NULL;
-    }
+_MemPool* MemPool(size_t object_size, size_t block_size) {
 
-    pool->object_size = object_size;
-    pool->block_size = block_size;
-    pool->memory_block = malloc(object_size * block_size);
-    if (!pool->memory_block) {
-        fprintf(stderr, "Failed to allocate memory block.\n");
-        free(pool);
-        return NULL;
-    }
+  if(objectSize < sizeof (void *)){
+    fprintf(stderr, "\nERROR: \
+Oject size should be atleast %ld ", sizeof(void *));
+    // Otherwise you might overwrite when typecasting ..
+    // .. empty memspaces to _FreeNode * 
+    fflush(stderr);  
+    return NULL;
+  }
+    
+  _MemPool * pool = 
+    (_MemoryPool*)malloc(sizeof(_MemoryPool));
+  if (!pool) {
+    fprintf(stderr, "\nERROR: \
+Failed to allocate memory for the pool.\n");
+    fflush(stderr);  
+    return NULL;
+  }
 
-    // Initialize the free list
-    pool->free_list = NULL;
-    for (size_t i = 0; i < block_size; i++) {
-        FreeNode *node = (FreeNode*)((char*)pool->memory_block + i * object_size);
-        node->next = pool->free_list;
-        pool->free_list = node;
-    }
+  pool->object_size  = object_size;
+  pool->block_size   = block_size;
+  pool->memory_block = malloc(object_size * block_size);
+  if (!pool->memory_block) {
+    fprintf(stderr, "\nERROR:\
+Failed to allocate memory block for the pool.");
+    free(pool);
+    return NULL;
+  }
 
-    return pool;
+  // Initialize the free list
+  pool->free_list = NULL;
+  char * block = (char *)  pool->memory_black;
+  for (size_t i = 0; i < block_size; i++,block+= object_size) {
+    _FreeNode * node = (FreeNode*) block;
+    node->next = pool->free_list;
+    pool->free_list = node;
+  }
+
+  return pool;
 }
 
 // Allocate memory from the pool
-void* allocate_from_pool(MemoryPool *pool) {
-    if (!pool || !pool->free_list) {
-        fprintf(stderr, "No free slots available in the pool.\n");
-        return NULL;
-    }
+void * MemPoolAllocateFrom(_MemPool * pool) {
+  if (!pool){
+    fprintf(stderr, "ERROR: No pool Mentioned!");
+    fflush(stderr);
+    return NULL;
+  }
+  if (!pool->free_list) {
+    fprintf(stderr, "WARNING:\
+No free slots available in the pool.");
+    fflush(stderr);
+    return NULL;
+  }
 
-    // Remove the first node from the free list
-    FreeNode *allocated_node = pool->free_list;
-    pool->free_list = allocated_node->next;
-
-    return (void*)allocated_node;
+  // Remove the first node from the free list
+  _FreeNode *allocated_node = pool->free_list;
+  pool->free_list = allocated_node->next;
+  return (void*)allocated_node;
 }
 
 // Deallocate memory back to the pool
-void deallocate_to_pool(MemoryPool *pool, void *ptr) {
-    if (!pool || !ptr) return;
+void MemPoolDeallocateTo(_MemPool * pool, void * ptr) {
+  if (!pool || !ptr) {
+    fprintf(stderr, "ERROR:\
+Either of pool or node NOT mentioned!");
+    fflush(stderr);
+    return;
+  }
 
-    // Add the slot back to the free list
-    FreeNode *node = (FreeNode*)ptr;
-    node->next = pool->free_list;
-    pool->free_list = node;
+  // Add the slot back to the free list
+  _FreeNode *node = (_FreeNode*)ptr;
+  node->next = pool->free_list;
+  pool->free_list = node;
 }
 
 // Free the entire memory pool
-void free_memory_pool(MemoryPool *pool) {
-    if (!pool) return;
+void MemPoolFree(_MemPool *pool) {
+  if (!pool) return;
 
-    free(pool->memory_block);
-    free(pool);
+  free(pool->memory_block);
+  free(pool);
 }
 
+
+/*
 // Example usage: Create a linked list
 typedef struct Node {
-    int data;
-    struct Node *next;
+  int data;
+  struct Node *next;
 } Node;
-
 int main() {
     // Initialize a memory pool for Node objects
     size_t num_objects = 10;
-    MemoryPool *node_pool = init_memory_pool(sizeof(Node), num_objects);
+    MemPool *node_pool = init_memory_pool(sizeof(Node), num_objects);
     if (!node_pool) return 1;
 
     // Allocate a few nodes
@@ -116,3 +147,4 @@ int main() {
 
     return 0;
 }
+*/

@@ -90,7 +90,7 @@ static inline Square * SquarePointer(Square s) {
 
 typedef struct {
   //64 pieces corresponding to each square on GAMEBOARD[][]
-  Piece * pieces;
+  Piece pieces[64];
   /** -----------Game Status Metadata--------------*/
   //squares to store WKING, BKING, ENPASS \in [0,63)
   Square king[2], enpassante;
@@ -106,10 +106,7 @@ typedef struct {
 
 
 void BoardCopy(_Board * b, _Board * source){
-  Piece * pieces = b->pieces;
   memcpy (b, source, sizeof(_Board));
-  memcpy (pieces, source->pieces, 64*sizeof(Piece));
-  b->pieces = pieces;
 }
 
 void BoardInitIterator(){
@@ -331,8 +328,6 @@ _Board * Board(_Board * source) {
     BoardInitIterator();
      
   _Board * board = (_Board *) malloc (sizeof (_Board));
-  Piece * pieces = (Piece *) malloc(64* sizeof(Piece));
-  board->pieces = pieces;
   if(source) 
     //Copy in case there is a source specified 
     BoardCopy(board, source);
@@ -341,7 +336,6 @@ _Board * Board(_Board * source) {
 }
 
 void BoardDestroy(_Board * b){
-  free(b->pieces);
   free(b);
 }
 
