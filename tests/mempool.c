@@ -1,5 +1,4 @@
-#define TREE_MAX_DEPTH 3
-#include "../src/engine.h"
+#include "../src/tree.h"
 
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
@@ -30,10 +29,12 @@ Flag TreeNodePrint(_Tree * node){
   fprintf(stdout, "\nl%d d%d, max%d", 
     node->level, node->depth, node->depthmax);
   BoardPrint(&node->board);
+  return 1;
 }
 
 
 int main(){
+  _Board * b = Board(NULL);
   //BoardSetFromFEN(b,NULL);
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -48,41 +49,17 @@ int main(){
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
-  //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  //_Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  //_Game * g = GameNew("8/6p1/6p1/6PP/8/8/8/5k1K w - - 0 1");
-  _Game * g = GameNew(NULL);
+  BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
+  BoardPrint(b);
 
   //unsigned int status = Game(g);
   //GameError(status);
-  srand(time(0));
-  //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
-  while(GameStatus(g) == GAME_CONTINUE) {
-    if(g->board->color == BLACK){
-      GameBot(g);
-    }
-    else {
-      _Engine * e = EngineNew(g, g->board->color);
-      fprintf(stdout, "\ntree avilability %ld", TreeAvailability()); fflush(stdout);
-      assert(e);
+  _Tree * tree = Tree(b, TREE_MAX_DEPTH);
+  //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
+  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
+  TreeDestroy(tree);
 
-      //verifying validity of tree
-      TreeEachNode(e->tree, TREE_MAX_DEPTH, 
-        TreeNodeCheckFlags);
-
-      //Run the engine 
-      Engine(e);
-
-      //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-      EngineDestroy(e);
-      fprintf(stdout, "\ntree avilability %ld", TreeAvailability()); fflush(stdout);
-    }
-    GamePrintBoard(g, 100);
-  }
-  BoardStatusPrint(g->board);
-
-  GameDestroy(g);
+  //GameDestroy(b);
 
   return 0;
 }

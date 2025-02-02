@@ -148,10 +148,11 @@ Flag TreeNodeNegamax(_Tree * node) {
   }
   else {
     node->ichild = node->nchildren; //An invalid number
-    _Tree * child = node->children;
-    assert(child);
+    _Tree ** children = node->children;
+    assert(children);
     node->eval = -ENGINE_EVAL_MAX;
-    for(int i=0; i<node->nchildren; ++i, ++child) {
+    for(int i=0; i<node->nchildren; ++i, ++children) {
+      _Tree * child = *children;
       if( (-child->eval) > node->eval) {  
         node->eval =  -child->eval;
         node->ichild = i;
@@ -167,8 +168,8 @@ _Board * EngineMinimax(_Engine * e) {
   /* Run the minimax evaluate algo*/
   _Tree * root = e->tree;
   TreeEachNodePostOrder(root, root->depth, TreeNodeNegamax);
-  _Tree * next = root->children;
-  next += root->ichild; //this is the most "ideal" move acc to engine
+  //this is the most "ideal" move acc to engine
+  _Tree * next = root->children[root->ichild];
   //BoardPrint(next->board);
 
   return &next->board;
