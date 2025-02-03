@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Client</title>
+</head>
+<body>
+    <h2>WebSocket Client</h2>
+    <button onclick="sendMessage()">Send Message</button>
+    <script>
+        const socket = new WebSocket("ws://localhost:8080"); // Change as needed
+
+        socket.onopen = function () {
+            console.log("Connected to wsServer");
+        };
+
+        socket.onmessage = function (event) {
+            console.log("Received:", event.data);
+        };
+
+        socket.onclose = function () {
+            console.log("Connection closed");
+        };
+
+        function sendMessage() {
+            socket.send("Hello Server!");
+        }
+    </script>
+</body>
+</html>
+
