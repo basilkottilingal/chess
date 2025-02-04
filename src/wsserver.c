@@ -88,6 +88,7 @@ void onmessage(ws_cli_conn_t client,
 #ifndef DISABLE_VERBOSE
 	printf("I receive a message: %s (size: %" PRId64 ", type: %d), from: %s\n",
 		msg, size, type, cli);
+	printf("Type = %d\n", (unsigned char ) msg[0]);
 #endif
 
 	/**
