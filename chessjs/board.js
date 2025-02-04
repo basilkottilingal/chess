@@ -31,7 +31,7 @@ for (let i = 0; i < 8; i++) {
     if (board[i][j] != '') {
       const img = document.createElement('img');
 			const dir = 'PRNBQK'.includes(board[i][j]) ? 'w' : 'b';
-      img.src = dir + '/' + board[i][j] + ".png"; 
+      img.src = 'imgs/' + dir + '/' + board[i][j] + ".png"; 
       img.alt = board[i][j];
       img.id = "piece";
       /* Only the chess pieces are movable */

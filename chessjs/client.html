@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess WebSocket Client</title>
+    <link rel="stylesheet" href="client.css">
+</head>
+<body>
+    <div class="grid-container" id="grid-container">
+    <!-- The grid items will be dynamically added here by JavaScript "board.js"-->
+    </div>
+  <div class="flex-container">
+    <div class = "flex-box">
+      <label for="fen">Enter FEN</label>
+
+      <input type="text" id="fen" name="fen" required minlength="0" maxlength="80" size="10" />
+      <button id="fenEnter">Submit</button>
+      <p class="output" id="fenValidity"></p>
+    </div>
+    <div class = "flex-box">
+      <button id = "handshake">Send Message</button>
+      <button id = "restart">Restart</button>
+    </div>
+  </div>
+
+    <script type="module" src="client.js"> </script>
+    <script type="module" src="client-game.js"> </script>
+</body>
+</html>
+

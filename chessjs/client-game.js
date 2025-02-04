@@ -24,7 +24,7 @@ class ChessGame {
   piece(chesspiece){
     const img = document.createElement('img');
     img.id = this.blackpieces.includes(chesspiece) ? 'b' : 'w';
-    img.src = img.id + "/" + chesspiece + ".png"; 
+    img.src = "imgs/" + img.id + "/" + chesspiece + ".png"; 
     img.alt = chesspiece;
     img.draggable = "true";
     return img;
@@ -239,7 +239,7 @@ class ChessGame {
       piece.alt = promotion;
       piece.id = 
         this.blackpieces.includes(promotion) ? 'b' : 'w';
-      piece.src = piece.id + '/' + promotion + '.png';
+      piece.src = 'imgs/' + piece.id + '/' + promotion + '.png';
     }
 
     const promotionOverlay = 
