@@ -21,6 +21,15 @@
 #include <unistd.h>
 #include <ws.h>
 
+#ifndef _WIN32
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#else
+  non compilable line //Not yet implemented
+#endif
+
+
 /**
  * @dir examples/
  * @brief wsServer examples folder
@@ -86,9 +95,17 @@ void onmessage(ws_cli_conn_t client,
 	char *cli;
 	cli = ws_getaddress(client);
 #ifndef DISABLE_VERBOSE
-	printf("I receive a message: %s (size: %" PRId64 ", type: %d), from: %s\n",
-		msg, size, type, cli);
-	printf("Type = %d\n", (unsigned char ) msg[0]);
+  printf("I receive a message: from: %s\n", cli);
+      
+  if (type == WS_FR_OP_BIN) {
+    printf("Received binary data: ");
+    for (uint64_t i = 0; i < size; i++)
+      //printf("%02X ", (unsigned char)msg[i]);  // Print as hex
+      printf("%d ", (unsigned char)msg[i]);  // Print as hex
+    printf("\n");
+  } 
+  else
+    printf("Received text: %s\n", msg);
 #endif
 
 	/**
@@ -106,7 +123,40 @@ void onmessage(ws_cli_conn_t client,
 	 *   ws_sendframe_bin()
 	 *   ws_sendframe_bin_bcast()
 	 */
-	ws_sendframe_bcast(8080, (char *)msg, size, type);
+  if(size) {
+    if(type == WS_FR_OP_TXT) // is a textmsg
+	    ws_sendframe_txt_bcast(8080, (char *)msg);
+    else if(type == WS_FR_OP_BIN) // Binary msg
+	    ws_sendframe_bin_bcast(8080, msg, size);
+  }
+}
+//delete these 2 lines as you redo such that client.js is written by this file
+#define PORT_START 8080
+#define PORT_END 8080
+
+#ifndef PORT_START
+#define PORT_START 8080
+#endif
+#ifndef PORT_END
+#define PORT_END 8090
+#endif
+
+int is_port_available(int port) 
+{
+    
+  int sock = socket(AF_INET, SOCK_STREAM, 0);
+    
+  if (sock < 0) return 0;
+
+  struct sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  addr.sin_port = htons(port);
+
+  int result = bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+  close(sock);
+    
+  return result == 0;
 }
 
 /**
@@ -115,23 +165,41 @@ void onmessage(ws_cli_conn_t client,
  * @note After invoking @ref ws_socket, this routine never returns,
  * unless if invoked from a different thread.
  */
+
 int main(void)
 {
-	ws_socket(&(struct ws_server){
-		/*
-		 * Bind host:
-		 * localhost -> localhost/127.0.0.1
-		 * 0.0.0.0   -> global IPv4
-		 * ::        -> global IPv4+IPv6 (DualStack)
-		 */
-		.host = "0.0.0.0",
-		.port = 8080,
-		.thread_loop   = 0,
-		.timeout_ms    = 1000,
-		.evs.onopen    = &onopen,
-		.evs.onclose   = &onclose,
-		.evs.onmessage = &onmessage
-	});
+
+  int available = 0;
+  for(uint32_t port = PORT_START; port <= PORT_END; ++port) 
+  {
+    if( !is_port_available(port) )
+      continue; // port not handle
+    
+    available = 1;
+    fprintf(stdout, 
+      "Server listening to 127.0.0.1:%d\n", port); 
+  
+  	ws_socket(&(struct ws_server){
+	  	/*
+		   * Bind host:
+		  * localhost -> localhost/127.0.0.1
+		   * 0.0.0.0   -> global IPv4
+		  * ::        -> global IPv4+IPv6 (DualStack)
+		  */
+  		.host = "0.0.0.0",
+	   	.port = port,
+		  .thread_loop   = 0,
+		  .timeout_ms    = 1000,
+  		.evs.onopen    = &onopen,
+	  	.evs.onclose   = &onclose,
+		  .evs.onmessage = &onmessage
+	  });
+  }
+  
+  if(!available)  
+    fprintf(stderr, 
+      "ERROR: No port between %d and %d are available",
+      PORT_START, PORT_END);
 
 	/*
 	 * If you want to execute code past ws_socket(), set

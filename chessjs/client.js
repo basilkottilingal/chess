@@ -1,3 +1,5 @@
+// error log for user, that will be displayed on the page
+const errorLog = document.getElementById("errorLog");
 
 const ENCODE = {
   handshake: 0x0, // send/recv
@@ -18,7 +20,7 @@ const ENCODE = {
 function encode(msgtype, binaryMsg) {
   let combined =  
     new Uint8Array(1 + binaryMsg.length);
-  combined[1] = msgtype;
+  combined[0] = msgtype;
   combined.set(binaryMsg, 1);
   return combined.buffer;
 }
@@ -26,8 +28,8 @@ function encode(msgtype, binaryMsg) {
 function encodeText(info, msg) {
   let combined =  
     new Uint8Array(2 + msg.length);
-  combined[1] = ENCODE.text;
-  combined[2] = info;
+  combined[0] = ENCODE.text;
+  combined[1] = info;
   let encoder = new TextEncoder();
   combined.set(encoder.encode(msg), 2);
   console.log("Sending:: type:",info," msg:", msg )
@@ -35,19 +37,20 @@ function encodeText(info, msg) {
 }
 
 function decode(msg) {
-  let data = new Uint8Array(msg.length);
-  let type = data[0];
+  let type = msg[0];
   let start = (type === ENCODE.text) ? 2 : 1;
 
-  let decoder = new TextDecoder();
-  let text = decoder.decode(data.subarray(start));
-  console.log("Decode received:", text, "len", data.length);
+  //let decoder = new TextDecoder();
+  //let text = decoder.decode(msg.subarray(start));
+  console.log("Decode received:", text, "len", msg.length, " start", start, " type", type);
 }
 
 
 // This file should be written by wsserver.c !!!
 const socket = 
-  new WebSocket("ws://localhost:8080"); 
+  new WebSocket("ws://localhost:8080");
+// Ensures data is received as ArrayBuffer 
+socket.binaryType = "arraybuffer"; 
 
   
 socket.onopen = function () {
@@ -58,22 +61,22 @@ socket.onmessage = function (event) {
   //console.log("Received:", event.data);
   if (event.data instanceof ArrayBuffer) {
     let uint8Array = new Uint8Array(event.data);
+    console.log(uint8Array);
     // console.log("Received Binary Data:", uint8Array);
     // Example: Convert binary to string 
     decode(event.data);
-  } else {
+  } else if (event.data instanceof Blob) {
+    console.log("ERROR : Weird!! socket binary type is arraybuffer");
+  }
+  else {
     console.log("Received Non-Binary Data:", event.data);
   }
 };
 
 socket.onclose = function () {
-  console.log("Connection closed");
+  console.log("Connection Lost");
+  errorLog.textContent = "Server Error: Connection Lost!";
 };
-  
-function sendMessage() {
-  socket.send("Hello Server!");
-}
-
 
     
 // Wait for the DOM to load before executing the function
@@ -129,11 +132,19 @@ let debounceTimer;
 
 // Function to handle the result
 function sendFen() {
-  socket.send(inputFEN.value);
-  //if invalid
-    inputFEN.textContent = "";
-  inputFEN.disabled = true;
-  submitFEN.disabled = true;
+  let fen = inputFEN.value.trim();
+  if( fen.length > 22 ) {
+    socket.send(fen);
+    //if invalid
+    inputFEN.value = "";
+    inputFEN.disabled = true;
+    submitFEN.disabled = true;
+    errorLog.textContent = "";
+  }
+  else {
+    errorLog.textContent = "invalid fen! Please enter a valid one";
+    console.log("Invalid FEN");
+  }
 }
 
 // Handle the input event with debounce
