@@ -34,6 +34,7 @@ export class ChessGame {
   }
 
   board(){
+    //default board;
     this.board = [
       ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
       ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
@@ -192,7 +193,9 @@ export class ChessGame {
         if (move.to == square.id) {
   found = true;
   this.move = move;
-  console.log('Move ' + move.from + ' to ' + move.to);
+  let msg = this.socket.ENCODE.move + move.from + move.to;
+  this.socket.socket.send(msg);
+  console.log('Move: msg ' + msg);
         }
       });
       if( found === false ){

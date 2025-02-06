@@ -21,16 +21,12 @@ export class Client {
     this.socket.onmessage = (event) => {
       //console.log("Received:", event.data);
       if (event.data instanceof ArrayBuffer) {
-        let uint8Array = new Uint8Array(event.data);
-        console.log(uint8Array);
-        // console.log("Received Binary Data:", uint8Array);
-        // Example: Convert binary to string 
-        this.decode(event.data);
+          console.log("ERROR : Weird!! Only expect string");
       } else if (event.data instanceof Blob) {
-          console.log("ERROR : Weird!! socket binary type is arraybuffer");
+          console.log("ERROR : Weird!! Only expect string");
       }
       else {
-        console.log("Received Non-Binary Data:", event.data);
+        this.recvDecode(event.data);
       }
     };
 
@@ -40,24 +36,28 @@ export class Client {
     };
   } // End of the default contructor
 
+  /* Enoding is adapted to "string" encoding for easier implementation in js (client side) */
   ENCODE = {
-    start:   0x0, // send/recv
-    fen:     0x1, // send only
-    board:   0x2, // recv only
-    move:    0x3, // send/recv
-    moves:   0x4, // recv only
-    undo:    0x5, // send only
-    restart: 0x6, // send only
-    meta:    0x7, // send/recv
-    text:    0x8, // send/recv
-    game_status: 0x9, // send/recv 
-    warning: 0xc, // send/recv
-    error:   0xd, // send/recv
-    crash:   0xe, // send/recv
-    debug:   0xf  // send/recv
+    start:   's', // send/recv   : command to "start" the game. (client will send the starting time)
+    fen:     'f', // send only   : user defined FEN (send from client to server); will wait for the 'board' (if valid)
+    board:   'b', // recv only   : 'board' 8x8 char of pieces.
+    boardMeta: 'B', // recv only : board meta data
+    move:    'm', // send/recv   : will encode starting and ending square in Algerbraic Notation. 
+                  //              (other details have to be locall computed (like promotion, capture, enpassante, etc))
+    moves:   'M', // recv only   : List of moves. (Only for debugging moves of the server side "move.h" . Compare with chess.js)
+    undo:    'u', // send only   : Undo a move. (only in debug mode)
+    restart: 'r', // send only   : Restart a game 
+    meta:    'x', // send/recv   : Any complicated data. have to  give info on the type of msg..
+    text:    't', // send/recv   : simple text.
+    game_status: 'g', // send/recv  : Gamestatus
+    warning: 'w', // send/recv   : warning message
+    error:   'e', // send/recv   : error message 
+    crash:   'c', // send/recv   : server crashed for some reason
+    debug:   'd'  // send/recv   : ask server to run in debug mode.
   };
 
-  //function 
+  //function
+  /* 
   encode(msgtype, binaryMsg) {
     let combined =  
       new Uint8Array(1 + binaryMsg.length);
@@ -67,21 +67,27 @@ export class Client {
   }
 
   //function 
-  encodeText(info, msg) {
+  encodeText(msgtype, msg) {
     let combined =  
-      new Uint8Array(2 + msg.length);
-    combined[0] = this.ENCODE.text;
-    combined[1] = info;
+      new Uint8Array(1 + msg.length);
+    combined[0] = msgtype;
     let encoder = new TextEncoder();
-    combined.set(encoder.encode(msg), 2);
-    console.log("Sending:: type:",info," msg:", msg )
+    combined.set(encoder.encode(msg), 1);
+    console.log("Sending:: msg", combined )
     return combined.buffer;
+  }
+  */
+  
+  encodeSend(type, msg) {
+    this.socket.send(type + msg);
   }
 
   //function 
-  decode(msg) {
-    let type = msg[0];
-    let start = (type === this.ENCODE.text) ? 2 : 1;
+  recvDecode(msg) {
+    console.log("Received", msg);
+    //let type = msg[0];
+    // Put in probablility order.
+    //let start = (type === this.ENCODE.text) ? 2 : 1;
   }
     
   // Send input FEN to server
@@ -89,7 +95,7 @@ export class Client {
   sendFen() {
     let fen = this.inputFEN.value.trim();
     if( fen.length > 22 ) {
-      this.socket.send(fen);
+      let msg = this.encodeSend(this.ENCODE.fen, fen); //encode fen.
       //if invalid
       this.inputFEN.value = "";
       this.inputFEN.disabled = true;
@@ -113,7 +119,7 @@ export class Client {
       // Add the event listener for the click event
       button.addEventListener('click', () => {
         //alert('Button clicked!');
-        this.socket.send("Restart");
+        this.socket.send("r");
       });
     });
    
@@ -125,8 +131,7 @@ export class Client {
       button.addEventListener('click', () => {
         //alert('Button clicked!');
         //socket.send("undo");
-        console.log("Sending:: type:",this.ENCODE.undo," msg:", "undo" )
-        this.socket.send(this.encodeText(this.ENCODE.undo, "undo"));
+        this.socket.send("u");
       });
     });
 
