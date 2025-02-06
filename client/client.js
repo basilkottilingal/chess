@@ -1,21 +1,4 @@
-
-const ENCODE = {
-  handshake: 0x0, // send/recv
-  fen:     0x1, // send only
-  board:   0x2, // recv only
-  move:    0x3, // send/recv
-  moves:   0x4, // recv only
-  undo:    0x5, // send only
-  restart: 0x6, // send only
-  meta:    0x7, // send/recv
-  text:    0x8, // send/recv
-  warning: 0xc, // send/recv
-  error:   0xd, // send/recv
-  crash:   0xe, // send/recv
-  debug:   0xf  // send/recv
-};
-
-class Client {
+export class Client {
   
   constructor(){
 
@@ -31,11 +14,11 @@ class Client {
     // Ensures data is received as ArrayBuffer 
     this.socket.binaryType = "arraybuffer"; 
 
-    this.socket.onopen = function () {
+    this.socket.onopen = () => {
       console.log("Connected to wsServer");
     };
 
-    this.socket.onmessage = function (event) {
+    this.socket.onmessage = (event) => {
       //console.log("Received:", event.data);
       if (event.data instanceof ArrayBuffer) {
         let uint8Array = new Uint8Array(event.data);
@@ -51,11 +34,28 @@ class Client {
       }
     };
 
-    this.socket.onclose = function () {
+    this.socket.onclose = () => {
       console.log("Connection Lost");
       this.errorLog.textContent = "Server Error: Connection Lost!";
     };
   } // End of the default contructor
+
+  ENCODE = {
+    start:   0x0, // send/recv
+    fen:     0x1, // send only
+    board:   0x2, // recv only
+    move:    0x3, // send/recv
+    moves:   0x4, // recv only
+    undo:    0x5, // send only
+    restart: 0x6, // send only
+    meta:    0x7, // send/recv
+    text:    0x8, // send/recv
+    game_status: 0x9, // send/recv 
+    warning: 0xc, // send/recv
+    error:   0xd, // send/recv
+    crash:   0xe, // send/recv
+    debug:   0xf  // send/recv
+  };
 
   //function 
   encode(msgtype, binaryMsg) {
@@ -70,7 +70,7 @@ class Client {
   encodeText(info, msg) {
     let combined =  
       new Uint8Array(2 + msg.length);
-    combined[0] = ENCODE.text;
+    combined[0] = this.ENCODE.text;
     combined[1] = info;
     let encoder = new TextEncoder();
     combined.set(encoder.encode(msg), 2);
@@ -81,7 +81,7 @@ class Client {
   //function 
   decode(msg) {
     let type = msg[0];
-    let start = (type === ENCODE.text) ? 2 : 1;
+    let start = (type === this.ENCODE.text) ? 2 : 1;
   }
     
   // Send input FEN to server
@@ -107,41 +107,41 @@ class Client {
   eventListen(){
  
     // Restart button 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', () => {
       // Get the button element by ID
       const button = document.getElementById('restart');
       // Add the event listener for the click event
-      button.addEventListener('click', function() {
+      button.addEventListener('click', () => {
         //alert('Button clicked!');
         this.socket.send("Restart");
       });
     });
    
     // Undo button
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', () => {
       // Get the button element by ID
       const button = document.getElementById('undo');
       // Add the event listener for the click event
-      button.addEventListener('click', function() {
+      button.addEventListener('click', () => {
         //alert('Button clicked!');
         //socket.send("undo");
-        console.log("Sending:: type:",ENCODE.undo," msg:", "undo" )
-        socket.send(encodeText(ENCODE.undo, "undo"));
+        console.log("Sending:: type:",this.ENCODE.undo," msg:", "undo" )
+        this.socket.send(this.encodeText(this.ENCODE.undo, "undo"));
       });
     });
 
     let debounceTimer;
 
     // Handle the input event with debounce
-    this.inputFEN.addEventListener("input", function() {
+    this.inputFEN.addEventListener("input", () => {
       clearTimeout(debounceTimer); // Clear the previous timer
-      debounceTimer = setTimeout(function() {
+      debounceTimer = setTimeout( () => {
         //
       }, 500); // Adjust 500ms as needed
     });
 
     // Trigger on Enter key press
-    this.inputFEN.addEventListener("keydown", function(event) {
+    this.inputFEN.addEventListener("keydown", (event) => {
       if (event.key === "Enter") {
         //event.preventDefault(); // Prevent form submission
         this.sendFen();
@@ -149,14 +149,9 @@ class Client {
     });
 
     // Trigger on button click
-    this.submitFEN.addEventListener("click", function() {
+    this.submitFEN.addEventListener("click", () => {
       this.sendFen();
     });
   } // End of eventListen()
 } // End of the class "Client"
 
-
-/* COnstructor opens socket*/
-const socket = new Client();
-/* Enable all the buttons input field, etc */
-socket.eventListen();

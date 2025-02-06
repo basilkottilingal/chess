@@ -42,4 +42,19 @@ Dependency hierarchy
 .   |       /
 .   |      /
 .  engine.h 
+.   |
+.   |
+.   |
+.  game-server.h
+.   |
+.   |        ws.h (wsServer)
+.   |         /
+.   |        /
+.   |       /
+.   |      /
+.   |     /
+.   |    /
+.  wsserver.c
 
+
+Dependency hierarchy of client.html

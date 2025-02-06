@@ -5,12 +5,15 @@
 4) Replay, undo, play again button
 */
 import {Chess} from "./chess.js";
+import {Client} from "./client.js";
 
-
-class ChessGame {
+export class ChessGame {
 
   constructor() {
     this.chess = new Chess();
+    this.socket = new Client();
+    /* Enable all the buttons input field, etc */
+    this.socket.eventListen();
     this.blackpieces = 'rnbqkp';
   
     //Random number
@@ -41,6 +44,12 @@ class ChessGame {
       ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
       ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
     ];
+  }
+
+  placePieces(isStart) {
+    
+    if( isStart === 1 )
+      this.board();
   
     // JavaScript to create an 8x8 grid using a for loop
     const gridContainer = 
@@ -183,11 +192,12 @@ class ChessGame {
         if (move.to == square.id) {
   found = true;
   this.move = move;
+  console.log('Move ' + move.from + ' to ' + move.to);
         }
       });
       if( found === false ){
         console.log('Error: Cannot find the move' +
-  'triggered by mouse drag');
+  ' triggered by mouse drag');
       }
     }
   }
@@ -321,7 +331,8 @@ class ChessGame {
         //Means:  The functioned is not called by botMove();
         const p = this.finishPromotion(move);
       }
-    } else {
+    } 
+    else {
       if (!bot) {
   //Means:  The functioned is not called by botMove();
   this.chess.move({
@@ -382,8 +393,8 @@ class ChessGame {
     this.botMove(move); 
   }
 
-  game(){
-    this.board();
+  game(isStart){
+    this.placePieces(isStart);
     /* Once you let the mouse listen to drag */
     this.gameEventListen('wb');
   }
@@ -405,5 +416,4 @@ class ChessGame {
 } //End of Class ChessGame
 
 const game = new ChessGame();
-game.game();
-
+game.game(1);

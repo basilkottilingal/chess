@@ -7,9 +7,31 @@
     <link rel="stylesheet" href="client.css">
 </head>
 <body>
-    <div class="grid-container" id="grid-container">
+    
+  <div class="grid-container" id="grid-container">
     <!-- The grid items will be dynamically added here by JavaScript "board.js"-->
+  </div>
+
+  <!-- Overlay for blocking interaction -->
+  <div class="overlay" id="board-overlay"></div>
+  <!-- Promotion -->
+  <div class="promotion-overlay" id="promotion-overlay">
+    <div class="promotion-option" data-piece="q">
+      <img src="imgs/b/q.png" alt="Queen">
     </div>
+    <div class="promotion-option" data-piece="r">
+      <img src="imgs/b/r.png" alt="Rook">
+    </div>
+    <div class="promotion-option" data-piece="b">
+      <img src="imgs/b/b.png" alt="Bishop">
+    </div>
+    <div class="promotion-option" data-piece="n">
+      <img src="imgs/b/n.png" alt="Knight">
+    </div>
+  </div>
+
+
+
   <div class="flex-container">
 
     <!-- user defined FEN -->
@@ -37,7 +59,7 @@
       <p class="output" id="errorLog" style="color:red"></p>
   </div>
 
-  <script type="module" src="client.js"> </script>
+  <!--script type="module" src="client.js"> </script-->
   <script type="module" src="client-game.js"> </script>
 </body>
 </html>
