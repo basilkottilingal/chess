@@ -7,6 +7,9 @@ export class Client {
     // FEN Input 
     this.inputFEN = document.getElementById("fen");
     this.submitFEN = document.getElementById("fenEnter");
+  
+    //did it establish connection atleast once?
+    this.onceConnected = 0;
 
     // This file should be written by wsserver.c !!!
     this.socket = 
@@ -16,6 +19,7 @@ export class Client {
 
     this.socket.onopen = () => {
       console.log("Connected to wsServer");
+      this.onceConnected = 1;
     };
 
     this.socket.onmessage = (event) => {
@@ -31,12 +35,21 @@ export class Client {
     };
 
     this.socket.onclose = () => {
-      console.log("Connection Lost");
-      this.errorLog.textContent = "Server Error: Connection Lost!";
+      if(this.onceConnected === 1)
+        this.error ("Server Error : Connection Lost");
+      else
+        this.error ("Server Error : Couldn't establish a connection");
     };
+
   } // End of the default contructor
 
-  /* Enoding is adapted to "string" encoding for easier implementation in js (client side) */
+  error(errorMsg) {
+    console.log(errorMsg);
+    this.errorLog.textContent = errorMsg;
+    this.errorLog.style.color = "red";
+  }
+
+  /* "string" encoding for easier implementation in js (client side) */
   ENCODE = {
     start:   's', // send/recv   : command to "start" the game. (client will send the starting time)
     fen:     'f', // send only   : user defined FEN (send from client to server); will wait for the 'board' (if valid)
@@ -52,7 +65,6 @@ export class Client {
     game_status: 'g', // send/recv  : Gamestatus
     warning: 'w', // send/recv   : warning message
     error:   'e', // send/recv   : error message 
-    crash:   'c', // send/recv   : server crashed for some reason
     debug:   'd'  // send/recv   : ask server to run in debug mode.
   };
 
@@ -103,8 +115,7 @@ export class Client {
       this.errorLog.textContent = "";
     }
     else {
-      this.errorLog.textContent = "invalid fen! Please enter a valid one";
-      console.log("Invalid FEN");
+      this.error("invalid fen! Please enter a valid one");
     }
   }
 

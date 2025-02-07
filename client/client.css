@@ -93,6 +93,15 @@ r1bqkbnr/pP1ppppp/8/2n5/2P5/B1N5/P1QPPPPP/2KR1BNR b kq - 6 10
 button:disabled {
   opacity: 0.5;
 }
+
+.fen-container {
+  /* Enables horizontal alignment */
+  display: flex;  
+  /* Adds spacing between divs */
+  gap: 10px;  
+  justify-content: center;
+  align-items: center;
+}
     
 .flex-container {
   /* Enables horizontal alignment */
@@ -109,3 +118,62 @@ button:disabled {
   */
   padding: 20px;
 }
+
+.output-window {
+  width: 100vw;  /* Full width */
+  min-height: 40px; /* Minimal height */
+  padding: 5px 0; /* Minimal vertical padding */
+  /*background-color: #333;*/
+  color: red;
+  text-align: center;
+  font-size: 18px;
+  overflow-wrap: break-word; /* Prevents overflow */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /*border: 1px solid #444;*/
+}
+
+/*
+.log-container {
+            width: 100%;
+            max-width: 600px;
+            margin: auto;
+            text-align: left;
+        }
+
+        .log-header {
+            background-color: #333;
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 18px;
+            border: none;
+            width: 100%;
+        }
+
+        .log-content {
+            display: none;
+            background-color: #f4f4f4;
+            padding: 10px;
+            border: 1px solid #ccc;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-content.show {
+            display: block;
+        }
+
+.output-window:empty::before {
+  content: "\00a0";  // Invisible space to prevent collapse 
+  display: block;
+  min-height: 40px; // Same as min-height to maintain size 
+}
+.output-window:empty::after {
+  content: "\00a0";  // Invisible space to prevent collapse 
+  display: block;
+  min-height: 40px; // Same as min-height to maintain size 
+}
+*/

@@ -5,7 +5,7 @@
 4) Replay, undo, play again button
 */
 import {Chess} from "./chess.js";
-import {Client} from "./client.js";
+import {Client} from "./websocket.js";
 
 export class ChessGame {
 
@@ -38,10 +38,10 @@ export class ChessGame {
     this.board = [
       ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
       ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-      ['', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', ''],
-      ['', '', '', '', '', '', '', ''],
+      ['.', '.', '.', '.', '.', '.', '.', '.'],
+      ['.', '.', '.', '.', '.', '.', '.', '.'],
+      ['.', '.', '.', '.', '.', '.', '.', '.'],
+      ['.', '.', '.', '.', '.', '.', '.', '.'],
       ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
       ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
     ];
@@ -49,7 +49,8 @@ export class ChessGame {
 
   placePieces(isStart) {
     
-    if( isStart === 1 )
+    if( isStart === 1 ) 
+      // Is the game starting from default posiition
       this.board();
   
     // JavaScript to create an 8x8 grid using a for loop
@@ -72,7 +73,7 @@ export class ChessGame {
         }
   
         const piece = this.board[i][j];
-        if ( piece != '') {
+        if ( piece != '.') {
   /* Image Element of Chesspieces on board */
   const img = this.piece(piece);
   square.appendChild(img);
@@ -403,13 +404,18 @@ export class ChessGame {
   }
 
   next(){
-    console.log(this.chess.fen());
+    this.socket.errorLog.textContent = this.chess.fen();
+    this.socket.errorLog.style.color = "green";
+    //console.log(this.chess.fen());
     if (this.chess.moves().length === 0) {
       console.log("Game over!");
       return;
     }
+
     this.randomMove();
-    console.log(this.chess.fen());
+    this.socket.errorLog.textContent = this.chess.fen();
+    this.socket.errorLog.style.color = "green";
+    //console.log(this.chess.fen());
     if (this.chess.moves().length === 0) {
       console.log("Game over!");
       return;

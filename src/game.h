@@ -62,7 +62,7 @@ Flag GameStatus(_Game * g) {
 const char FEN_DEFAULT[] = 
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-void GameSetBoard(_Game * g, const char * _fen) {
+Flag GameSetBoard(_Game * g, const char * _fen) {
   char * fen = _fen ? _fen : FEN_DEFAULT;
   g->fen[0] = '\0';
   for (int i=0; fen[i] != '\0'; ++i){
@@ -74,7 +74,7 @@ void GameSetBoard(_Game * g, const char * _fen) {
     g->fen[i] = fen[i];
     g->fen[i+1] = '\0';  
   }
-  BoardSetFromFEN(g->board, g->fen);
+  return BoardSetFromFEN(g->board, g->fen);
 }
 
 /* ---------------------------------------------------------
@@ -190,13 +190,28 @@ Flag Game(_Game * g) {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
+void GameDestroy(_Game * g) {
+  BoardDestroy(g->board);
+  if(g->moves) 
+    array_free(g->moves);
+  if(g->history)
+    array_free(g->history);
+  free(g);
+}
+
 _Game * GameNew(char * fen){
   BoardInitIterator();
   //Game instance
   _Game * g = (_Game *) malloc (sizeof (_Game));
   _Board * b = Board(NULL);
   g->board = b; 
-  GameSetBoard(g, fen);
+  if ( GameSetBoard(g, fen) == 0 ) { //wrong FEN
+    g->moves = NULL;
+    g->history = NULL;
+    GameDestroy (g);
+    return NULL;
+  }
+    
   //Allocate memory for possible moves,
   Array * moves = array_new();
   g->moves = moves; 
@@ -215,13 +230,4 @@ _Game * GameNew(char * fen){
  
   return g; 
 } 
-
-void GameDestroy(_Game * g) {
-  BoardDestroy(g->board);
-  if(g->moves) 
-    array_free(g->moves);
-  if(g->history)
-    array_free(g->history);
-  free(g);
-}
 

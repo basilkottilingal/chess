@@ -142,7 +142,7 @@ Square ** BoardMakeAvailable(_Board * b){
   return GAMEBOARD; 
 }
 
-void BoardSetFromFEN(_Board * b, char * fen){
+Flag BoardSetFromFEN(_Board * b, char * fen){
   b->npieces = 0; 
   b->king[WHITE] = OUTSIDE; 
   b->king[BLACK] = OUTSIDE;
@@ -151,24 +151,30 @@ void BoardSetFromFEN(_Board * b, char * fen){
   Piece * piece = b->pieces;
   Square square = 0; // square id
   while(*fen != '\0') {
-    assert(square <= OUTSIDE);
+
+    if( !(square <= OUTSIDE) )
+      return 0;
     char c = *fen;
     ++fen;
     /* Empty squares */ 
     if (isdigit(c)) {
       int nempty = c - '0';
-      assert(nempty > 0 && nempty <= 8);
+      if ( !(nempty > 0 && nempty <= 8) )
+        return 0;
       for (int i=0; i<nempty; ++i) { 
         *piece++ = EMPTY;
         ++square;
       }
     }
-    else if (c == '/') 
+    else if (c == '/') {
       //Make sure all squares of this rank are filled
-      assert( square%8 == 0 ); 
+      if( !(square%8 == 0 ) )
+        return 0;
+    }
     else if (c == ' '){
       //Make sure all squares are filled
-      assert( square == OUTSIDE ); 
+      if( !( square == OUTSIDE ) ) 
+        return 0;
       break;
     }
     else{
@@ -177,24 +183,29 @@ void BoardSetFromFEN(_Board * b, char * fen){
       if(c == 'K' || c == 'k') {
         Flag color = (c == 'K') ? WHITE : BLACK;
         //There cannot be multiple kings of same color
-        assert(b->king[color] == OUTSIDE); 
+        if ( !(b->king[color] == OUTSIDE) )
+          return 0;
         b->king[color] = square; //the king is here
       }
       else {
         //occupied by a piece other than 'kings'
-        assert((b->npieces)++ < 30);
+        if ( !((b->npieces)++ < 30) )
+          return 0;
       }
       ++square;
     }
   }
   //Make sure that there are both 'k' and 'K' in the FEN;
   for(Flag c=0; c<2; ++c)
-    assert(b->king[c] != OUTSIDE);
+    if(b->king[c] == OUTSIDE)
+      return 0;
 
   //Let's see whose turn is now ('w'/'b')
   b->color = (*fen == 'w') ? WHITE : BLACK;
-  assert(*fen == 'w' || *fen == 'b');
-  assert(*(++fen) == ' '); 
+  if( !(*fen == 'w' || *fen == 'b') )
+    return 0;
+  if( (*(++fen) != ' ') )
+    return 0;
 
   b->castling = '\0';
   while(*(++fen) != '\0') {
@@ -210,14 +221,16 @@ void BoardSetFromFEN(_Board * b, char * fen){
     if (c == 'Q')
       b->castling |= MOVE_QCASTLE;
   }
-  assert(*fen++ == ' ');
+  if (*fen++ != ' ')
+    return 0;
 
   b->enpassante = OUTSIDE+1;
   if(*fen != '-'){
     b->enpassante = BoardSquareParse(fen);
     ++fen;
   }
-  assert(*(++fen) == ' ');
+  if(*(++fen) != ' ')
+    return 0;
 
   //Halfmove clocks are reset during a capture/a pawn advance
   b->halfclock = 0;
@@ -225,27 +238,34 @@ void BoardSetFromFEN(_Board * b, char * fen){
     char c = *fen;
     if( c == ' ' )
       break;
-    assert(isdigit(c));
+    if( !(isdigit(c)) )
+      return 0;
     b->halfclock = 10*b->halfclock + (unsigned int) (c - '0');
-    assert(b->halfclock <= 50);
+    if (! (b->halfclock <= 50) )
+      return 0;
   }
-  assert(*fen == ' ');
+  if(*fen != ' ')
+    return 0;
 
   b->fullclock = 0;
   while(*(++fen) != '\0'){
     char c = *fen;
-    assert(isdigit(c));
+    if( !(isdigit(c)) )
+      return 0;
     b->fullclock = 10*b->fullclock + (unsigned int) (c - '0');
     // No recorded FIDE game exceeded 300 moves.
     // .. I don't know the theoretical limit. 
     // .. I think draw (by 50moves rule) would have ..
     // .. occured before 1000 moves??
-    assert(b->fullclock <= 10000);
+    if (! (b->fullclock <= 10000) )
+      return 0;
   }
-  assert(b->fullclock); //has to be greater than 0;
-  assert(*fen == '\0');
+  if( !(b->fullclock) ) //has to be greater than 0;
+    return 0;
+  if(*fen != '\0')
+    return 0;
 
-  return;
+  return 1; // succesful
 }
 
 void BoardFEN(_Board * b, char * fen) {

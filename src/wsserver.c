@@ -125,9 +125,11 @@ void onmessage(ws_cli_conn_t client,
 	 */
   if(size) {
     if(type == WS_FR_OP_TXT) // is a textmsg
-	    ws_sendframe_txt_bcast(8080, (char *)msg);
+	    ws_sendframe_txt(client, (char *)msg);
+	    //ws_sendframe_txt_bcast(8080, (char *)msg);
     else if(type == WS_FR_OP_BIN) // Binary msg
-	    ws_sendframe_bin_bcast(8080, msg, size);
+	    ws_sendframe_bin(client, msg, size);
+	    //ws_sendframe_bin_bcast(8080, msg, size);
   }
 }
 //delete these 2 lines as you redo such that client.js is written by this file
@@ -168,6 +170,10 @@ int is_port_available(int port)
 
 int main(void)
 {
+
+  // See if 8080 is free in shell
+  // $  sudo lsof -i :8080
+  // $  netstat -tuln | grep 8080
 
   int available = 0;
   for(uint32_t port = PORT_START; port <= PORT_END; ++port) 
