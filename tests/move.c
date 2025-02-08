@@ -25,6 +25,7 @@ rn2k1n1/pBp1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6
 
 int main(){
   _Board * b = Board(NULL);
+  Flag succ =
   //BoardSetFromFEN(b,NULL);
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -39,7 +40,8 @@ int main(){
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"5n2/4r3/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122");
-  assert(BoardSetFromFEN(b,"B2r1n2/8/1b2k3/6P1/2p3K1/1p1n4/8/8 w - - 2 122"));
+  BoardSetFromFEN(b,"B2r1n2/8/1b2k3/6P1/2p3K1/1p1n4/8/8 w - - 2 122");
+  assert(succ);
 
   //GamePrintBoard(g, 0);
   //_GameSquare * from = &(g->board[7][1]);
@@ -74,9 +76,8 @@ int main(){
     }  
     free(moves.p);
   }
-
   //unsigned int status = Game(g);
-  //GameError(status);
+  BoardStatusPrint(b);
   BoardDestroy(b);
 
   return 0;

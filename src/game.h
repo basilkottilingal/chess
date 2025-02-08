@@ -205,7 +205,8 @@ _Game * GameNew(char * fen){
   _Game * g = (_Game *) malloc (sizeof (_Game));
   _Board * b = Board(NULL);
   g->board = b; 
-  if ( GameSetBoard(g, fen) == 0 ) { //wrong FEN
+  if ( GameSetBoard(g, fen) == 0 ) { 
+    //wrong FEN
     g->moves = NULL;
     g->history = NULL;
     GameDestroy (g);
@@ -222,6 +223,7 @@ _Game * GameNew(char * fen){
   b->check = BoardIsKingAttacked(b, b->color);
   //Creates list of moves for the new board
   BoardAllMoves(b, g->moves);
+  //if no moves, then
   if(b->status) {
     BoardPrint(b);
     fprintf(stderr, "\nWARNING : Game loaded has no moves");

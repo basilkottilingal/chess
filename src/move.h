@@ -248,6 +248,7 @@ void BoardMovesFrom( Square * from,
         .from.square = *from,
         .to.piece = SQUARE_PIECE(to),
         .to.square = *to,
+        .promotion = EMPTY,
         .flags = flags
       };
       //Add to the list of possible moves.
@@ -301,6 +302,7 @@ void BoardKingMoves(_Board *b, Square * from, Array * moves){
         .from.square = *king,
         .to.piece = EMPTY,
         .to.square = 2 + *king,
+        .promotion = EMPTY,
         .flags = MOVE_kCASTLE << b->color
       };
       array_append(moves,&move, sizeof(move));
@@ -339,6 +341,7 @@ void BoardKingMoves(_Board *b, Square * from, Array * moves){
         .from.square = *king,
         .to.piece = EMPTY,
         .to.square = -2 + *king,
+        .promotion = EMPTY,
         .flags = MOVE_qCASTLE << b->color
       };
       array_append(moves,&move, sizeof(move));
@@ -362,7 +365,8 @@ void BoardRookMoves(_Board * b, Square * from, Array * moves){
 }
 
 void BoardPawnMoves(_Board * b, Square * from, 
-    const char rays[], Array * moves){
+  const char rays[], Array * moves)
+{
 
   for(int j=0; j<2; j++) {
     //Diagonal advance of pawn
@@ -383,6 +387,7 @@ void BoardPawnMoves(_Board * b, Square * from,
       .from.square = *from,
       .to.piece = SQUARE_PIECE(to),
       .to.square = *to,
+      .promotion = EMPTY,
       .flags = flags
     };
      
@@ -412,6 +417,7 @@ void BoardPawnMoves(_Board * b, Square * from,
       .from.square = *from,
       .to.piece = SQUARE_PIECE(to),
       .to.square = *to,
+      .promotion = EMPTY,
       .flags = flags
     };
     if(flags & MOVE_PROMOTION) {
@@ -464,7 +470,8 @@ void (*BoardPieceMoves[14]) (_Board *, Square *, Array * )
 
 Flag BoardAllMoves(_Board * b, Array * moves){
 
-  assert(moves);
+  if(!moves)
+    return GAME_STATUS_ERROR;
   BoardMakeAvailable(b);
 
   /* Find all moves by rule*/ 
@@ -519,7 +526,7 @@ Flag BoardAllMoves(_Board * b, Array * moves){
   return b->status; 
 }
 
-void
+Flag
 BoardUpdateMetadata(_Board * b, _BoardMove * move) {
 
   //Udate the halfclock, fullclock
@@ -564,8 +571,10 @@ BoardUpdateMetadata(_Board * b, _BoardMove * move) {
   if(move->flags & MOVE_CAPTURE)
     --(b->npieces);
 
-  assert(b->status == GAME_METADATA_NOTUPDATED);
+  if(b->status != GAME_METADATA_NOTUPDATED)
+    return GAME_STATUS_ERROR;
   b->status = GAME_STATUS_NOTUPDATED;
+    return 0;
 }
 
 Flag  
@@ -575,13 +584,15 @@ BoardNext(_Board * b, _BoardMove * move, Array * moves){
     fprintf(stderr, "\nERROR: Move not chosen");
     fprintf(stderr, "\nProbably loaded game is over");
     fflush(stdout);
-    return 1; //Game Stopped
+    return GAME_STATUS_ERROR; //Game Stopped
   }
 
   //Move the bitboard 
   BoardMove(b, move); 
   //Update the associated metadata of the board
-  BoardUpdateMetadata(b, move);
+  if ( BoardUpdateMetadata(b, move) == GAME_STATUS_ERROR )
+    return GAME_STATUS_ERROR;
+    
  
   //Store the list of moves in ; 
   return(BoardAllMoves(b, moves));

@@ -24,6 +24,12 @@ export class ChessGame {
     console.log('Hi Player, your are ' + this.color);
   }
 
+  msgMove(move) {
+    let msg = 'm' + move;
+    this.socket.socket.send(msg);
+    console.log('Move: msg ' + msg);
+  }
+
   piece(chesspiece){
     const img = document.createElement('img');
     img.id = this.blackpieces.includes(chesspiece) ? 'b' : 'w';
@@ -128,12 +134,19 @@ export class ChessGame {
   });
   this.moves = null;
   if(this.move) {
+    //Move the board in chess.js
     this.playerMove(this.move, false);
     const flags = this.move.flags;
-    this.move = null;
+
     /* Finish th bot move if any */
-    if(!flags.includes('p'))
+    if(!flags.includes('p')) {
+      //send the move to the server
+      this.socket.encodeSend('m', this.move.from + this.move.to);
+      
+      //eventListen (or wait for the server) for the next move
       this.next();
+    }
+    this.move = null;
   }
         }
     }, 0);
@@ -194,9 +207,6 @@ export class ChessGame {
         if (move.to == square.id) {
   found = true;
   this.move = move;
-  let msg = this.socket.ENCODE.move + move.from + move.to;
-  this.socket.socket.send(msg);
-  console.log('Move: msg ' + msg);
         }
       });
       if( found === false ){
@@ -271,6 +281,10 @@ export class ChessGame {
       _option.replaceWith(_option.cloneNode(true));
     });
 
+    //send the move to the server
+    this.socket.encodeSend('m', move.from + move.to + p);
+
+    //wait(EventListen/wait for server) for the next move
     this.next();
   }
 

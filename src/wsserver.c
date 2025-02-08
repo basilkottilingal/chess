@@ -1,25 +1,10 @@
-/*
- * Copyright (C) 2016-2023 Davidson Francis <davidsondfgl@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>
- */
-
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <ws.h>
+
+#include "game-server.h"
 
 #ifndef _WIN32
 #include <sys/socket.h>
@@ -94,9 +79,11 @@ void onmessage(ws_cli_conn_t client,
 {
 	char *cli;
 	cli = ws_getaddress(client);
+  if(!size) {
+    ServerError(client, "eMessage of zero length!");
+    return;
+  }
 #ifndef DISABLE_VERBOSE
-  printf("I receive a message: from: %s\n", cli);
-      
   if (type == WS_FR_OP_BIN) {
     printf("Received binary data: ");
     for (uint64_t i = 0; i < size; i++)
@@ -107,6 +94,22 @@ void onmessage(ws_cli_conn_t client,
   else
     printf("Received text: %s\n", msg);
 #endif
+
+  char cmd = (char) msg[0];
+  if( cmd == 'r' || cmd == 'f' ) {
+    // 'r' : restart, 'f' : start with fen specified
+    ServerInit (client, msg, size, type);
+    return;
+  }
+  else if (cmd == 'm') {
+    /* reflect client's move in the server */
+    ClientMove (client, msg, size, type);
+    return;
+  }
+  else {
+    ServerError (client,  "eUnknown Command from Client");
+    return;
+  }
 
 	/**
 	 * Mimicks the same frame type received and re-send it again
@@ -122,7 +125,6 @@ void onmessage(ws_cli_conn_t client,
 	 *   ws_sendframe_txt_bcast()
 	 *   ws_sendframe_bin()
 	 *   ws_sendframe_bin_bcast()
-	 */
   if(size) {
     if(type == WS_FR_OP_TXT) // is a textmsg
 	    ws_sendframe_txt(client, (char *)msg);
@@ -131,6 +133,7 @@ void onmessage(ws_cli_conn_t client,
 	    ws_sendframe_bin(client, msg, size);
 	    //ws_sendframe_bin_bcast(8080, msg, size);
   }
+	 */
 }
 //delete these 2 lines as you redo such that client.js is written by this file
 #define PORT_START 8080

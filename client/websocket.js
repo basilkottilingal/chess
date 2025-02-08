@@ -52,6 +52,7 @@ export class Client {
   /* "string" encoding for easier implementation in js (client side) */
   ENCODE = {
     start:   's', // send/recv   : command to "start" the game. (client will send the starting time)
+    start:   'S', // send/recv   : "SUCCESS"
     fen:     'f', // send only   : user defined FEN (send from client to server); will wait for the 'board' (if valid)
     board:   'b', // recv only   : 'board' 8x8 char of pieces.
     boardMeta: 'B', // recv only : board meta data
