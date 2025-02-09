@@ -56,10 +56,19 @@ const Piece MAPPING2[58] =
     BKNIGHT, 'o', BPAWN, BQUEEN, BROOK, 's', 't', 
     'u', 'v', 'w', 'x', 'y', 'z'
   };
+/* Input ascii and retrieve a square (in [0:63))
+   or a piece (in [0:15)) */
 static inline Square BoardSquareParse(char * s){
   return ( 8 * (8 - s[1] + '0' ) + s[0] - 'a' );
 }
-
+static inline Piece PieceParse(char p) {
+  if (p < 'A' || p > 'z') 
+    return EMPTY;
+  Piece piece = MAPPING2[p- 'A'];
+  if (piece > 15) 
+    return EMPTY;
+  return piece; // valid piece
+}
 //Squares [-2:9]x[-2:9] with [0:7]x[0:7] is inside
 Square ** GAMEBOARD = NULL; 
 Piece * PIECES = NULL;    //store pieces/empty square
@@ -160,7 +169,7 @@ Flag BoardSetFromFEN(_Board * b, char * fen){
     if (isdigit(c)) {
       int nempty = c - '0';
       if ( !(nempty > 0 && nempty <= 8) )
-        return 0;
+        return 0; 
       for (int i=0; i<nempty; ++i) { 
         *piece++ = EMPTY;
         ++square;
@@ -178,8 +187,14 @@ Flag BoardSetFromFEN(_Board * b, char * fen){
       break;
     }
     else{
+      if (!(c == 'p' || c == 'P' ||  c == 'b' || c == 'B' ||
+            c == 'n' || c == 'N' ||  c == 'r' || c == 'R' ||
+            c == 'q' || c == 'Q' ||  c == 'k' || c == 'K') )
+      { 
+          return 0; 
+      }
       // occupied square
-      *piece++ =  MAPPING2[c - 'A']; 
+      *piece++ =  PieceParse(c); //MAPPING2[c - 'A']; 
       if(c == 'K' || c == 'k') {
         Flag color = (c == 'K') ? WHITE : BLACK;
         //There cannot be multiple kings of same color

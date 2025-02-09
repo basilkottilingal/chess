@@ -16,18 +16,17 @@ When can a game draw:
   Draw by Time: A player's time runs out, but 
     their opponent cannot deliver checkmate.
 */
-
-const char KNIGHT_MOVES[8] = 
+static const char KNIGHT_MOVES[8] = 
   { 14, 25, 23, 10, -14, -25, -23, -10 };
-const char QUEEN_MOVES[8] =
+static const char QUEEN_MOVES[8] =
   { 1, 13, 12, 11, -1, -13, -12, -11 };
-const char ROOK_MOVES[4] = 
+static const char ROOK_MOVES[4] = 
   { 1, 12, -1, -12 };
-const char BISHOP_MOVES[4] = 
+static const char BISHOP_MOVES[4] = 
   { 13, 11, -13, -11 };
-const char WPAWN_MOVES[4] = 
+static const char WPAWN_MOVES[4] = 
   { -11, -13, -12, -24 }; 
-const char BPAWN_MOVES[4] = 
+static const char BPAWN_MOVES[4] = 
   { 11, 13, 12, 24 };   
  
 /* ---------------------------------------------------------

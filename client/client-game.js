@@ -10,7 +10,9 @@ import {Client} from "./websocket.js";
 export class ChessGame {
 
   constructor() {
+    /* default board. Can be reloaded using this.load(fen) */
     this.chess = new Chess();
+    /* Open a socket for communicating with server */
     this.socket = new Client();
     /* Enable all the buttons input field, etc */
     this.socket.eventListen();
@@ -39,9 +41,11 @@ export class ChessGame {
     return img;
   }
 
+  /*
   board(){
     //default board;
-    this.board = [
+    this.board = 
+    [
       ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
       ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
       ['.', '.', '.', '.', '.', '.', '.', '.'],
@@ -52,22 +56,50 @@ export class ChessGame {
       ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
     ];
   }
-
-  placePieces(isStart) {
-    
-    if( isStart === 1 ) 
+  //placePieces(isStart) 
       // Is the game starting from default posiition
       this.board();
+  */
+
+  //can be used to load/reload front end . pass the FEN.
+  load(fen) {
+    //default only. now
+    this.chess.load(fen ? fen : 
+      "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    let b = this.chess.board();
+    //console.log(b);
+    //empty 8x8 char array
+    this.board = Array.from({ length: 8 }, () => Array(8).fill('.'));
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        if(b[i][j] != null) {
+          let color = b[i][j].color;
+          let piece = b[i][j].type;
+          this.board[i][j] = 
+  color === 'b' ? piece.toLowerCase() :  piece.toUpperCase();
+        }
+      }
+    }
+    console.log(this.board);
   
     // JavaScript to create an 8x8 grid using a for loop
     const gridContainer = 
       document.getElementById('grid-container');
+
+    //remove all 'div' (In case of reloading);
+    while (gridContainer.firstChild) {
+        gridContainer.removeChild(gridContainer.firstChild);
+    }
 
     // Loop through each chess sqquare
     for (let i = 0; i < 8; i++) {
       for (let j = 0; j < 8; j++) {
     
         const square = document.createElement('div');
+        //const piece = square.querySelector('img');
+        //if(piece)
+          //Remove the piece if any
+          //square.removeChild(piece);
 
         square.classList.add('grid-item');
         square.id = 
@@ -411,8 +443,8 @@ export class ChessGame {
     this.botMove(move); 
   }
 
-  game(isStart){
-    this.placePieces(isStart);
+  game(fen){
+    this.load(fen);
     /* Once you let the mouse listen to drag */
     this.gameEventListen('wb');
   }
@@ -425,7 +457,7 @@ export class ChessGame {
       console.log("Game over!");
       return;
     }
-
+    /*
     this.randomMove();
     this.socket.errorLog.textContent = this.chess.fen();
     this.socket.errorLog.style.color = "green";
@@ -434,9 +466,10 @@ export class ChessGame {
       console.log("Game over!");
       return;
     }
+    */
   }
   
 } //End of Class ChessGame
 
 const game = new ChessGame();
-game.game(1);
+game.game(null);

@@ -90,23 +90,32 @@ Flag GameSetBoard(_Game * g, const char * _fen) {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-void GamePushHistory(_Game * g){
-  /** Add current FEN to history */
-  array_append ( g->history, g->fen, FEN_MAXSIZE);
+void GamePushHistory(_Game * g, _BoardMove * move){
+  if(!g->history)
+    g->history = array_new(); 
+  /** Add the current board and specified move to history */
+  array_append ( g->history, g->board, sizeof(_Board) );
+  array_append ( g->history, move, sizeof(_BoardMove) );
   //TODO: Add move also to the history 
 }
 
-void GamePopHistory(_Game * g){
+Flag GamePopHistory(_Game * g){
   /** Remove last move from history. ..
   .. In case of reverting a move */
   Array * h = g->history;
-  if(!h->len){
-    fprintf(stderr, "Warning: Empty history");
-    return;
+  size_t size =  sizeof(_Board) + sizeof(_BoardMove);
+  if(!h) {
+    fprintf(stderr, "Warning: History not allocated");
+    return 0;
   }
-  h->len -= FEN_MAXSIZE;
-  char * fen = (char *) (h->p) + h->len;
-  GameSetBoard(g, fen); 
+  if(h->len < size){
+    fprintf(stderr, "Warning: Empty history");
+    return 0;
+  }
+  h->len -= size;
+  BoardCopy(g->board, (_Board *) (( (char *) h->p) + h->len));
+  //validate board;?
+  return 1;
 }
 
 /* ---------------------------------------------------------
@@ -141,9 +150,28 @@ void GameFEN(_Game * g){
 
 //Next Move
 Flag GameMove(_Game * g, _BoardMove * move){
+  if(! (g && move)) {
+    fprintf(stderr, "Error : Game/move not available");
+    return GAME_STATUS_ERROR;
+  }
+  GamePushHistory(g, move);
+  //fprintf(stderr, "\nLen %ld", g->history->len); 
   Flag status = BoardNext(g->board,move,g->moves);
-  GameFEN(g);
+  GameFEN(g); //may switch of this
   return status;
+}
+
+//Undo a move
+Flag GameUnmove(_Game * g){
+  if(!g) {
+    fprintf(stderr, "Error : Game not available");
+    return GAME_STATUS_ERROR;
+  }
+  if( !GamePopHistory(g) ) 
+    return GAME_STATUS_ERROR;
+  GameFEN(g); //may switch of this
+  //status of the game if undo was successfull
+  return g->board->status;
 }
 
 Flag GameBot(_Game * g) {
@@ -232,4 +260,3 @@ _Game * GameNew(char * fen){
  
   return g; 
 } 
-

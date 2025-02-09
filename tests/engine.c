@@ -60,7 +60,8 @@ int main(){
   //GameError(status);
   //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
   //while(GameStatus(g) == GAME_CONTINUE) {}
-  if(GameStatus(g) == GAME_CONTINUE) { //Just one move  
+  if(g)
+    if(GameStatus(g) == GAME_CONTINUE) { //Just one move  
       _Engine * e = EngineNew(g, g->board->color);
     
       assert(e);
@@ -75,9 +76,9 @@ int main(){
 
       //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
       EngineDestroy(e);
-  }
-  BoardStatusPrint(g->board);
+    }
 
+  BoardStatusPrint(g->board);
   GameDestroy(g);
 
   return 0;

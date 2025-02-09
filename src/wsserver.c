@@ -42,6 +42,17 @@ void onopen(ws_cli_conn_t client)
 #ifndef DISABLE_VERBOSE
 	printf("Connection opened, addr: %s, port: %s\n", cli, port);
 #endif
+
+  //create a game with default board
+  if(!GAME_SERVER)  {
+    GAME_SERVER = GameNew(NULL);
+  }
+  else {
+    //Reload the client with current game
+    char fen[FEN_MAXSIZE + 1];
+    sprintf(fen, "%c%s", 'f', GAME_SERVER->fen);
+    ws_sendframe_txt (client, fen); 
+  }
 }
 
 /**
@@ -79,10 +90,6 @@ void onmessage(ws_cli_conn_t client,
 {
 	char *cli;
 	cli = ws_getaddress(client);
-  if(!size) {
-    ServerError(client, "eMessage of zero length!");
-    return;
-  }
 #ifndef DISABLE_VERBOSE
   if (type == WS_FR_OP_BIN) {
     printf("Received binary data: ");
@@ -94,22 +101,11 @@ void onmessage(ws_cli_conn_t client,
   else
     printf("Received text: %s\n", msg);
 #endif
-
-  char cmd = (char) msg[0];
-  if( cmd == 'r' || cmd == 'f' ) {
-    // 'r' : restart, 'f' : start with fen specified
-    ServerInit (client, msg, size, type);
+  //send the message to game-server to decode 
+  if (Server (client, msg, size, type) ) 
     return;
-  }
-  else if (cmd == 'm') {
-    /* reflect client's move in the server */
-    ClientMove (client, msg, size, type);
-    return;
-  }
-  else {
-    ServerError (client,  "eUnknown Command from Client");
-    return;
-  }
+  else
+    ServerError (client, "Error: Server failed to decode msg");
 
 	/**
 	 * Mimicks the same frame type received and re-send it again

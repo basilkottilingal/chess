@@ -25,9 +25,9 @@ export class Client {
     this.socket.onmessage = (event) => {
       //console.log("Received:", event.data);
       if (event.data instanceof ArrayBuffer) {
-          console.log("ERROR : Weird!! Only expect string");
+          console.log("Error : Weird!! Only expect string");
       } else if (event.data instanceof Blob) {
-          console.log("ERROR : Weird!! Only expect string");
+          console.log("Error : Weird!! Only expect string");
       }
       else {
         this.recvDecode(event.data);
@@ -92,15 +92,26 @@ export class Client {
   */
   
   encodeSend(type, msg) {
+    console.log("send: "+ type + msg);
     this.socket.send(type + msg);
   }
 
   //function 
   recvDecode(msg) {
-    console.log("Received", msg);
-    //let type = msg[0];
-    // Put in probablility order.
-    //let start = (type === this.ENCODE.text) ? 2 : 1;
+    let type = msg[0];
+    if (type === 'S') {
+      console.log("Server send :\"success\"");
+      return 1;
+    }
+    else if ('wWeE'.includes(type))  {  
+      //Error/warning from server
+      this.error('Server ' + msg);  
+      return 0;
+    }
+    else {
+      console.log("Unknown msg Received : ", msg);
+    }
+    return 0;
   }
     
   // Send input FEN to server
