@@ -80,18 +80,19 @@ ServerInit (ws_cli_conn_t client,
     return GAME_STATUS_ERROR;
   }
   
-  // Kill the game if any running
-  ServerDestroy();
-
   // Start new game
   char * fen = (cmd == 'r') ? NULL : (char *) (&msg[1]);
-  GAME_SERVER = GameNew(fen);
+  Game * newGame = GameNew(fen);
 
   //in case game cannot be loaded
-  if(!GAME_SERVER) {
+  if(!newGame) {
 	  ServerError(client, "Error : Wrong FEN");
     return GAME_STATUS_ERROR;
   }
+
+  // Kill the old game if any running
+  ServerDestroy();
+  GAME_SERVER = newGame;
 
   GamePrintBoard(GAME_SERVER, 0);
     

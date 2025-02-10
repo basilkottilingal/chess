@@ -17,6 +17,8 @@ export class ChessGame {
     /* Enable all the buttons input field, etc */
     this.socket.eventListen();
     this.blackpieces = 'rnbqkp';
+    /* Ascii Board */    
+    this.board = Array.from({ length: 8 }, () => Array(8).fill('.'));
   
     //Random number
     let array = new Uint32Array(1);
@@ -41,27 +43,7 @@ export class ChessGame {
     return img;
   }
 
-  /*
-  board(){
-    //default board;
-    this.board = 
-    [
-      ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-      ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-      ['.', '.', '.', '.', '.', '.', '.', '.'],
-      ['.', '.', '.', '.', '.', '.', '.', '.'],
-      ['.', '.', '.', '.', '.', '.', '.', '.'],
-      ['.', '.', '.', '.', '.', '.', '.', '.'],
-      ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-      ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
-    ];
-  }
-  //placePieces(isStart) 
-      // Is the game starting from default posiition
-      this.board();
-  */
-
-  //can be used to load/reload front end . pass the FEN.
+  //can be used to load/reload chess board and the images . 
   load(fen) {
     //default only. now
     this.chess.load(fen ? fen : 
@@ -69,15 +51,15 @@ export class ChessGame {
     let b = this.chess.board();
     //console.log(b);
     //empty 8x8 char array
-    this.board = Array.from({ length: 8 }, () => Array(8).fill('.'));
     for (let i = 0; i < 8; i++) {
       for (let j = 0; j < 8; j++) {
         if(b[i][j] != null) {
-          let color = b[i][j].color;
           let piece = b[i][j].type;
           this.board[i][j] = 
-  color === 'b' ? piece.toLowerCase() :  piece.toUpperCase();
+  b[i][j].color === 'b' ? piece.toLowerCase() :  piece.toUpperCase();
         }
+        else
+          this.board[i][j] = '.';
       }
     }
     console.log(this.board);
@@ -96,10 +78,6 @@ export class ChessGame {
       for (let j = 0; j < 8; j++) {
     
         const square = document.createElement('div');
-        //const piece = square.querySelector('img');
-        //if(piece)
-          //Remove the piece if any
-          //square.removeChild(piece);
 
         square.classList.add('grid-item');
         square.id = 
@@ -121,7 +99,7 @@ export class ChessGame {
         gridContainer.appendChild(square);
       } 
     }
-  } //End of function board()
+  } //End of function load()
 
   /* Trigger when you start dragging a piece */
   pieceDrag(e, img){
@@ -247,7 +225,14 @@ export class ChessGame {
       }
     }
   }
- 
+
+  /* list of eventListen related to drag and drop ..
+  .. The order in which these happen are 
+  ..  dragstart → dragleave (if applicable) → drop → dragend.
+  .. dragstart and dragend are associated with 'img' ( like ..
+  .. a chesspiece) while dragover, dragleave, drop are ..
+  .. associated 'div' (like a square on the chessboard).  
+  */
   gameEventListen(colors) { 
     const squares = document.querySelectorAll('.grid-item');
     squares.forEach(square => {
