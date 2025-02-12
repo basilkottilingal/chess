@@ -20,16 +20,11 @@ export class ChessGame {
     this.board = Array.from({ length: 8 }, () => Array(8).fill('.'));
   }
 
-  msgMove(move) {
-    let msg = 'm' + move;
-    this.socket.socket.send(msg);
-    console.log('Move: msg ' + msg);
-  }
-
   piece(chesspiece){
     const img = document.createElement('img');
     img.id = 'rnbqkp'.includes(chesspiece) ? 'b' : 'w';
     img.src = "imgs/" + img.id + "/" + chesspiece + ".png"; 
+    img.classList.add('piece');
     img.alt = chesspiece;
     img.draggable = "true";
     return img;
@@ -91,10 +86,20 @@ export class ChessGame {
         gridContainer.appendChild(square);
       } 
     }
+      
+    const squares = document.querySelectorAll('.grid-item');
+    squares.forEach(square => {
+      square.addEventListener('dragover', this.squareDragOver.bind(this));
+      square.addEventListener('dragleave',this.squareDragLeave.bind(this));
+      square.addEventListener('drop',this.squareDrop.bind(this));
+    });
   } //End of function load()
 
   /* Trigger when you start dragging a piece */
-  pieceDrag(e, img){
+  pieceDragStart(e){
+    let img = e.target;
+    console.log("Drag Start");
+    console.log(img);
     /* Only chess pieces with valid moves can be dragged */
     this.moves = this.chess.moves({ 
       square: img.parentElement.id, 
@@ -119,10 +124,16 @@ export class ChessGame {
   }
 
   /* Trigger when you stop dragging a piece */
-  pieceDragEnd(e, img){
+  pieceDragEnd(e){
     return new Promise( (resolve) => {
+    let img = e.target;
+    console.log("Drag End"); 
+    console.log(img);
       setTimeout(async () => {
-        e.target.style.display = 'block';
+        if(img)
+          img.style.display = 'block';
+        else 
+          console.log("Weird");
         if ( this.piece ) {
           this.piece = null;
           this.moves.forEach( move => {
@@ -133,12 +144,17 @@ export class ChessGame {
           });
           this.moves = null;
           if(this.move) {
-            //Move the board in chess.js
             await this.playerMove(false);
-            const flags = this.move.flags;
+            //console.log(this.move);
+            resolve(this.move); //player Made a valid move. No you can turn the game
             this.move = null;
-            resolve(); //player Made a valid move. No you can turn the game
           }
+          else {
+            resolve(null);
+          }
+        }
+        else {
+          resolve(null);
         }
       }, 0);
     });
@@ -146,15 +162,14 @@ export class ChessGame {
 
   pieceFree(piece) {
     // remove eventListener of img element (chesspiece)
-    piece.replaceWith(piece.cloneNode(true)); // Cloning keeps children
-  }
-  squareFree(square) {
-    // remove eventListener of div element 
-    square.replaceWith(square.cloneNode(true)); // Cloning keeps children
+    //piece.replaceWith(piece.cloneNode(true)); // Cloning keeps children
+    piece.removeEventListener('dragstart', this.pieceDragStart);
   }
 
   /* Trigger when dragging a piece over this square ('div') */
-  squareDragOver(e, square){
+  squareDragOver(e){
+    let square = 
+      e.target.tagName === 'IMG' ? e.target.parentElement : e.target;
     if (this.piece) {
       if (square.classList.contains('move-highlight')) {
         /* This makes sure that only the cells with      ..
@@ -169,7 +184,9 @@ export class ChessGame {
   }
 
   /* Trigger when leave dragging over this square ('div') */
-  squareDragLeave(square){
+  squareDragLeave(e){
+    let square = 
+      e.target.tagName === 'IMG' ? e.target.parentElement : e.target;
     if (this.piece) {
       square.classList.remove('highlight');
     }
@@ -177,22 +194,13 @@ export class ChessGame {
 
   /* Trigger when you drop a piece ('img') on this ..
   .. square ('div') */
-  squareDrop(e, square){
+  squareDrop(e){
+    let square = 
+      e.target.tagName === 'IMG' ? e.target.parentElement : e.target;
     if ( this.piece ) { 
       e.preventDefault();
+      e.stopPropagation();
       square.classList.remove('highlight');
-
-      if (square.querySelector('img')) {
-        /* Capture */
-        let capturedPiece = square.querySelector('img');
-        square.replaceChild(this.piece, capturedPiece);
-        // Memory management
-        this.pieceFree(capturedPiece);
-        capturedPiece = null;
-      } else {
-        /* Normal Chess Move / "Quiet Move" */ 
-        square.appendChild( this.piece );
-      }
 
       // Let chess.js know which move among ..
       // moves is chosen by mouse drag/drop. 
@@ -218,48 +226,44 @@ export class ChessGame {
   .. a chesspiece) while dragover, dragleave, drop are ..
   .. associated 'div' (like a square on the chessboard).  
   */
-  eventListen(colors) { 
+  eventListen(colors) {
     return new  Promise( (resolve) => {
-      const squares = document.querySelectorAll('.grid-item');
-      squares.forEach(square => {
-        const piece = square.querySelector('img');
-        if (piece) {
-          if(colors.includes(piece.id[0])) {
-            /* Only pieces of player's color are draggable */      
-            piece.addEventListener('dragstart', 
-              (e) => {this.pieceDrag(e, piece)});
-  
-            piece.addEventListener('dragend', (e) => {
-              this.pieceDragEnd(e, piece).then(() => {
-                //This will be triggered when pieceDragEnd is resolved
-                this.removeEventListen();
-                console.log("Player Moved a Piece");
-                resolve();
-              });    
-            });
+      /* It is very important to use a map, that maps each image to ..
+      .. to it's dragstart/dragend event handle functions. Otherwise ..
+      .. removing these eventListers is messy*/
+      const boundHandlers = new Map(); 
+      const pieces = document.querySelectorAll('.piece');
+      pieces.forEach(piece => {
+        if(colors.includes(piece.id[0])) {
+          const dragStartHandler = this.pieceDragStart.bind(this); 
+          piece.addEventListener('dragstart', dragStartHandler);
+
+          const dragEndHandler = async (e) => {
+            let move = await this.pieceDragEnd(e);
+            if(move) {
+              //console.log("move success");
+              pieces.forEach(img => {
+                /* Remove all the drag related eventListeners attached to ..
+                .. chess pieces */ 
+                const handlers = boundHandlers.get(img);
+                if(handlers) {
+                  img.removeEventListener('dragend', handlers.dragEndHandler);
+                  img.removeEventListener('dragstart', handlers.dragStartHandler);
+                }
+              })
+              resolve(move); 
+            }
           }
-        } 
+          piece.addEventListener('dragend', dragEndHandler);
 
-        square.addEventListener('dragover', 
-          (e) => {this.squareDragOver(e, square)});
-  
-        square.addEventListener('dragleave',
-          (e) => {this.squareDragLeave(square)});
+          // Store the bound handlers in a map to reference them later
+          boundHandlers.set(piece, { dragStartHandler, dragEndHandler });
 
-        square.addEventListener('drop',
-          (e) => {this.squareDrop(e, square)});
-      });
+        }
+      }); 
     }); // End of Promise((resolve), ...)
   }
 
-  /* remove all eventListeners on pieces and squares */
-  removeEventListen() {
-    const squares = document.querySelectorAll('.grid-item');
-    squares.forEach(square => {
-      square.replaceWith(square.cloneNode(true)); // Cloning keeps children
-      // No need to do clone for it's child ('img'), redundant 
-    });
-  } 
   // Function to show the promotion options
   pawnPromotion(option){
     return new Promise( (resolve) => {
@@ -342,6 +346,23 @@ export class ChessGame {
     square.appendChild(rook);
   }
 
+  startMove(){
+    /* King is already moved on the board. ..
+    .. Now move the rook on the board*/
+    let square = document.getElementById(this.move.to);
+    let piece = 
+      document.getElementById(this.move.from).querySelector('img');
+    let capturedPiece  = square.querySelector('img');
+    if (capturedPiece) {
+        square.replaceChild(piece, capturedPiece);
+        // Memory management
+        capturedPiece = null;
+      } else {
+        /* Normal Chess Move / "Quiet Move" */ 
+        square.appendChild(piece );
+    }
+  }
+
   finishEnPassante(){
     /* Remove opponent pawn from the board ..
     .. if the move is an en-passante one*/
@@ -355,6 +376,7 @@ export class ChessGame {
 
   playerMove(bot){
     return new Promise(async (resolve) => {
+      this.startMove();
      /* Update player's move (mouse drag) into ..
      .. the chess.js database and take care of special cases */
       let promotion = '';
@@ -438,6 +460,7 @@ export class ChessGame {
       //if player's turn
       if(1) {
         await this.eventListen(color);
+        //this.removeEventListen();
       }
       else {
         //await server
