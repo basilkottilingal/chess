@@ -46,9 +46,13 @@ void onopen(ws_cli_conn_t client)
   //create a game with default board
   if(!GAME_SERVER)  {
     GAME_SERVER = GameNew(NULL);
+    ServerCommandSuccess(client, 
+      "Success: Server Connected: New game.");
   }
   else {
     //Reload the client with current game
+    ServerError(client, 
+      "Warning : There is an ongoing game. Restart?"); 
     char fen[FEN_MAXSIZE + 1];
     sprintf(fen, "%c%s", 'f', GAME_SERVER->fen);
     ws_sendframe_txt (client, fen); 

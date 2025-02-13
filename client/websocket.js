@@ -1,10 +1,13 @@
+import {ChessBoard} from "./client-game.js";
+
 export class Client {
   
   constructor(){
-
-    //Error 
+    /* a game with front end interface */
+    this.boardInterface = new ChessBoard();
+    
+    //Error output, FEN input, fen submit button
     this.errorLog = document.getElementById("errorLog");
-    // FEN Input 
     this.inputFEN = document.getElementById("fen");
     this.submitFEN = document.getElementById("fenEnter");
   
@@ -14,7 +17,8 @@ export class Client {
     // This file should be written by wsserver.c !!!
     this.socket = 
       new WebSocket("ws://localhost:8080");
-    // Ensures data is received as ArrayBuffer 
+    // Ensures binary data (if any. not preferred ) 
+    // ..is received as ArrayBuffer 
     this.socket.binaryType = "arraybuffer"; 
 
     this.socket.onopen = () => {
@@ -24,14 +28,12 @@ export class Client {
 
     this.socket.onmessage = (event) => {
       //console.log("Received:", event.data);
-      if (event.data instanceof ArrayBuffer) {
-          console.log("Error : Weird!! Only expect string");
-      } else if (event.data instanceof Blob) {
-          console.log("Error : Weird!! Only expect string");
-      }
-      else {
+      if (event.data instanceof ArrayBuffer)
+        console.log("Error : Weird!! Only expect string");
+      else if (event.data instanceof Blob)
+        console.log("Error : Weird!! Only expect string");
+      else
         this.recvDecode(event.data);
-      }
     };
 
     this.socket.onclose = () => {
@@ -41,11 +43,14 @@ export class Client {
         this.error ("Server Error : Couldn't establish a connection");
     };
 
+    /* Enable all the buttons input field, etc, on the page*/
+    this.eventListen();
+
   } // End of the default contructor
 
-  error(errorMsg) {
-    console.log(errorMsg);
-    this.errorLog.textContent = errorMsg;
+  error(msg) {
+    console.log(msg);
+    this.errorLog.textContent = msg;
     this.errorLog.style.color = "red";
   }
 
@@ -68,28 +73,6 @@ export class Client {
     error:   'e', // send/recv   : error message 
     debug:   'd'  // send/recv   : ask server to run in debug mode.
   };
-
-  //function
-  /* 
-  encode(msgtype, binaryMsg) {
-    let combined =  
-      new Uint8Array(1 + binaryMsg.length);
-    combined[0] = msgtype;
-    combined.set(binaryMsg, 1);
-    return combined.buffer;
-  }
-
-  //function 
-  encodeText(msgtype, msg) {
-    let combined =  
-      new Uint8Array(1 + msg.length);
-    combined[0] = msgtype;
-    let encoder = new TextEncoder();
-    combined.set(encoder.encode(msg), 1);
-    console.log("Sending:: msg", combined )
-    return combined.buffer;
-  }
-  */
   
   encodeSend(type, msg) {
     console.log("send: "+ type + msg);
@@ -100,13 +83,19 @@ export class Client {
   recvDecode(msg) {
     let type = msg[0];
     if (type === 'S') {
-      console.log("Server send :\"success\"");
+      console.log("Server " + msg);
       return 1;
     }
     else if ('wWeE'.includes(type))  {  
       //Error/warning from server
       this.error('Server ' + msg);  
       return 0;
+    }
+    else if (type === 'f') {
+      //let fen = msg.substring(1);
+      //console.log('restarting with FEN ' + fen); 
+      //this.boardInterface.load( fen );
+      return 1;
     }
     else {
       console.log("Unknown msg Received : ", msg);
@@ -181,5 +170,46 @@ export class Client {
       this.sendFen();
     });
   } // End of eventListen()
+
+  /* To play a game with server */
+  async play(fen){
+    this.boardInterface.load(fen);
+    /* Once you let the mouse listen to drag */
+    while(this.boardInterface.chess.moves()){
+      /* See if the game is over */
+      let color = this.boardInterface.chess.turn();
+      //if player's turn
+      if(1) {
+        let move = await this.boardInterface.eventListen(color);
+        if(move) {
+          /* Finish the move on the board */
+          await this.boardInterface.playerMove(move);
+          /* Reflect the move in chess.js */
+          this.boardInterface.chess.move(move);
+          /* Encode a mesage that you can send to server*/
+          let msg = 'm' + move.from + move.to + 
+            (move.flags.includes('p') ? move.promotion : '');
+          /* Send the move to the server*/
+          this.socket.send(msg);
+        }
+        else {
+          console.log("Client Error: Impossible Move");
+        }
+        this.boardInterface.move = null;
+      }
+      else {
+        //await server
+      }
+    } 
+    // Game Ended
+    console.log("Game over!");
+  }
+
 } // End of the class "Client"
 
+    
+/* Create a socket */
+const socket = new Client();
+/* start a game with server */
+/* keep on playing till connection fails */
+socket.play(null);

@@ -44,9 +44,17 @@ void ServerError (ws_cli_conn_t client, char err[]) {
 }
 
 static inline
-void ServerCommandSuccess (ws_cli_conn_t client) {
-  //return 'S' (i.e. success) to the client
-  ws_sendframe_txt(client, "S"); 
+void ServerCommandSuccess (ws_cli_conn_t client, char msg[]) {
+  if(! (msg[0] == 'S')) 
+  {
+    fprintf(stderr, "\nError : Wrong encoding by server for the ");
+    fprintf(stderr, "following \"success\" msg.\n\t[%s]", msg);
+  }
+  else {
+    ws_sendframe_txt(client, msg);
+    fprintf(stderr, "\n%s", msg);
+  }
+  fflush(stderr);
 }
 
 Flag 
@@ -82,7 +90,7 @@ ServerInit (ws_cli_conn_t client,
   
   // Start new game
   char * fen = (cmd == 'r') ? NULL : (char *) (&msg[1]);
-  Game * newGame = GameNew(fen);
+  _Game * newGame = GameNew(fen);
 
   //in case game cannot be loaded
   if(!newGame) {
@@ -97,7 +105,7 @@ ServerInit (ws_cli_conn_t client,
   GamePrintBoard(GAME_SERVER, 0);
     
   //Succesfully created a new game
-  ServerCommandSuccess(client);
+  ServerCommandSuccess(client,"Success : New game");
   return GAME_SERVER->board->status;
 }
 
@@ -192,7 +200,7 @@ Flag ClientMove( ws_cli_conn_t client,
       }
       else {
         GamePrintBoard(GAME_SERVER, 0); //0 delay
-        ServerCommandSuccess(client);
+        ServerCommandSuccess(client, "Success : Board Moved");
         return GAME_SERVER->board->status;
       } 
     }
