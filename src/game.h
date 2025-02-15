@@ -115,6 +115,7 @@ Flag GamePopHistory(_Game * g){
   h->len -= size;
   BoardCopy(g->board, (_Board *) (( (char *) h->p) + h->len));
   //validate board;?
+  BoardAllMoves(g->board, g->moves);
   return 1;
 }
 

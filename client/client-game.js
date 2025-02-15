@@ -7,7 +7,7 @@ export class ChessBoard {
     this.chess = new Chess();
   }
 
-  piece(chesspiece){
+  pieceImage(chesspiece){
     const img = document.createElement('img');
     img.id = 'rnbqkp'.includes(chesspiece) ? 'b' : 'w';
     img.src = "imgs/" + img.id + "/" + chesspiece + ".png"; 
@@ -52,7 +52,7 @@ export class ChessBoard {
           let type =  board[i][j].type; 
           let piece = 
             board[i][j].color === 'b' ? type.toLowerCase() : type.toUpperCase();
-          const img = this.piece(piece);
+          const img = this.pieceImage(piece);
           square.appendChild(img);
         }
 

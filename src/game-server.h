@@ -144,7 +144,21 @@ Flag ClientUnmove( ws_cli_conn_t client,
       "Error : Cannot find the game! Start/Restart a game.");
     return GAME_STATUS_ERROR;
   }
-  return GameUnmove(GAME_SERVER);
+  Flag status = GameUnmove(GAME_SERVER);
+  if(status == GAME_CONTINUE) {
+    ServerCommandSuccess(client, "Success : Undo");
+    //send the new fen
+    char fen[FEN_MAXSIZE + 1];
+    sprintf(fen, "%c%s", 'f', GAME_SERVER->fen);
+    ws_sendframe_txt (client, fen);
+    //Print the board 
+    GamePrintBoard(GAME_SERVER, 0); //0 delay
+  }
+  else { 
+    ServerError(client, "Error : Couldn't undo a move.");
+  }
+
+  return status;
 }
 
 Flag ClientMove( ws_cli_conn_t client,                            

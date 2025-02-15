@@ -5,6 +5,7 @@ export class Client {
   constructor(){
     /* a game with front end interface */
     this.boardInterface = new ChessBoard();
+    this.restartFen = '';
     
     //Error output, FEN input, fen submit button
     this.errorLog = document.getElementById("errorLog");
@@ -48,10 +49,31 @@ export class Client {
 
   } // End of the default contructor
 
+  waitForMessage() {
+    return new Promise((resolve) => {
+
+      const msgHandler =  (event) => {
+        this.socket.removeEventListener("message", msgHandler); 
+        // Clean up
+        resolve(event.data);  
+      };
+  
+      this.socket.addEventListener("message", msgHandler);
+          // Resolve when message arrives
+    });
+  }
+
   error(msg) {
     console.log(msg);
     this.errorLog.textContent = msg;
     this.errorLog.style.color = "red";
+    setTimeout(()=>{}, 1000); //wait for .2s
+  }
+
+  success(msg) {
+    console.log(msg);
+    this.errorLog.textContent = msg;
+    this.errorLog.style.color = "green";
   }
 
   /* "string" encoding for easier implementation in js (client side) */
@@ -92,9 +114,9 @@ export class Client {
       return 0;
     }
     else if (type === 'f') {
-      //let fen = msg.substring(1);
-      //console.log('restarting with FEN ' + fen); 
-      //this.boardInterface.load( fen );
+      let fen = msg.substring(1);
+      console.log('restarting with FEN ' + fen); 
+      this.restart(fen);
       return 1;
     }
     else {
@@ -105,7 +127,7 @@ export class Client {
     
   // Send input FEN to server
   //function 
-  sendFen() {
+  async sendFen() {
     let fen = this.inputFEN.value.trim();
     if( fen.length > 22 ) {
       let msg = this.encodeSend(this.ENCODE.fen, fen); //encode fen.
@@ -114,16 +136,33 @@ export class Client {
       this.inputFEN.disabled = true;
       this.submitFEN.disabled = true;
       this.errorLog.textContent = "";
+
+      /* Now wait for a reply */
+      let reply = await this.waitForMessage();
+      if(reply[0] === 'S') {
+        this.restart(fen);
+      }
+      this.recvDecode(reply);
+      //otherwise will be handled by recvDecode
     }
     else {
       this.error("invalid fen! Please enter a valid one");
     }
   }
 
+  async restartGame() {
+    //let fen = msg.substring(1);
+    this.socket.send("r");
+    console.log("Game Restart ");
+    let reply = await this.waitForMessage();
+    if(reply[0] === 'S') {
+      this.restart("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    }
+  }
+
   //List all eventListen of buttons, etc
   //function 
   eventListen(){
- 
     // Restart button 
     document.addEventListener('DOMContentLoaded', () => {
       // Get the button element by ID
@@ -131,7 +170,7 @@ export class Client {
       // Add the event listener for the click event
       button.addEventListener('click', () => {
         //alert('Button clicked!');
-        this.socket.send("r");
+        this.restartGame();
       });
     });
    
@@ -142,8 +181,7 @@ export class Client {
       // Add the event listener for the click event
       button.addEventListener('click', () => {
         //alert('Button clicked!');
-        //socket.send("undo");
-        this.socket.send("u");
+        this.undo();
       });
     });
 
@@ -171,38 +209,123 @@ export class Client {
     });
   } // End of eventListen()
 
+  async undo() {
+    this.socket.send("u");
+    //recvDecode will do the rest
+  }
+
+  restart(fen) {
+    this.restartFen = fen;
+  }
+
+  async listenForRestart(signal){
+    return new Promise((resolve, reject) => {
+      /* This function resolves if "isGameOn === 0". 
+      .. It is checked every "inetrval" which 0.5s here */
+      const interval = setInterval( () => {
+        if(this.restartFen != '') {
+          clearInterval(interval);
+          resolve("restart");
+        }
+      }, 500); //runs every 0.5s
+      /* This is rejected if it receives an "abort"signal*/
+      signal.addEventListener ( "abort", () => {
+        clearInterval(interval);
+        reject("stopped listening for a Restart. Game should be over!");
+      });
+    });
+  }
+
   /* To play a game with server */
-  async play(fen){
-    this.boardInterface.load(fen);
-    /* Once you let the mouse listen to drag */
-    while(this.boardInterface.chess.moves()){
-      /* See if the game is over */
-      let color = this.boardInterface.chess.turn();
-      //if player's turn
-      if(1) {
-        let move = await this.boardInterface.eventListen(color);
-        if(move) {
-          /* Finish the move on the board */
-          await this.boardInterface.playerMove(move);
-          /* Reflect the move in chess.js */
-          this.boardInterface.chess.move(move);
-          /* Encode a mesage that you can send to server*/
-          let msg = 'm' + move.from + move.to + 
-            (move.flags.includes('p') ? move.promotion : '');
-          /* Send the move to the server*/
-          this.socket.send(msg);
+  async play(fen, signal){
+
+    return new Promise ( (resolve, reject) => {
+        
+      //Game is on. 
+      this.restartFen = '';
+      //Load the game with fen.
+      this.boardInterface.load(fen);
+
+      const somebodyMakeAMove = async () => {
+        //let server or player make a move
+
+        //Get the list of moves using chess.j
+        let allMoves = this.boardInterface.chess.moves(); 
+        if(allMoves.length === 0) {
+          console.log( "Game is Over" );
+          resolve("over");
+          return;
+        }
+        // ask chess.js whose turn it is.  
+        let color = this.boardInterface.chess.turn();
+        if(1) {
+
+          try {
+            //Let player Make a move by dragging+dropping a chesspiece;
+            let move = await this.boardInterface.eventListen(color);
+            if(move) {
+              /* Finish the move on the board */
+              await this.boardInterface.playerMove(move);
+              /* Reflect the move in chess.js */
+              this.boardInterface.chess.move(move);
+              /* Encode a mesage that you can send to server*/
+              let msg = 'm' + move.from + move.to + 
+                (move.flags.includes('p') ? move.promotion : '');
+              /* Send the move to the server*/
+              this.socket.send(msg);
+              /* Send the move to the server*/
+              this.success(this.boardInterface.chess.fen());
+            }
+            else {
+              console.log("Client Error: Impossible Move");
+            }
+            this.boardInterface.move = null;
+          }
+          catch(error) {
+            //To avoid crashing
+            console.log("An error occured" + error.message );
+          }
         }
         else {
-          console.log("Client Error: Impossible Move");
+          //Let's wait for server to send a move or throw an error
+          //await server
         }
-        this.boardInterface.move = null;
-      }
-      else {
-        //await server
-      }
-    } 
-    // Game Ended
-    console.log("Game over!");
+
+        // check if an Abort is activated because the
+        // .. other task(listenForAbort()) is completed.
+        if(!signal.aborted) {
+          //if not make a move
+          setTimeout(somebodyMakeAMove, 0);  
+        }
+
+      }; //End of definition of "somebodyMakeAMove()"
+
+      //Start Making a move
+      setTimeout(somebodyMakeAMove, 0);  
+ 
+      //add an event listener to abort this.play()
+      signal.addEventListener( "abort", () => {
+        reject("stopped playing.")
+      });
+    
+    });// end of Promise()
+  }//end of this.play()
+
+  async playTillAbortOrOver(fen) {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    try {
+      const result = await Promise.race([ this.play(fen, signal), this.listenForRestart(signal) ]);
+      console.log("status = ", result);
+      if (!signal.aborted)
+        controller.abort(); // Stop the other functioin
+      return result;
+    } catch (error) {
+      console.log("Error:", error);
+      if (!signal.aborted)
+        controller.abort(); // Stop the other functioin
+      return "error";
+    }
   }
 
 } // End of the class "Client"
@@ -212,4 +335,24 @@ export class Client {
 const socket = new Client();
 /* start a game with server */
 /* keep on playing till connection fails */
-socket.play(null);
+let result = "restart";
+while(1) {
+  if(result === "restart") {
+    let fen = socket.restartFen === '' ? null : socket.restartFen;
+    socket.success(fen);
+    result = await socket.playTillAbortOrOver(fen);
+  }
+  else if(result === "over") {
+    const controller = new AbortController();
+    const signal = controller.signal;
+    socket.inputFEN.disabled = false;
+    socket.submitFEN.disabled = false;
+    result = await socket.listenForRestart(signal);
+  }
+  else {
+    console.log("weird error :" + result);
+    socket.error("Client Error : Reload the page");
+    break;
+  }
+  console.log("Game Over/Restarted/Thrown an error?: " + result);
+}
