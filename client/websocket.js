@@ -142,8 +142,10 @@ export class Client {
       if(reply[0] === 'S') {
         this.restart(fen);
       }
-      this.recvDecode(reply);
-      //otherwise will be handled by recvDecode
+      else {
+        this.recvDecode(reply);
+        //otherwise will be handled by recvDecode
+      }
     }
     else {
       this.error("invalid fen! Please enter a valid one");
@@ -157,6 +159,10 @@ export class Client {
     let reply = await this.waitForMessage();
     if(reply[0] === 'S') {
       this.restart("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    }
+    else {
+      //decode the error
+      this.recvDecode(reply);
     }
   }
 
@@ -347,6 +353,7 @@ while(1) {
     const signal = controller.signal;
     socket.inputFEN.disabled = false;
     socket.submitFEN.disabled = false;
+    //if the game is over you can wait for user to restart
     result = await socket.listenForRestart(signal);
   }
   else {
