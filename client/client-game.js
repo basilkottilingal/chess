@@ -268,6 +268,23 @@ export class ChessBoard {
       }); //end of each option
     }); //end of Promise
   }
+
+  startMove(move){
+    /* move piece from 'from' to 'to' square*/
+    let square = document.getElementById(move.to);
+    let piece = 
+      document.getElementById(move.from).querySelector('img');
+    let capturedPiece  = square.querySelector('img');
+    if (capturedPiece) {
+      square.replaceChild(piece, capturedPiece);
+      // Memory management
+      capturedPiece = null;
+    } 
+    else {
+      /* Normal Chess Move / "Quiet Move" */ 
+      square.appendChild(piece);
+    }
+  }
   
   finishPromotion(move){
     const promotion = move.promotion;
@@ -297,24 +314,6 @@ export class ChessBoard {
     square = document.getElementById(file+rank);
     //New rook location
     square.appendChild(rook);
-  }
-
-  startMove(move){
-    /* King is already moved on the board. ..
-    .. Now move the rook on the board*/
-    let square = document.getElementById(move.to);
-    let piece = 
-      document.getElementById(move.from).querySelector('img');
-    let capturedPiece  = square.querySelector('img');
-    if (capturedPiece) {
-      square.replaceChild(piece, capturedPiece);
-      // Memory management
-      capturedPiece = null;
-    } 
-    else {
-      /* Normal Chess Move / "Quiet Move" */ 
-      square.appendChild(piece);
-    }
   }
 
   finishEnPassante(move){
