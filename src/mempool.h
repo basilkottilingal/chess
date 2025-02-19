@@ -3,9 +3,18 @@
 
 #define MEMPOOL 
 
+//random number < UINT32_MAX
+#define SAFETY_ENCODE 0xFBC9183 
+
 // Define a struct for the free list node
 typedef struct _FreeNode {
-  struct _FreeNode *next; // Pointer to the next free slot
+  // Pointer to the next free slot
+  struct _FreeNode *next; 
+
+  /* while freeing, encode "safety" to SAFETY_ENCODE 
+  .. to avoid double freeing of pool
+  */
+  uint32_t safety;
 }_FreeNode;
 
 // Define the memory pool struct
@@ -25,7 +34,7 @@ _Mempool* Mempool(size_t object_size, size_t nobjects) {
   // Initialize the memory pool
   // FIXME: Redo this:
 
-  if(object_size < sizeof (void *)){
+  if(object_size < sizeof (_FreeNode)){
     fprintf(stderr, "\nERROR: \
 Oject size should be atleast %ld ", sizeof(void *));
     // Otherwise you might overwrite when typecasting ..
@@ -78,6 +87,7 @@ Failed to allocate memory block for the pool.");
   for (size_t i = 0; i < nfree; i++,block+= object_size) {
     _FreeNode * node = (_FreeNode*) block;
     node->next = pool->free_list;
+    node->safety = SAFETY_ENCODE;
     pool->free_list = node;
   }
 
@@ -104,11 +114,18 @@ No free slots available in the pool.");
   }
 
   // Remove the first node from the free list
-  _FreeNode *allocated_node = pool->free_list;
-  pool->free_list = allocated_node->next;
+  _FreeNode * node = pool->free_list;
+  pool->free_list = node->next;
   --(pool->nfree);
+  if(node->safety != SAFETY_ENCODE)  {
+    fprintf(stderr, "error:\
+double allocation of same memory pool address");
+    fflush(stderr);
+    return NULL;
+  }
+  node->safety = 0;
 
-  return (void*)allocated_node;
+  return (void*) node;
 }
 
 // Deallocate memory back to the pool
@@ -122,7 +139,14 @@ Either of pool or node NOT mentioned!");
 
   // Add the slot back to the free list
   _FreeNode *node = (_FreeNode*)ptr;
+  if(node->safety == SAFETY_ENCODE)  {
+    fprintf(stderr, "error:\
+double freeing of memory pool");
+    fflush(stderr);
+    return;
+  }
   node->next = pool->free_list;
+  node->safety = SAFETY_ENCODE;
   pool->free_list = node;
   ++(pool->nfree);
 }

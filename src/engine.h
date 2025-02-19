@@ -5,17 +5,44 @@ ToDo: Naive eval function. MiniMax. a-b pruning.
 
 #include "tree.h"
 
-typedef struct {
+typedef struct _Engine{
+  //fixme. Move this. rather: Game should contain engine.
   _Game * game;
   //which color is this Engine representing;
   Flag mycolor; 
   //Tree from which you deduce the 'best' moves
   _Tree * tree;
+  //fn pointer to update the tree when opponent makes move
+  Flag (* update_tree) (_Engine * e, _BoardMove * move);
+  //fn pointer. to evaluate 'best' move. 
+  //By default the tree is also updated.
+  _BoardMove * (*engine) (_Engine * e);
 }_Engine;
+
+Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
+  _Board * b = &e->tree->board;
+  if(b->status != GAME_CONTINUE)
+    return 0;
+  BoardAllMoves(b, &MOVES_ARRAY);
+  Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_BoardMove));
+  _BoardMove * move = (_BoardMove *) (MOVES_ARRAY.p);
+  for(Flag i=0; i< nmoves; ++i, ++move) {
+    if(BoardMoveCompare(m, move)) {
+      _Tree * next = TreeNext(e->tree, i);
+      if(!next)
+        //weird. We expect root node to have all children
+        return 0;
+      //Old tree will be deleted in TreeNext();
+      e->tree = next; 
+      found = 1;
+      break;
+    }
+  }
+  
+  //couldn't find
+  return 0;
+}
  
- 
-//Engine prototype
-typedef _BoardMove * (* EngineType)(_Engine * e, Flag imove);
 
 //Not yet assigned which engines represent each colors
 EngineType Engines[2] = {NULL, NULL}; 
@@ -163,16 +190,21 @@ Flag TreeNodeNegamax(_Tree * node) {
   return 1;
 }
 
-_Board * EngineMinimax(_Engine * e) {
+_BoardMove EngineMinimax(_Engine * e) {
 
   /* Run the minimax evaluate algo*/
   _Tree * root = e->tree;
   TreeEachNodePostOrder(root, root->depth, TreeNodeNegamax);
   //this is the most "ideal" move acc to engine
-  _Tree * next = root->children[root->ichild];
-  //BoardPrint(next->board);
+  //_Tree * next = root->children[root->ichild];
 
-  return &next->board;
+  Flag ichild = root->ichild;
+
+  _Tree * next = TreeNext(root, ichild);
+  if(!next)
+    return (_BoardMove) {}; 
+  
+  return next->move;
 }
 
 
@@ -184,6 +216,7 @@ _Engine * EngineNew(_Game * g, Flag mycolor) {
   e->tree = tree;
   e->game = g; 
   e->mycolor = mycolor;
+  e->update_tree = EngineUpdateTree; 
   return e;
 }
 

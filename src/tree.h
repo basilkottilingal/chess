@@ -24,6 +24,9 @@ Parallel Tree Generation, Traversal etc
 typedef struct _Tree {
   //size_t id; 
   _Board board;
+  
+  //which 'move' from last board resulted this board
+  _BoardMove move;
 
   //Tree Connection using pointers
   struct _Tree * parent;   //parent node
@@ -32,7 +35,7 @@ typedef struct _Tree {
   Flag depth, depthmax;   // depth <= depthmax
   // depthmax is the max allowed depth. 
   // For root node, depthmax <= TREE_MAX_DEPTH
-  Flag level;             // level \in [0, root->depth) 
+  //Flag level;             // level \in [0, root->depth) 
   Flag flags;             // identify type of node
   Flag nchildren;         // number of possible moves
   Flag ichild;            // which child is chosen by engine.
@@ -55,7 +58,9 @@ _Tree * TreeFromPool() {
       TreeAvailability()); 
     fflush(stdout);
   }
-  return (_Tree *) MempoolAllocateFrom (TreePool);  
+  _Tree * tree = (_Tree *) MempoolAllocateFrom (TreePool);  
+  //tree->ichild = UINT8_MAX;
+  return tree;
 }
 
 void TreeToPool(_Tree * tree) {
@@ -76,6 +81,8 @@ enum TREE_NODE_FLAG {
   //IS_NODE_ORIGINAL = 16,
   IS_PRUNED_NODE = 32
 };
+/* NOTE: if using this array 
+.. switch of multithreading if any */
 Array MOVES_ARRAY = {.p = NULL, .len = 0, .max = 0};
 
 /* ---------------------------------------------------------
@@ -90,7 +97,7 @@ void TreeRootNode(_Tree * root, _Board * b, Flag depthmax) {
 
   root->depth = 0;
   root->depthmax = depthmax;
-  root->level = 0; 
+  //root->level = 0; 
   root->flags = IS_LEAF_NODE | IS_ROOT_NODE;
   root->nchildren = 0;
   // Tree connection
@@ -109,12 +116,14 @@ void TreeChildNode(_Tree * child, _Tree * parent,
 
   child->depth = 0;
   child->depthmax = parent->depthmax - 1;
-  child->level = parent->level + 1;
+  //child->level = parent->level + 1;
   child->flags = IS_LEAF_NODE;
   child->nchildren = 0;
   //Tree connectivity
   child->parent = parent;
   child->children = NULL;
+  //Which baord move resulted in 'child'
+  memcpy(&child->move, move, sizeof(_BoardMove));
   //Create the board of the child.
   _Board * board = &child->board;
   BoardCopy(board, &parent->board);
@@ -236,6 +245,12 @@ Flag TreeNodePrune(_Tree * node) {
   //free "children" and associated memory for it's objects.
   for(int i=0; i<node->nchildren; ++i, ++children) {
     _Tree * child = *children;
+
+    /* Every child has to be available, 
+    .. eventhough not expected to be expanded 
+    */
+    assert(child);
+
     assert( child->flags & IS_LEAF_NODE ); 
     assert( child->depth == 0);
     TreeNodeDestroy( child );
@@ -298,11 +313,11 @@ Tree Traversal without a recursion function.
 typedef Flag (* TreeNodeFunction) (_Tree * node); 
 
 void TreeEachNode(_Tree * root, 
-    Flag depth, TreeNodeFunction func){
+    Flag searchDepth, TreeNodeFunction func){
 
   assert(root);                                 
   //depth = depth + node->level; //in case node is not the root
-  assert(depth <= root->depthmax);               
+  assert(searchDepth <= root->depthmax);               
   _Tree * node = root, ** stack[TREE_MAX_DEPTH + 1],
     ** rootParent = (_Tree **) malloc(2*sizeof(_Tree *));
   rootParent[0] = root;   rootParent[1] = NULL;
@@ -315,7 +330,7 @@ void TreeEachNode(_Tree * root,
   // while(TREE_STACK[node->level] >= 0) 
   while(level >= 0) { 
 
-    while(level <= depth) {
+    while(level <= searchDepth) {
       /* Do something with node here  */
       if(func)
         func(node);
@@ -327,20 +342,25 @@ void TreeEachNode(_Tree * root,
         assert(node->flags & IS_LEAF_NODE);
         break; 
       }
-      else if(level <= depth) {
+      else if(level <= searchDepth) {
         //Go to 1st child if node->level is not yet "depth"
         stack[++level] = node->children;
         node = node->children[0];
+        //Update Depth-max everytime;
+        node->depthmax = node->parent->depthmax - 1;
       } 
     }
 
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( level >= 0 ) {
+      //Update depth everytime.
       TreeUpdateParentDepth(node);
       ++(stack[level]); 
       if( *(stack[level]) ) {  
         node = *(stack[level]); 
+        //Update Depth-max everytime;
+        node->depthmax = node->parent->depthmax - 1;
         break;
       }
       node = node->parent;
@@ -352,13 +372,13 @@ void TreeEachNode(_Tree * root,
 }
 
 
-void TreeEachNodePostOrder(_Tree * root, Flag depth, 
+void TreeEachNodePostOrder(_Tree * root, Flag searchDepth, 
     TreeNodeFunction rfunc){
 
 
   assert(root);                                 
   //depth = depth + node->level; //in case node is not the root
-  assert(depth <= root->depthmax);               
+  assert(searchDepth <= root->depthmax);               
   _Tree * node = root, ** stack[TREE_MAX_DEPTH + 1],
     ** rootParent = (_Tree **) malloc(2*sizeof(_Tree *));
   rootParent[0] = root;   rootParent[1] = NULL;
@@ -371,7 +391,7 @@ void TreeEachNodePostOrder(_Tree * root, Flag depth,
   // while(TREE_STACK[node->level] >= 0) 
   while(level >= 0) { 
 
-    while(level <= depth) {
+    while(level <= searchDepth) {
       
       /* Going down the tree */
       if(node->depth == 0) {  //Cannot go down further
@@ -379,10 +399,12 @@ void TreeEachNodePostOrder(_Tree * root, Flag depth,
         assert(node->flags & IS_LEAF_NODE);
         break; 
       }
-      else if(level <= depth) {
+      else if(level <= searchDepth) {
         //Go to 1st child if node->level is not yet "depth"
         stack[++level] = node->children;
         node = node->children[0];
+        //Update Depth-max everytime;
+        node->depthmax = node->parent->depthmax - 1;
       } 
     }
 
@@ -394,10 +416,13 @@ void TreeEachNodePostOrder(_Tree * root, Flag depth,
         rfunc(node);
       /* End of "Do something with node here"*/  
 
+      //Update depth everytime.
       TreeUpdateParentDepth(node);
       ++(stack[level]); 
       if( *(stack[level]) ) {  
         node = *(stack[level]); 
+        //Update Depth-max everytime;
+        node->depthmax = node->parent->depthmax - 1;
         break;
       }
       node = node->parent;
@@ -468,14 +493,45 @@ void TreeDestroy(_Tree * tree) {
   TreeNodeDestroy(tree);
 }
 
+_Tree * TreeNext(_Tree * root, Flag ichild) {
+  /* Once a move is made, by player/opponent,
+  .. Tree has to be updated.  */
+  _Tree * next = ichild >= root->nchildren ? NULL :
+    root->children[ichild];    
 
+  if(!next) {
+    fprintf(stderr, "ERROR: Cannot find the move"); 
+    fflush(stderr);
+    return NULL;
+  }
+
+  next->depthmax = root->depthmax;
+  next->flags |= IS_ROOT_NODE;
+  next->parent = NULL;
+  /* Expand 'next' to the max-depth */
+  TreeEachNode(next, next->depthmax - 1, TreeNodeExpand);
+
+  /* remove next from the subtree of 'tree' */
+  root->children[ichild] = root->children[root->nchildren - 1];
+  root->children[root->nchildren - 1] = NULL;
+  --(root->nchildren);
+  /* destroy 'root' */
+  TreeDestroy(root); 
+
+
+  /* 'next' is the new 'root' node*/
+  return next;
+}
+
+
+/* Debugging tree */
 Flag TreeNodeCheckFlags(_Tree * node) {
   /* For debugging */
   _Board * b = &(node->board);
   assert(b);
 
   /* Verifying inequalities related to level, depth, ..*/
-  assert(node->level + node->depth <= TREE_MAX_DEPTH);
+  //assert(node->level + node->depth <= TREE_MAX_DEPTH);
   assert(node->depthmax <= TREE_MAX_DEPTH); 
 
   /* Verifying flags and game status */
@@ -486,7 +542,7 @@ Flag TreeNodeCheckFlags(_Tree * node) {
     assert(!node->depth);
   }
   if(flags & IS_ROOT_NODE) {
-    assert(!node->level);
+    //assert(!node->level);
     assert(!node->parent);
   }
   if(flags & IS_PARENT_NODE) { 

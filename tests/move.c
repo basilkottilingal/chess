@@ -53,7 +53,8 @@ int main(){
   Flag status = BoardAllMoves(b, &moves);
   if(status == GAME_CONTINUE) {
     _BoardMove * move = moves.p;
-    for(int i=0; i<(int) moves.len/sizeof(_BoardMove); ++i, ++move){
+    Flag nmoves = (Flag) (moves.len/sizeof(_BoardMove));
+    for(Flag i=0; i<nmoves; ++i, ++move){
 {
       clock_t start_time = clock();
       clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 

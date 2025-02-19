@@ -55,16 +55,15 @@ int main(){
   //_Game * g = GameNew(NULL);
   //_Game * g = GameNew("rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/1PPPPPPP/RNBQKBNR w KQkq - 0 6");
   _Game * g = GameNew("rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/8/7K w kq - 0 1");
+  
+  //Create an engine    
+  _Engine * e = EngineNew(g, g->board->color);
 
   //unsigned int status = Game(g);
   //GameError(status);
   //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
   //while(GameStatus(g) == GAME_CONTINUE) {}
-  if(g)
-    if(GameStatus(g) == GAME_CONTINUE) { //Just one move  
-      _Engine * e = EngineNew(g, g->board->color);
-    
-      assert(e);
+  while(GameStatus(g) == GAME_CONTINUE) { 
 
       //verifying validity of tree
       TreeEachNode(e->tree, TREE_MAX_DEPTH, 

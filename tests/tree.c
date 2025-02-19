@@ -26,8 +26,8 @@ Flag TreeNodePrint(_Tree * node){
   printf("\033[2J");   // Clear the screen
   printf("\033[1;1H");     //Cursor on the left top left
  
-  fprintf(stdout, "\nl%d d%d, max%d", 
-    node->level, node->depth, node->depthmax);
+  fprintf(stdout, "\nDepth %d, max%d", 
+    node->depth, node->depthmax);
   BoardPrint(&node->board);
   return 1;
 }

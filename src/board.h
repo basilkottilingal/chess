@@ -105,14 +105,13 @@ typedef struct {
   Square king[2], enpassante;
   //some flags: castling available?,  game on check?
   Flag castling, check;
-  //numbers (guaranteed below UCHAR_MAX)
-  unsigned int halfclock, fullclock, npieces;
+  //numbers (guaranteed below 51, 5000, 33 respectively)
+  uint16_t halfclock, fullclock, npieces;
   //whose turn  
   Flag color;
   //Game Status; 
   Flag status; 
 }_Board;
-
 
 void BoardCopy(_Board * b, _Board * source){
   memcpy (b, source, sizeof(_Board));
@@ -255,7 +254,7 @@ Flag BoardSetFromFEN(_Board * b, char * fen){
       break;
     if( !(isdigit(c)) )
       return 0;
-    b->halfclock = 10*b->halfclock + (unsigned int) (c - '0');
+    b->halfclock = 10*b->halfclock + (uint16_t) (c - '0');
     if (! (b->halfclock <= 50) )
       return 0;
   }
@@ -267,7 +266,7 @@ Flag BoardSetFromFEN(_Board * b, char * fen){
     char c = *fen;
     if( !(isdigit(c)) )
       return 0;
-    b->fullclock = 10*b->fullclock + (unsigned int) (c - '0');
+    b->fullclock = 10*b->fullclock + (uint16_t) (c - '0');
     // No recorded FIDE game exceeded 300 moves.
     // .. I don't know the theoretical limit. 
     // .. I think draw (by 50moves rule) would have ..
@@ -336,9 +335,9 @@ void BoardFEN(_Board * b, char * fen) {
   *fen++ = ' ';
 
   //clocks
-  unsigned int gameclock[2] = {b->halfclock, b->fullclock};
+  uint16_t gameclock[2] = {b->halfclock, b->fullclock};
   for(int i=0; i<2; ++i) {
-    unsigned int n = gameclock[i], pos = 4;
+    uint16_t n = gameclock[i], pos = 4;
     //otherwise: weird clocknumbers
     assert(n <= (i ? 5000 : 50)); 
     unsigned char h[5];
@@ -445,8 +444,28 @@ typedef struct {
   _BoardSquare from, to;
   Flag flags;
   Piece promotion;
-  char SAN[8];
+  //char SAN[8];
 }_BoardMove;
+
+Flag BoardMoveCompare(_BoardMove * m, _BoardMove * M) {
+  //Careful: doesn't compare all fields.
+  //It works only if _Board is same.
+  Flag isSame = 
+    (m->from.square == M->from.square  &&
+     m->to.square == M->to.square) ? 1 : 0;
+  isSame &= 
+    !(m->flags & MOVE_PROMOTION) ? 1 : 
+    (m->promotion == M->promotion);
+    
+  return isSame;
+}
+
+char* BoardMoveSAN (_BoardMove * m) {
+  //fixme: Not et impelemented 
+  assert(0);
+  NOT_UNUSED(m);
+  return "\0";
+}
 
 enum GAME_STATUS{
   GAME_CONTINUE = 0,      // Game continues;
