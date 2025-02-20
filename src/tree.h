@@ -35,12 +35,15 @@ typedef struct _Tree {
   Flag depth, depthmax;   // depth <= depthmax
   // depthmax is the max allowed depth. 
   // For root node, depthmax <= TREE_MAX_DEPTH
-  //Flag level;             // level \in [0, root->depth) 
+  // Flag level;             // level \in [0, root->depth) 
   Flag flags;             // identify type of node
   Flag nchildren;         // number of possible moves
   Flag ichild;            // which child is chosen by engine.
  
   int eval;   //board evaluation value \in [-5000, 5000]
+
+  //Unique ID
+  //size_t unique;
 } _Tree;
 
 _Mempool * TreePool = NULL;
@@ -60,6 +63,7 @@ _Tree * TreeFromPool() {
   }
   _Tree * tree = (_Tree *) MempoolAllocateFrom (TreePool);  
   //tree->ichild = UINT8_MAX;
+  //tree->unique = (size_t) rand();
   return tree;
 }
 
@@ -165,7 +169,8 @@ Flag TreeNodeDestroy(_Tree * node) {
 Flag TreeNodeExpand(_Tree * node) {
 
   // Check for unexpected behaviour.
-  assert( node->flags & IS_LEAF_NODE );
+  if(!( node->flags & IS_LEAF_NODE ))
+    return 0;
   assert( node->children == NULL );
   //assert( node->board->status == GAME_STATUS_NOTUPDATED );
 
@@ -375,7 +380,6 @@ void TreeEachNode(_Tree * root,
 void TreeEachNodePostOrder(_Tree * root, Flag searchDepth, 
     TreeNodeFunction rfunc){
 
-
   assert(root);                                 
   //depth = depth + node->level; //in case node is not the root
   assert(searchDepth <= root->depthmax);               
@@ -496,6 +500,13 @@ void TreeDestroy(_Tree * tree) {
 _Tree * TreeNext(_Tree * root, Flag ichild) {
   /* Once a move is made, by player/opponent,
   .. Tree has to be updated.  */
+  if(!(root->flags & IS_ROOT_NODE)) {
+    fprintf(stderr, 
+      "ERROR: Only root node allowed in TreeNext()"); 
+    fflush(stderr);
+    return NULL;
+  }
+
   _Tree * next = ichild >= root->nchildren ? NULL :
     root->children[ichild];    
 
@@ -518,7 +529,6 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
   /* destroy 'root' */
   TreeDestroy(root); 
 
-
   /* 'next' is the new 'root' node*/
   return next;
 }
@@ -536,28 +546,34 @@ Flag TreeNodeCheckFlags(_Tree * node) {
 
   /* Verifying flags and game status */
   Flag flags = node->flags, status = b->status;
+
   if(flags & IS_LEAF_NODE) {
     assert(!node->children);
     assert(!node->nchildren);
     assert(!node->depth);
   }
+
   if(flags & IS_ROOT_NODE) {
     //assert(!node->level);
     assert(!node->parent);
   }
+
   if(flags & IS_PARENT_NODE) { 
     assert(node->children);
     assert(status == GAME_CONTINUE);
     assert(node->depth); // >= 0
   }
+
   if(flags & IS_PRUNED_NODE) {
     //Pruned means "undeveloped" thus a leaf node
     assert(flags & IS_LEAF_NODE);
     assert(status == GAME_CONTINUE);
   }
-  else if(flags & IS_LEAF_NODE)  //Not a pruned leaf
+  else if(flags & IS_LEAF_NODE) { 
     //Exhaustive n exclusive win/draw
     assert((status & GAME_IS_A_WIN)^(status & GAME_IS_A_DRAW));
+  }
+
   //Exhaustive+exclusive nature of leaf/parent node
   assert( (flags&IS_LEAF_NODE) ^ (flags&IS_PARENT_NODE) );
   

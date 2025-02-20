@@ -27,13 +27,15 @@ Flag TreeNodePrint(_Tree * node){
   printf("\033[2J");   // Clear the screen
   printf("\033[1;1H");     //Cursor on the left top left
  
-  fprintf(stdout, "\nl%d d%d, max%d", 
-    node->level, node->depth, node->depthmax);
+  fprintf(stdout, "\nd%d, max%d", 
+    node->depth, node->depthmax);
   BoardPrint(&node->board);
+  return 1;
 }
 
 
 int main(){
+  srand(time(0));
   //BoardSetFromFEN(b,NULL);
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -63,8 +65,30 @@ int main(){
   //GameError(status);
   //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
   //while(GameStatus(g) == GAME_CONTINUE) {}
+  
   while(GameStatus(g) == GAME_CONTINUE) { 
+    TreeDebug(e->tree);   
+    fprintf(stdout, "\n Tree Debug End"); fflush(stdout);
 
+    //TreeEachNode(e->tree, e->tree->depth, TreeNodePrint);
+    //TreeNodePrint(e->tree);
+
+    //Now. Engine plays for both player
+    e->mycolor = g->board->color; 
+    _BoardMove * m = e->engine(e);
+    fprintf(stdout, "\n Move Evaluation by Engine Ends"); fflush(stdout);
+      
+    if(!m) {
+      fprintf(stdout, "\n Cannot find Move"); fflush(stdout);
+      break;
+    }
+    fprintf(stdout, "\n Tree Game Move "); fflush(stdout);
+    GameMove(g, m);
+
+    GamePrintBoard(g, 200); 
+  }  
+
+  /*
       //verifying validity of tree
       TreeEachNode(e->tree, TREE_MAX_DEPTH, 
         TreeNodeCheckFlags);
@@ -73,9 +97,10 @@ int main(){
       Engine(e);
       GamePrintBoard(g, 100);
 
-      //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
+      TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
       EngineDestroy(e);
     }
+  */
 
   BoardStatusPrint(g->board);
   GameDestroy(g);

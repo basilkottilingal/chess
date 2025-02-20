@@ -13,29 +13,42 @@ typedef struct _Engine{
   //Tree from which you deduce the 'best' moves
   _Tree * tree;
   //fn pointer to update the tree when opponent makes move
-  Flag (* update_tree) (_Engine * e, _BoardMove * move);
+  Flag (* update_tree) (struct _Engine * e, _BoardMove * move);
   //fn pointer. to evaluate 'best' move. 
   //By default the tree is also updated.
-  _BoardMove * (*engine) (_Engine * e);
+  _BoardMove * (*engine) (struct _Engine * e);
 }_Engine;
 
 Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
-  _Board * b = &e->tree->board;
+  _Tree * root = e->tree;
+
+  //if(!root)
+  //  return 0;
+
+  _Board * b = &root->board;
   if(b->status != GAME_CONTINUE)
     return 0;
-  BoardAllMoves(b, &MOVES_ARRAY);
-  Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_BoardMove));
-  _BoardMove * move = (_BoardMove *) (MOVES_ARRAY.p);
-  for(Flag i=0; i< nmoves; ++i, ++move) {
-    if(BoardMoveCompare(m, move)) {
+
+  //if(!(root->nchildren && root->children))
+  //  return 0;
+
+  _Tree ** children = root->children;
+
+  for(Flag i=0; i<root->nchildren; ++i) {
+    _Tree * child = children[i];
+    //if(!child)
+    //  return 0;
+    if(BoardMoveCompare(m, &child->move)) {
+
       _Tree * next = TreeNext(e->tree, i);
       if(!next)
         //weird. We expect root node to have all children
         return 0;
+
       //Old tree will be deleted in TreeNext();
       e->tree = next; 
-      found = 1;
-      break;
+
+      return 1;
     }
   }
   
@@ -43,10 +56,6 @@ Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
   return 0;
 }
  
-
-//Not yet assigned which engines represent each colors
-EngineType Engines[2] = {NULL, NULL}; 
-
 /*----------------------------------------------
 ------------------------------------------------
   Evaluate the board.
@@ -180,6 +189,7 @@ Flag TreeNodeNegamax(_Tree * node) {
     node->eval = -ENGINE_EVAL_MAX;
     for(int i=0; i<node->nchildren; ++i, ++children) {
       _Tree * child = *children;
+      assert(child);
       if( (-child->eval) > node->eval) {  
         node->eval =  -child->eval;
         node->ichild = i;
@@ -190,10 +200,10 @@ Flag TreeNodeNegamax(_Tree * node) {
   return 1;
 }
 
-_BoardMove EngineMinimax(_Engine * e) {
-
+_BoardMove * EngineMinimax(_Engine * e) {
   /* Run the minimax evaluate algo*/
   _Tree * root = e->tree;
+    
   TreeEachNodePostOrder(root, root->depth, TreeNodeNegamax);
   //this is the most "ideal" move acc to engine
   //_Tree * next = root->children[root->ichild];
@@ -202,9 +212,11 @@ _BoardMove EngineMinimax(_Engine * e) {
 
   _Tree * next = TreeNext(root, ichild);
   if(!next)
-    return (_BoardMove) {}; 
+    return NULL;
+
+  e->tree = next;
   
-  return next->move;
+  return &next->move;
 }
 
 
@@ -217,15 +229,18 @@ _Engine * EngineNew(_Game * g, Flag mycolor) {
   e->game = g; 
   e->mycolor = mycolor;
   e->update_tree = EngineUpdateTree; 
+  e->engine = EngineMinimax;
   return e;
 }
 
+/*
 void Engine(_Engine * e){
   _Board * boardNow  = e->game->board;
   _Board * boardNext = EngineMinimax(e);      
   BoardCopy(boardNow, boardNext);
   BoardAllMoves(boardNow, e->game->moves);
 }
+*/
 
 void EngineDestroy(_Engine * e){
   TreeDestroy(e->tree);

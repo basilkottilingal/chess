@@ -20,6 +20,7 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 */
 
 Flag TreeNodePrint(_Tree * node){
+
   clock_t start_time = clock();
   clock_t wait_time = 0.01*CLOCKS_PER_SEC ; //sleep time 
   while (clock() - start_time < wait_time) {};
@@ -54,9 +55,19 @@ int main(){
 
   //unsigned int status = Game(g);
   //GameError(status);
-  _Tree * tree = Tree(b, TREE_MAX_DEPTH);
-  //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-  TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodeCheckFlags);
+  //_Tree * tree = Tree(b, TREE_MAX_DEPTH);
+  _Tree * tree = Tree(b, 3);
+  tree->depthmax = 4;
+  TreeEachNode(tree, 4, TreeNodeExpand);
+  tree->depthmax = 5;
+  TreeEachNode(tree, 5, TreeNodeExpand);
+
+  tree = TreeNext(tree, 0);
+
+  //Debug
+  TreeEachNode(tree, 5, TreeNodeCheckFlags);
+  TreeEachNode(tree, 5, TreeNodePrint);
+
   TreeDestroy(tree);
 
   //GameDestroy(b);
