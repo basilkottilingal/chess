@@ -6,8 +6,6 @@ ToDo: Naive eval function. MiniMax. a-b pruning.
 #include "tree.h"
 
 typedef struct _Engine{
-  //fixme. Move this. rather: Game should contain engine.
-  _Game * game;
   //which color is this Engine representing;
   Flag mycolor; 
   //Tree from which you deduce the 'best' moves
@@ -53,6 +51,7 @@ Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
   }
   
   //couldn't find
+  fprintf(stderr, "No move");
   return 0;
 }
  
@@ -158,7 +157,7 @@ double TreeGameEvalNaive(_Tree * node,
   assert(node->flags & IS_LEAF_NODE);
 }
 */
-int NnueEvaluate(_Game * g) {
+int NnueEvaluate(_Board * b) {
   assert(0);//Not yet implemented
 }
 #endif
@@ -176,6 +175,17 @@ int negaMax( int depth ) {
     return max;
 }
 */
+
+Flag TreeReorderMoves(_Tree * node) {
+  if(node->flags & IS_LEAF_NODE)
+    return 0;
+
+  // Order the children of this node ,
+  // .. in accordance of their availability in hashtable,
+  // .. killer move, etc.
+  // Ordering helps to prune most of the tree.
+  return 1; 
+}
 
 Flag TreeNodeNegamax(_Tree * node) {
   if(!node->depth)  {
@@ -220,13 +230,12 @@ _BoardMove * EngineMinimax(_Engine * e) {
 }
 
 
-_Engine * EngineNew(_Game * g, Flag mycolor) {
-  _Tree * tree = Tree(g->board, TREE_MAX_DEPTH);
+_Engine * EngineNew(_Board * board, Flag mycolor) {
+  _Tree * tree = Tree(board, TREE_MAX_DEPTH);
   if(!tree) 
     return NULL;
   _Engine * e = (_Engine *) malloc (sizeof(_Engine));
   e->tree = tree;
-  e->game = g; 
   e->mycolor = mycolor;
   e->update_tree = EngineUpdateTree; 
   e->engine = EngineMinimax;

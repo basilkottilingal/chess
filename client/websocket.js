@@ -84,8 +84,9 @@ export class Client {
     board:   'b', // recv only   : 'board' 8x8 char of pieces.
     boardMeta: 'B', // recv only : board meta data
     move:    'm', // send/recv   : will encode starting and ending square in Algerbraic Notation. 
+    move:    'p', // send only   : which player ('w'/'b')  does server represent
                   //              (other details have to be locall computed (like promotion, capture, enpassante, etc))
-    moves:   'M', // recv only   : List of moves. (Only for debugging moves of the server side "move.h" . Compare with chess.js)
+    moves:   'M', // send only   : Server asked to make a move
     undo:    'u', // send only   : Undo a move. (only in debug mode)
     restart: 'r', // send only   : Restart a game 
     meta:    'x', // send/recv   : Any complicated data. have to  give info on the type of msg..
@@ -119,9 +120,12 @@ export class Client {
       this.restart(fen);
       return 1;
     }
-    else {
-      console.log("Unknown msg Received : ", msg);
+    else if (type === 'm' ) {
+      console.log('server moved ' + msg);
+      return 1;
     }
+      
+    console.log("Unknown msg Received : ", msg);
     return 0;
   }
     

@@ -1,4 +1,4 @@
-#define TREE_MAX_DEPTH 2
+#define TREE_MAX_DEPTH 3
 #include "../src/engine.h"
 
 //Run this test script using
@@ -36,6 +36,7 @@ Flag TreeNodePrint(_Tree * node){
 
 int main(){
   srand(time(0));
+  _Board * b = Board(NULL);
   //BoardSetFromFEN(b,NULL);
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -51,22 +52,14 @@ int main(){
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
   //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  //_Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
-  //_Game * g = GameNew("8/6p1/6p1/6PP/8/8/8/5k1K w - - 0 1");
-  //_Game * g = GameNew(NULL);
-  //_Game * g = GameNew("rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/1PPPPPPP/RNBQKBNR w KQkq - 0 6");
-  _Game * g = GameNew("rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/8/7K w kq - 0 1");
+  BoardSetFromFEN(b,"rnbqkbnr/p1Pp1p2/7p/4p1p1/8/8/8/7K w kq - 0 1");
   
   //Create an engine    
-  _Engine * e = EngineNew(g, g->board->color);
+  _Engine * e = EngineNew(b, b->color);
 
-  //unsigned int status = Game(g);
-  //GameError(status);
-  //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
-  //while(GameStatus(g) == GAME_CONTINUE) {}
+  Array * moves = array_new();
   
-  while(GameStatus(g) == GAME_CONTINUE) { 
+  while(b->status == GAME_CONTINUE) { 
     TreeDebug(e->tree);   
     fprintf(stdout, "\n Tree Debug End"); fflush(stdout);
 
@@ -74,7 +67,7 @@ int main(){
     //TreeNodePrint(e->tree);
 
     //Now. Engine plays for both player
-    e->mycolor = g->board->color; 
+    e->mycolor = b->color; 
     _BoardMove * m = e->engine(e);
     fprintf(stdout, "\n Move Evaluation by Engine Ends"); fflush(stdout);
       
@@ -83,27 +76,17 @@ int main(){
       break;
     }
     fprintf(stdout, "\n Tree Game Move "); fflush(stdout);
-    GameMove(g, m);
 
-    GamePrintBoard(g, 200); 
+    //move board
+    BoardNext(b, m, moves);
+
+    BoardPrint(b); 
   }  
 
-  /*
-      //verifying validity of tree
-      TreeEachNode(e->tree, TREE_MAX_DEPTH, 
-        TreeNodeCheckFlags);
+  BoardStatusPrint(b);
+  BoardDestroy(b);
 
-      //Run the engine 
-      Engine(e);
-      GamePrintBoard(g, 100);
-
-      TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-      EngineDestroy(e);
-    }
-  */
-
-  BoardStatusPrint(g->board);
-  GameDestroy(g);
+  array_free(moves);
 
   return 0;
 }

@@ -117,17 +117,26 @@ Flag ServerBoard() {
   mempcy(msg, &GAME_SERVER->board, sizeof(_Board));
   return status;
 }
-
-Flag ServerMoves(_BoardMove * move, char * msg) {
-  assert(GAME_SERVER); 
-  //encode new board info to
-  Flag status = GameMove(GAME_SERVER, move); 
-  mempcy(msg, &GAME_SERVER->board, sizeof(_Board));
-  return status;
-}
 */
 
-Flag ClientUnmove( ws_cli_conn_t client,                            
+Flag ServerMoves( ws_cli_conn_t client , _BoardMove * m) {
+
+  char msg[7] = {'m',
+    'a' + m->from.square%8,
+    '0' + 8 - m->from.square/8,
+    'a' + m->to.square%8,
+    '0' + 8 - m->to.square/8,
+    !(m->flags & MOVE_PROMOTION) ? '\0' : 
+      MAPPING[m->promotion&~WHITE],
+    '\0'
+  };
+    
+  ws_sendframe_txt(client, msg);
+
+  return 1;
+}
+
+Flag ClientUnmove( ws_cli_conn_t client,
   const unsigned char *msg, uint64_t size, int type) 
 {
   if( ( msg[0] != 'u' ) || // message should be 'u' (undo)

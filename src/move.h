@@ -1,8 +1,11 @@
 #include "board.h"
 
 /* 
-TODO:     SAN for _GameMove * move
+TODO:     
+(1) SAN for _GameMove * move
+(2) Three fold.
 */
+
 /* ---------------------------------------------------------
 ------------------------------------------------------------
 When can a game draw:

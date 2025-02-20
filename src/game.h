@@ -1,4 +1,4 @@
-#include "move.h"
+#include "engine.h"
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -19,6 +19,8 @@ typedef struct {
   //Other Info
   char fen[FEN_MAXSIZE];
   Array * moves, * history;
+  //Engine 
+  _Engine * engine;
 }_Game;
 
 /* ---------------------------------------------------------
@@ -151,6 +153,7 @@ void GameFEN(_Game * g){
 
 //Next Move
 Flag GameMove(_Game * g, _BoardMove * move){
+
   if(! (g && move)) {
     fprintf(stderr, "Error : Game/move not available");
     return GAME_STATUS_ERROR;
@@ -159,7 +162,33 @@ Flag GameMove(_Game * g, _BoardMove * move){
   //fprintf(stderr, "\nLen %ld", g->history->len); 
   Flag status = BoardNext(g->board,move,g->moves);
   GameFEN(g); //may switch of this
+
   return status;
+}
+
+Flag GamePlayerMove(_Game * g, _BoardMove * move) {
+  Flag status = GameMove(g, move);
+  assert(g->engine);
+  return g->engine->update_tree(g->engine, move);
+}
+
+_BoardMove * GameEngineMove(_Game * g) {
+  _Engine * e = g->engine;
+  if(!e)
+    return NULL;
+  _BoardMove * move = e->engine(e);
+  if(move)
+    GameMove(g, move);
+  return move;
+}
+
+Flag GameEngineStart(_Game * g, Flag color) {
+  if(g->engine) 
+    EngineDestroy(g->engine);
+
+  g->engine = EngineNew(g->board, color); 
+  
+  return g->engine ? 1 : 0;
 }
 
 //Undo a move
@@ -221,6 +250,8 @@ Flag Game(_Game * g) {
 
 void GameDestroy(_Game * g) {
   BoardDestroy(g->board);
+  if(g->engine)
+    EngineDestroy(g->engine);
   if(g->moves) 
     array_free(g->moves);
   if(g->history)
@@ -258,6 +289,8 @@ _Game * GameNew(char * fen){
     fprintf(stderr, "\nWARNING : Game loaded has no moves");
     BoardStatusPrint(b);
   }
+
+  g->engine = NULL;
  
   return g; 
 } 

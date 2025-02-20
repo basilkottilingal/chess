@@ -1,5 +1,5 @@
 #define TREE_MAX_DEPTH 3
-#include "../src/engine.h"
+#include "../src/game.h"
 
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
@@ -27,8 +27,8 @@ Flag TreeNodePrint(_Tree * node){
   printf("\033[2J");   // Clear the screen
   printf("\033[1;1H");     //Cursor on the left top left
  
-  fprintf(stdout, "\nl%d d%d, max%d", 
-    node->level, node->depth, node->depthmax);
+  fprintf(stdout, "\nd%d, max%d", 
+    node->depth, node->depthmax);
   BoardPrint(&node->board);
 }
 
@@ -52,37 +52,56 @@ int main(){
   //BoardSetFromFEN(b,"8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
   //_Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
   //_Game * g = GameNew("8/6p1/6p1/6PP/8/8/8/5k1K w - - 0 1");
-  _Game * g = GameNew(NULL);
 
-  //unsigned int status = Game(g);
-  //GameError(status);
+  char * fen = NULL;
+
+  //Server starts a game with an engine who plays for WHITE
+  _Game * server = GameNew(fen);
+  GameEngineStart(server, WHITE);
+
+  //Client engine represents BLACK
+  _Engine * client = EngineNew(server->board, BLACK);
+
   srand(time(0));
-  //for(int i=0; i<5 && (b->status == GAME_CONTINUE); ++i) {
-  while(GameStatus(g) == GAME_CONTINUE) {
-    if(g->board->color == BLACK){
-      GameBot(g);
+  while(GameStatus(server) == GAME_CONTINUE) {
+  
+    if(server->board->color == WHITE) {
+      //White engine plays
+      _BoardMove * move = GameEngineMove(server);
+      if(!move) {
+        fprintf(stderr, 
+          "Error : Engine couldn't evaluate a move");
+        break;
+      }
+      //tell it to the other engine
+      Flag success = client->update_tree(client, move); 
+      if(!success) {
+        fprintf(stderr, 
+          "Error : Engine couldn't find the move");
+        break;
+      }
     }
     else {
-      _Engine * e = EngineNew(g, g->board->color);
-      fprintf(stdout, "\ntree avilability %ld", TreeAvailability()); fflush(stdout);
-      assert(e);
-
-      //verifying validity of tree
-      TreeEachNode(e->tree, TREE_MAX_DEPTH, 
-        TreeNodeCheckFlags);
-
-      //Run the engine 
-      Engine(e);
-
-      //TreeEachNode(tree, TREE_MAX_DEPTH, TreeNodePrint);
-      EngineDestroy(e);
-      fprintf(stdout, "\ntree avilability %ld", TreeAvailability()); fflush(stdout);
+      _BoardMove * move = client->engine(client); 
+      if(!move) {
+        fprintf(stderr, 
+          "Error : Engine couldn't evaluate a move");
+        break;
+      }
+      //tell it to the other engine
+      Flag success = GamePlayerMove(server, move);
+      if(!success) {
+        fprintf(stderr, 
+          "Error : Engine couldn't find the move");
+        break;
+      }
     }
-    GamePrintBoard(g, 100);
-  }
-  BoardStatusPrint(g->board);
 
-  GameDestroy(g);
+    GamePrintBoard(server, 100);
+  }
+  BoardStatusPrint(server->board);
+
+  GameDestroy(server);
 
   return 0;
 }

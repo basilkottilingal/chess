@@ -1,3 +1,8 @@
+/**TODO:
+misalignment of struct might cause problem
+wile memcpy, memcmp
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
@@ -450,14 +455,17 @@ typedef struct {
 Flag BoardMoveCompare(_BoardMove * m, _BoardMove * M) {
   //Careful: doesn't compare all fields.
   //It works only if _Board is same.
-  Flag isSame = 
-    (m->from.square == M->from.square  &&
-     m->to.square == M->to.square) ? 1 : 0;
-  isSame &= 
-    !(m->flags & MOVE_PROMOTION) ? 1 : 
-    (m->promotion == M->promotion);
+  Flag isSame =  (m->flags == M->flags  &&
+     m->from.square == M->from.square  &&
+     m->to.square == M->to.square);
+
+  if(!isSame)
+    return 0;
+
+  if(m->flags & MOVE_PROMOTION)
+    return (m->promotion == M->promotion);
     
-  return isSame;
+  return 1;
 }
 
 char* BoardMoveSAN (_BoardMove * m) {
