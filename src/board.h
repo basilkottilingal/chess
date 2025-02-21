@@ -455,9 +455,9 @@ typedef struct {
 Flag BoardMoveCompare(_BoardMove * m, _BoardMove * M) {
   //Careful: doesn't compare all fields.
   //It works only if _Board is same.
-  Flag isSame =  (m->flags == M->flags  &&
-     m->from.square == M->from.square  &&
-     m->to.square == M->to.square);
+  Flag isSame =  (m->flags == M->flags)  &&
+     (m->from.square == M->from.square)  &&
+     (m->to.square == M->to.square);
 
   if(!isSame)
     return 0;

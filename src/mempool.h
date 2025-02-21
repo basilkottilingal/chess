@@ -18,7 +18,7 @@ typedef struct _FreeNode {
 }_FreeNode;
 
 // Define the memory pool struct
-typedef struct {
+typedef struct _Mempool {
   size_t object_size;  // Size of each object
   size_t block_size;   // Number of objects in the block
   size_t nfree;   // No of freenodes in the block
@@ -28,6 +28,10 @@ typedef struct {
   /* WARNING: There is no provision to know, if you,
   .. deallocate same node multiple times */
   _FreeNode * free_list; // Linked list of free slots
+
+  /* incase of a linked list of pool is reqd
+  struct _Mempool * next; 
+  */
 } _Mempool;
 
 _Mempool* Mempool(size_t object_size, size_t nobjects) {

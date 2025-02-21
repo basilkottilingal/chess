@@ -34,6 +34,7 @@ Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
 
   for(Flag i=0; i<root->nchildren; ++i) {
     _Tree * child = children[i];
+
     //if(!child)
     //  return 0;
     if(BoardMoveCompare(m, &child->move)) {

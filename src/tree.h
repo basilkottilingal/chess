@@ -519,8 +519,6 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
   next->depthmax = root->depthmax;
   next->flags |= IS_ROOT_NODE;
   next->parent = NULL;
-  /* Expand 'next' to the max-depth */
-  TreeEachNode(next, next->depthmax - 1, TreeNodeExpand);
 
   /* remove next from the subtree of 'tree' */
   root->children[ichild] = root->children[root->nchildren - 1];
@@ -528,6 +526,9 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
   --(root->nchildren);
   /* destroy 'root' */
   TreeDestroy(root); 
+
+  /* Expand 'next' to the max-depth */
+  TreeEachNode(next, next->depthmax - 1, TreeNodeExpand);
 
   /* 'next' is the new 'root' node*/
   return next;

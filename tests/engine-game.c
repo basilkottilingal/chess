@@ -20,6 +20,11 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 8/k7/8/K7/8/8/8/8 b - - 0 1
 */
 
+Flag ClientMakesAMove(_Game * g) {
+  int nmoves = (g->moves->len) / sizeof(_BoardMove);
+  return floor (((double) nmoves)*rand()/RAND_MAX);
+}
+
 Flag TreeNodePrint(_Tree * node){
   clock_t start_time = clock();
   clock_t wait_time = 0.01*CLOCKS_PER_SEC ; //sleep time 
@@ -30,8 +35,8 @@ Flag TreeNodePrint(_Tree * node){
   fprintf(stdout, "\nd%d, max%d", 
     node->depth, node->depthmax);
   BoardPrint(&node->board);
+  return 1;
 }
-
 
 int main(){
   //BoardSetFromFEN(b,NULL);
@@ -59,8 +64,7 @@ int main(){
   _Game * server = GameNew(fen);
   GameEngineStart(server, WHITE);
 
-  //Client engine represents BLACK
-  _Engine * client = EngineNew(server->board, BLACK);
+  //Client represents BLACK and makes a random move.
 
   srand(time(0));
   while(GameStatus(server) == GAME_CONTINUE) {
@@ -73,26 +77,22 @@ int main(){
           "Error : Engine couldn't evaluate a move");
         break;
       }
-      //tell it to the other engine
-      Flag success = client->update_tree(client, move); 
-      if(!success) {
-        fprintf(stderr, 
-          "Error : Engine couldn't find the move");
-        break;
-      }
+      
+      //TreeEachNode(server->engine->tree, 1, TreeNodePrint);
+      //Communicate to client;
     }
     else {
-      _BoardMove * move = client->engine(client); 
-      if(!move) {
-        fprintf(stderr, 
-          "Error : Engine couldn't evaluate a move");
-        break;
-      }
-      //tell it to the other engine
-      Flag success = GamePlayerMove(server, move);
+      Flag imove = ClientMakesAMove(server);
+      //_BoardMove * move = &server->tree->children[imove]->move;
+      _BoardMove ClientMove;
+      memcpy(&ClientMove, (_BoardMove *) server->moves->p
+        + imove, sizeof(_BoardMove));
+
+      //tell it to the sever engine
+      Flag success = GamePlayerMove(server, &ClientMove);
       if(!success) {
         fprintf(stderr, 
-          "Error : Engine couldn't find the move");
+          "Error : Engine couldn't find the move from Client");
         break;
       }
     }
