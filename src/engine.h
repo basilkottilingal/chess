@@ -65,7 +65,8 @@ Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
 
 #ifdef NNUE
 #include <stdint.h>
-#include "./nnue/nnue.h"
+//#include "./nnue/nnue.h"
+#include <nnue.h>
 
 void NnueInit(const char * filename) {
   nnue_init(filename);

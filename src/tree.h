@@ -189,7 +189,8 @@ Flag TreeNodeExpand(_Tree * node) {
   _BoardMove * move = (_BoardMove *) (MOVES_ARRAY.p);
   Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_BoardMove));
   if( TreeAvailability() < (size_t) nmoves) {
-    fprintf(stderr, "\nWARNING: Ran out of Tree Memory Block");
+    //fprintf(stderr, "OoM");
+    //fprintf(stderr, "\nWARNING: Ran out of Tree Memory Block");
     node->flags |= IS_PRUNED_NODE;
     return 0; // cannot expand bcs ran out of memory
   }

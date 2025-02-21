@@ -119,19 +119,49 @@ Flag ServerBoard() {
 }
 */
 
-Flag ServerMoves( ws_cli_conn_t client , _BoardMove * m) {
+Flag ServerMove( ws_cli_conn_t client,
+  const unsigned char *msg, uint64_t size, int type) 
+{
+  if( ( msg[0] != 'M' ) || 
+        // message should be 'M' (i.e Make a move)
+      ( type != WS_FR_OP_TXT )  ||  // Wrong msg format
+      ( size != 1 ) )  //wrong length
+  {   
+    ServerError(client, 
+      "Error : Wrong Client Message (Make a move)!");
+    return GAME_STATUS_ERROR;
+  }
 
-  char msg[7] = {'m',
+  if(!GAME_SERVER) {
+    ServerError(client, "Error : No game running");
+    return 0;
+  }
+  
+  _Engine * engine = GAME_SERVER->engine;
+  if(!engine) {
+    ServerError(client, 
+      "Error : Hasn't started engine");
+    return 0;
+  }
+
+  _BoardMove * m = engine->engine(engine);
+  if(!m) {
+    ServerError(client, 
+      "Error : Engine Failed to make a move");
+    return 0;
+  }
+ 
+  //Encode return message with the move information 
+  char ret_msg[7] = {'m',
     'a' + m->from.square%8,
     '0' + 8 - m->from.square/8,
     'a' + m->to.square%8,
     '0' + 8 - m->to.square/8,
     !(m->flags & MOVE_PROMOTION) ? '\0' : 
-      MAPPING[m->promotion&~WHITE],
+          MAPPING[m->promotion&~WHITE],
     '\0'
   };
-    
-  ws_sendframe_txt(client, msg);
+  ws_sendframe_txt(client, ret_msg);
 
   return 1;
 }
@@ -258,6 +288,9 @@ Flag Server( ws_cli_conn_t client,
   else if (cmd == 'u') 
     /* reflect client's undo command in the server */
     ClientUnmove (client, msg, size, type);
+  else if (cmd == 'M') 
+    /* reflect client's command to server to make a move */
+    ServerMove (client, msg, size, type);
   else {
     ServerError (client,  "Error: Unknown Command from Client");
     return 0;

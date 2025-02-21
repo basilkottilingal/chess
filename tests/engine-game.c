@@ -48,7 +48,7 @@ int main(){
   //BoardSetFromFEN(b,"8/k7/8/K7/8/8/8/8 b - - 0 1");
   //BoardSetFromFEN(b,"k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
   //BoardSetFromFEN(b,"rn1qk1n1/pBp1ppbr/8/4P1p1/3p3p/NP5Q/P1PP1PPP/1RB1K1NR w Kq - 1 2");
-  //BoardSetFromFEN(b, "rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6");
+  char fen[] = "rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6";
   //BoardSetFromFEN(b,"8/8/8/8/p3k3/4p3/5bK1/8 w - - 0 145");
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
@@ -58,7 +58,7 @@ int main(){
   //_Game * g = GameNew("8/6p1/7P/8/8/8/8/5k1K w - - 0 1");
   //_Game * g = GameNew("8/6p1/6p1/6PP/8/8/8/5k1K w - - 0 1");
 
-  char * fen = NULL;
+  //char * fen = NULL;
 
   //Server starts a game with an engine who plays for WHITE
   _Game * server = GameNew(fen);
