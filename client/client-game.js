@@ -100,36 +100,38 @@ export class ChessBoard {
           img.style.display = 'block';
         else 
           console.log("Weird");
-        if ( this.piece ) {
-          this.piece = null;
-          this.moves.forEach( move => {
-            //remove highlight of the valid target squares
-            const div = document.getElementById(move.to);
-            if(div)
-              div.classList.remove('move-highlight');
-          });
-          this.moves = null;
-          if(this.move) {
-            /* A move detected by piece drag */
-            if (this.move.flags.includes('p')) {
-              /* In case of promotion, it has to wait till a 
-              .. promotion piece is selected by the player*/
-              this.move.promotion = await this.promotion(this.move); 
-              /* Switch off promotion overlay display */
-              document.getElementById('promotion-overlay').style.display = 'none';
-              document.getElementById('board-overlay').style.display = 'none';
-            }
-            /* player Made a valid move.*/
-            resolve(this.move); 
-            this.move = null;
-          }
-          else {
-            resolve(null);
-          }
+
+        if ( !this.piece ) {
+          resolve (null);
+          return;
         }
-        else {
+
+        this.piece = null;
+        this.moves.forEach( move => {
+          //remove highlight of the valid target squares
+          const div = document.getElementById(move.to);
+          if(div)
+            div.classList.remove('move-highlight');
+        });
+        this.moves = null;
+
+        if(!this.move) {
           resolve(null);
+          return;
         }
+            
+        /* A move detected by piece drag */
+        if (this.move.flags.includes('p')) {
+          /* In case of promotion, it has to wait till a 
+          .. promotion piece is selected by the player*/
+          this.move.promotion = await this.promotion(this.move); 
+          /* Switch off promotion overlay display */
+          document.getElementById('promotion-overlay').style.display = 'none';
+          document.getElementById('board-overlay').style.display = 'none';
+        }
+        /* player Made a valid move.*/
+        resolve(this.move); 
+        this.move = null;
       }, 0);
     });
   }
@@ -218,8 +220,8 @@ export class ChessBoard {
                   img.removeEventListener('dragstart', handlers.dragStartHandler);
                 }
               })
-              resolve(move); 
             }
+            resolve(move); 
           }
           piece.addEventListener('dragend', dragEndHandler);
 

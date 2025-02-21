@@ -8,7 +8,8 @@ enum MSG_TYPE {
   MSG_IS_FEN   =  "f", // send only
   MSG_IS_BOARD =  "b", // recv only
   MSG_IS_MOVE  =  "m", // send/recv
-  MSG_IS_MOVES =  "M", // recv only
+  MSG_IS_PLAYER  =  "p", // send/recv
+  MSG_IS_MAKE_MOVE =  "M", // recv only
   MSG_IS_UNDO  =  "u", // send only
   MSG_IS_RESTART = "r", // send only
   MSG_IS_META  =  "x", // send/recv
@@ -49,12 +50,11 @@ void ServerCommandSuccess (ws_cli_conn_t client, char msg[]) {
   {
     fprintf(stderr, "\nError : Wrong encoding by server for the ");
     fprintf(stderr, "following \"success\" msg.\n\t[%s]", msg);
+    fflush(stderr);
   }
   else {
     ws_sendframe_txt(client, msg);
-    fprintf(stderr, "\n%s", msg);
   }
-  fflush(stderr);
 }
 
 Flag 
@@ -64,7 +64,7 @@ ServerInit (ws_cli_conn_t client,
     
   if (  type != WS_FR_OP_TXT  ) {
     ServerError(client, 
-      "Error : Client Message should be String (Start/Restart)");
+      "Error : Client Msg should be String (Start/Restart)");
     return GAME_STATUS_ERROR;
   }
 
@@ -109,6 +109,43 @@ ServerInit (ws_cli_conn_t client,
   return GAME_SERVER->board->status;
 }
 
+Flag 
+ServerEngineInit (ws_cli_conn_t client,                            
+  const unsigned char *msg, uint64_t size, int type)
+{
+    
+  if (  type != WS_FR_OP_TXT  ) {
+    ServerError(client, 
+      "Error : Client Message should be String (Start/Restart)");
+    return GAME_STATUS_ERROR;
+  }
+
+  if( !(  (msg[0] == 'p') && 
+          (msg[1] == 'w' || msg[1] == 'b') &&
+          (size == 2) ) )
+  {
+	  ServerError(client, 
+      "Error : Player Setting Message should be 'pw' or 'pb'");
+    return GAME_STATUS_ERROR;
+  }
+
+  _Engine * e = EngineNew(GAME_SERVER->board, 
+    msg[1] == 'w' ? WHITE : BLACK);
+
+  if(!e) {
+	  ServerError(client, 
+      "Error : Couldn't start game engine");
+    return GAME_STATUS_ERROR;
+  }
+
+  if(GAME_SERVER->engine) 
+    EngineDestroy(GAME_SERVER->engine);
+
+  GAME_SERVER->engine = e;  
+
+  return GameStatus(GAME_SERVER);
+}
+
 /*
 Flag ServerBoard() {
   assert(GAME_SERVER); 
@@ -134,21 +171,22 @@ Flag ServerMove( ws_cli_conn_t client,
 
   if(!GAME_SERVER) {
     ServerError(client, "Error : No game running");
-    return 0;
+    return GAME_STATUS_ERROR;
   }
   
   _Engine * engine = GAME_SERVER->engine;
   if(!engine) {
     ServerError(client, 
       "Error : Hasn't started engine");
-    return 0;
+    return GAME_STATUS_ERROR;
   }
 
+  //Engine Make a move on GAME_SERVER.
   _BoardMove * m = engine->engine(engine);
   if(!m) {
     ServerError(client, 
       "Error : Engine Failed to make a move");
-    return 0;
+    return GAME_STATUS_ERROR;
   }
  
   //Encode return message with the move information 
@@ -163,7 +201,7 @@ Flag ServerMove( ws_cli_conn_t client,
   };
   ws_sendframe_txt(client, ret_msg);
 
-  return 1;
+  return GameStatus(GAME_SERVER);
 }
 
 Flag ClientUnmove( ws_cli_conn_t client,
@@ -177,6 +215,7 @@ Flag ClientUnmove( ws_cli_conn_t client,
       "Error : Wrong Client Message (Undo)!");
     return GAME_STATUS_ERROR;
   }
+
   if ( !GAME_SERVER  )  // cannot find game
   {   
     ServerError(client, 
@@ -200,7 +239,7 @@ Flag ClientUnmove( ws_cli_conn_t client,
   return status;
 }
 
-Flag ClientMove( ws_cli_conn_t client,                            
+Flag ClientMove( ws_cli_conn_t client,                         
   const unsigned char *msg, uint64_t size, int type) 
 {
   if( ( msg[0] != 'm' ) || // if the message is not 'move'
@@ -281,20 +320,24 @@ Flag Server( ws_cli_conn_t client,
   char cmd = (char) msg[0];
   if( cmd == 'r' || cmd == 'f' )
     // 'r' : restart, 'f' : start with fen specified
-    ServerInit (client, msg, size, type);
+    return ServerInit (client, msg, size, type);
   else if (cmd == 'm') 
     /* reflect client's move in the server */
-    ClientMove (client, msg, size, type);
+    return ClientMove (client, msg, size, type);
+  else if( cmd == 'p' )
+    // 'p' : server player
+    return ServerEngineInit (client, msg, size, type);
   else if (cmd == 'u') 
     /* reflect client's undo command in the server */
-    ClientUnmove (client, msg, size, type);
+    return ClientUnmove (client, msg, size, type);
   else if (cmd == 'M') 
     /* reflect client's command to server to make a move */
-    ServerMove (client, msg, size, type);
-  else {
-    ServerError (client,  "Error: Unknown Command from Client");
-    return 0;
-  }
+    return ServerMove (client, msg, size, type);
     
-  return 1; //successful
+  char * err = (char *) malloc (100 + size);
+  sprintf(err, "%s%s",
+    "Error: Unknown Command from Client. \n Msg :", msg); 
+  ServerError (client, err);
+  free(err);
+  return GAME_STATUS_ERROR; //error
 }

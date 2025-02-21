@@ -106,7 +106,7 @@ void onmessage(ws_cli_conn_t client,
     printf("Received text: %s\n", msg);
 #endif
   //send the message to game-server to decode 
-  if (Server (client, msg, size, type) ) 
+  if (Server (client, msg, size, type) != GAME_STATUS_ERROR) 
     return;
   else
     ServerError (client, "Error: Server failed to decode msg");

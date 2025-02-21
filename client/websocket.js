@@ -1,3 +1,13 @@
+/**
+TODO : Order class functions like
+1) constructor
+2) buttons etc.
+3) reset/restart etc
+3) Wait for message
+3) functions that trigger client to server 
+4) 
+*/
+
 import {ChessBoard} from "./client-game.js";
 
 export class Client {
@@ -6,6 +16,9 @@ export class Client {
     /* a game with front end interface */
     this.boardInterface = new ChessBoard();
     this.restartFen = '';
+
+    //by default client plays for both b/w
+    this.client = 'bw';
     
     //Error output, FEN input, fen submit button
     this.errorLog = document.getElementById("errorLog");
@@ -219,6 +232,33 @@ export class Client {
     });
   } // End of eventListen()
 
+  serverPlayer(serverColor) {
+    //client plays the opposite color of the server
+    this.client = serverColor == 'w' ? 'b' : 'w' ;
+    let msg = 'p' + serverColor;
+    this.socket.send(msg);
+  }
+
+  serverMove() {
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Asking server to make a move
+        this.socket.send('M');
+
+        // Wait for message from server
+        let msg = await this.waitForMessage();
+
+        // Process received message
+        this.recvDecode(msg);
+
+        // Resolve the promise with the received message
+        resolve(msg);
+      } catch (error) {
+        reject(error); // Ensure errors don’t leave the Promise hanging
+      }
+    });
+  }
+
   async undo() {
     this.socket.send("u");
     //recvDecode will do the rest
@@ -226,6 +266,7 @@ export class Client {
 
   restart(fen) {
     this.restartFen = fen;
+    this.serverPlayer('b'); //server by default plays black
   }
 
   async listenForRestart(signal){
@@ -268,7 +309,7 @@ export class Client {
         }
         // ask chess.js whose turn it is.  
         let color = this.boardInterface.chess.turn();
-        if(1) {
+        if( this.client.includes(color) ) {
 
           try {
             //Let player Make a move by dragging+dropping a chesspiece;
@@ -299,6 +340,8 @@ export class Client {
         else {
           //Let's wait for server to send a move or throw an error
           //await server
+          let move = await this.serverMove();
+          console.log(move);
         }
 
         // check if an Abort is activated because the
