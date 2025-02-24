@@ -81,6 +81,7 @@ export class Client {
       }
     }
 
+    this.serverPlayer('b'); //server by default plays black
     /* Enable all the buttons input field, etc, on the page*/
     this.eventListen();
 

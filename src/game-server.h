@@ -319,6 +319,41 @@ Flag ClientMove( ws_cli_conn_t client,
   return GAME_STATUS_ERROR;
 }
 
+Flag ServerIsGameOver( ws_cli_conn_t client ) {
+  if(!GAME_SERVER)
+    return 0;
+
+  char msg[100] = {'g'};
+  char * status = msg + 1;
+  Flag f = GAME_SERVER->board->status;
+  if (f & GAME_IS_A_WIN) {
+    sprintf(status, "%s wins by %s", 
+      f & GAME_WHO_WINS ? "White" : "Black",
+      (f & GAME_IS_WON_BY_TIME) ? "time" : 
+      (f & GAME_IS_WON_BY_FORFEIT) ? "opponent's forfeit" :
+      "checkmate");
+    ServerSend(client, msg);
+    return 1;
+  }
+  if (f & GAME_IS_A_DRAW) {
+    Flag info = f & GAME_DRAW_INFO;
+    sprintf(status, "Draw : %s",
+      (info == GAME_STALEMATE)  ? "Stalemate" :
+      (info == GAME_INSUFFICIENT)  ? "Insufficient Material" :
+      (info == GAME_FIFTY_MOVES)  ? "Fifty moves rule" :
+      (info == GAME_THREE_FOLD)  ? "Three fold rule" :
+      (info == GAME_WHITE_CANNOT)  ? 
+        "Black ran of time and White cannot win" :
+      (info == GAME_BLACK_CANNOT)  ? 
+        "White ran of time and Black cannot win" :
+      (info == GAME_AGREES)  ? "Players agree" :
+        "ERROR: Unkown reason for a draw!! "); 
+    ServerSend(client, msg);
+    return 1;
+  }
+  //Game continues;
+  return 0;
+}
 /**
   main server function, that decodes the message ..
   .. friom client and send back appropriate responses ..

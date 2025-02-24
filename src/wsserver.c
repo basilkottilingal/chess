@@ -107,7 +107,7 @@ void onmessage(ws_cli_conn_t client,
 #endif
   //send the message to game-server to decode 
   if (Server (client, msg, size, type) != GAME_STATUS_ERROR) 
-    return;
+    ServerIsGameOver(client);
   else
     ServerError (client, 
       "Error : Server failed to decode/implement client msg");
