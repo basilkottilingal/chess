@@ -31,59 +31,6 @@ static const char WPAWN_MOVES[4] =
   { -11, -13, -12, -24 }; 
 static const char BPAWN_MOVES[4] = 
   { 11, 13, 12, 24 };   
- 
-/* ---------------------------------------------------------
-------------------------------------------------------------
-  An "Array" is used to store dynamic data. You can create, 
-  .. reallocate, shrink and free the "Array" ..
-  .. without any memory mismanagement. 
-  NOTE: realloc() function used inside array_append(),
-  .. can slow the program, when you append large data ..
-  .. multiple times. WHY? : Because realloc search for .. 
-  .. continous chunk of memory that can fit the new ..
-  .. array data which might be very large. In this case, ..
-  .. impelement memory pooling of fixed sized blocks ..
-  .. Refer to:
-      http://www.boost.org/doc/libs/1_55_0/libs/pool/doc/html/boost_pool/pool/pooling.html
-------------------------------------------------------------
---------------------------------------------------------- */
-typedef struct {
-  void * p;
-  size_t max, len;
-} Array;
-
-Array * array_new()
-{
-  Array * a = (Array *)malloc (sizeof(Array));
-  a->p = NULL;
-  a->max = a->len = 0;
-  return a;
-}
-
-void array_free (Array * a)
-{
-  free (a->p);
-  free (a);
-}
-
-void array_append (Array * a, void * elem, size_t size)
-{
-  if (a->len + size >= a->max) {
-    a->max += size >4096 ? size : 4096;
-    a->p = realloc (a->p, a->max);
-  }
-  memcpy (((char *)a->p) + a->len, elem, size);
-  a->len += size;
-}
-
-void array_shrink (Array * a)
-{
-  if(a->len < a->max) {
-    a->p = realloc (a->p, a->len);
-    a->max = a->len;
-  }
-}
-
 
 static inline 
 Flag BoardIsAttackedByPiece ( Square * from, 

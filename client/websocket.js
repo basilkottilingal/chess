@@ -63,6 +63,9 @@ export class Client {
         console.log("Server " + msg);
         return 1;
       }
+      if (type === 'g') {
+        this.displayGreen(msg.substring(1));
+      }
       if ('wWeE'.includes(type))  {  
         /*Error/warning from server */
         this.error('Server ' + msg);  
@@ -114,7 +117,7 @@ export class Client {
 
   /* Display msg in green color on page 
   ..*/
-  success(msg) {
+  displayGreen(msg) {
     console.log(msg);
     this.errorLog.textContent = msg;
     this.errorLog.style.color = "green";
@@ -352,7 +355,7 @@ export class Client {
               ..*/
               let reply = await this.waitForMessage();
               /* Update board  in chess.js*/
-              this.success(this.boardInterface.chess.fen());
+              this.displayGreen(this.boardInterface.chess.fen());
               /* In case of not success 'S', Abrupt end of play() */
               if(reply[0] != 'S')
                 resolve("error:abort:ServerCannotMove");
@@ -435,7 +438,7 @@ let result = "restart";
 while(1) {
   if(result === "restart") {
     let fen = socket.restartFen === '' ? null : socket.restartFen;
-    socket.success(fen);
+    socket.displayGreen(fen);
     result = await socket.playTillAbortOrOver(fen);
   }
   else if(result === "over") {

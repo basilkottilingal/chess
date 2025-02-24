@@ -48,7 +48,8 @@ void ServerError (ws_cli_conn_t client, char err[]) {
   }
   else {
     ws_sendframe_txt(client, err);
-    fprintf(stderr, "\n%s", err);
+    GameError(err);
+    GameErrorPrint();
   }
   fflush(stderr);
 }
@@ -201,7 +202,6 @@ Flag ServerMove( ws_cli_conn_t client,
   //Engine Make a move on GAME_SERVER.
   _BoardMove * m = GameEngineMove(GAME_SERVER);
   if(!m) {
-    GameErrorPrint();
     ServerError(client, 
       "Error : Engine Failed to make a move");
     return GAME_STATUS_ERROR;
@@ -251,7 +251,6 @@ Flag ClientUnmove( ws_cli_conn_t client,
     GamePrintBoard(GAME_SERVER, 0); //0 delay
   }
   else { 
-    GameErrorPrint();
     ServerError(client, "Error : Couldn't undo a move.");
   }
 
@@ -303,7 +302,6 @@ Flag ClientMove( ws_cli_conn_t client,
        move->promotion == promotion) {
       Flag status = GamePlayerMove(GAME_SERVER, move);
       if(status == GAME_STATUS_ERROR) {
-        GameErrorPrint();
         ServerError(client, 
   "Error : Cannot Move the board or Update the Engine");
         return GAME_STATUS_ERROR;

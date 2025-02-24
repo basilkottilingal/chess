@@ -64,7 +64,6 @@ Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
 
 #ifdef NNUE
 #include <stdint.h>
-//#include "./nnue/nnue.h"
 #include <nnue.h>
 
 void NnueInit(const char * filename) {
@@ -235,8 +234,10 @@ Flag EngineMinimax(_Engine * e) {
 
 _Engine * EngineNew(_Board * board, Flag mycolor) {
   _Tree * tree = Tree(board, TREE_MAX_DEPTH);
-  if(!tree) 
+  if(!tree) { 
+    GameError("EngineNew() : Couldn't create tree");
     return NULL;
+  }
   _Engine * e = (_Engine *) malloc (sizeof(_Engine));
   e->tree = tree;
   e->mycolor = mycolor;
@@ -244,15 +245,6 @@ _Engine * EngineNew(_Board * board, Flag mycolor) {
   e->engine = EngineMinimax;
   return e;
 }
-
-/*
-void Engine(_Engine * e){
-  _Board * boardNow  = e->game->board;
-  _Board * boardNext = EngineMinimax(e);      
-  BoardCopy(boardNow, boardNext);
-  BoardAllMoves(boardNow, e->game->moves);
-}
-*/
 
 void EngineDestroy(_Engine * e){
   TreeDestroy(e->tree);

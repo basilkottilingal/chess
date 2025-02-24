@@ -390,7 +390,7 @@ void TreeEachNodePostOrder(_Tree * root, Flag searchDepth,
   int level = 0;
 
   //i don;t like it
-  stack[level]  = rootParent; 
+  stack[level] = rootParent; 
  
   // fixme: make it general for any subtree (even node!=root)
   // while(TREE_STACK[node->level] >= 0) 
@@ -446,16 +446,12 @@ void TreeEachNodePostOrder(_Tree * root, Flag searchDepth,
 
 _Tree * Tree(_Board * b, Flag depthmax) {
   if( b->status & (GAME_IS_A_WIN | GAME_IS_A_DRAW) ) {
-    fprintf(stderr, "WARNING: Game Over, \
-Can't create a game tree");
-    fflush(stderr);
+    GameError("Tree() : Game Over, Can't create a game tree");
     return NULL;
   }
   else if(b->status & 
       (GAME_METADATA_NOTUPDATED | GAME_STATUS_NOTUPDATED)) {
-    fprintf(stderr, "WARNING: Incomplete move, \
-Can't create a game tree");
-    fflush(stderr);
+    GameError("Tree() : Incomplete move, Can't create a game tree");
     return NULL;
   }
 
@@ -496,13 +492,14 @@ void TreeDestroy(_Tree * tree) {
   //    TreeEachNode(tree, l, TreeNodePrune);
 
   TreeNodeDestroy(tree);
+
 }
 
 _Tree * TreeNext(_Tree * root, Flag ichild) {
   /* Once a move is made, by player/opponent,
   .. Tree has to be updated.  */
   if(!(root->flags & IS_ROOT_NODE)) {
-    GameError("Only root node allowed in TreeNext()"); 
+    GameError("TreeNext(() : Only root node allowed"); 
     return NULL;
   }
 
@@ -510,7 +507,7 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
     root->children[ichild];    
 
   if(!next) {
-    GameError("ERROR: Cannot find the move"); 
+    GameError("TreeNext() : Cannot find the move"); 
     return NULL;
   }
 
@@ -522,6 +519,10 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
   root->children[ichild] = root->children[root->nchildren - 1];
   root->children[root->nchildren - 1] = NULL;
   --(root->nchildren);
+  if(!root->nchildren) { 
+    root->depth = 1;
+    TreeNodePrune(root);
+  }
   /* destroy 'root' */
   TreeDestroy(root); 
 
@@ -533,10 +534,10 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
 }
 
 _Tree * TreePrev(_Tree * root, _Board * board) {
-  /* Once a move is made, by player/opponent,
+  /* when undo a move, by player/opponent,
   .. Tree has to be updated.  */
   if(!(root->flags & IS_ROOT_NODE)) {
-    GameError("Only root node allowed in TreePrev()"); 
+    GameError("TreePrev() : Only root node allowed"); 
     return NULL;
   }
 

@@ -1,17 +1,5 @@
-/**TODO:
-misalignment of struct might cause problem
-wile memcpy, memcmp
-*/
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <assert.h>
-#include <string.h>
-#include <limits.h>
-#include <time.h>
-#include <math.h>
-#include <stdint.h>
+#include "common.h"
 
 #define NOT_UNUSED(x) (void)(x)
 
@@ -41,7 +29,6 @@ wile memcpy, memcmp
 //Datatpes.To avoid unwarned type cast
 typedef uint8_t Square;
 typedef uint8_t Piece;
-typedef uint8_t Flag;
 //typedef unsigned int Lflag;
 // Chesspieces: For faster translation b/w ..
 // .. chesspieces' usual notation and thier number notation 
@@ -120,17 +107,6 @@ typedef struct {
 
 void BoardCopy(_Board * b, _Board * source){
   memcpy (b, source, sizeof(_Board));
-}
-
-char GameErrorBuffer[100] = {'\0'};
-
-void GameError(char * err) {
-  sprintf(GameErrorBuffer, "%s", err);
-}
-
-void GameErrorPrint(){
-  fprintf(stderr, "\nError : %s", GameErrorBuffer);
-  fflush(stderr); 
 }
 
 void BoardInitIterator(){
