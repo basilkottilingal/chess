@@ -155,7 +155,7 @@ void GameFEN(_Game * g){
 Flag GameMove(_Game * g, _BoardMove * move){
 
   if(! (g && move)) {
-    fprintf(stderr, "Error : Game/move not available");
+    GameError("Game/move not available");
     return GAME_STATUS_ERROR;
   }
   GamePushHistory(g, move);
@@ -167,18 +167,45 @@ Flag GameMove(_Game * g, _BoardMove * move){
 }
 
 Flag GamePlayerMove(_Game * g, _BoardMove * move) {
-  Flag status = GameMove(g, move);
-  assert(g->engine);
-  return g->engine->update_tree(g->engine, move);
+  _BoardMove m; 
+  memcpy(&m, move, sizeof(_BoardMove));
+  Flag color = g->board->color; 
+  Flag status = GameMove(g, &m);
+  _Engine * engine = g->engine;
+  if (!engine) {
+    GameError("Player Move : No engine Found");
+    return GAME_STATUS_ERROR;
+  }
+  if(!engine->update_tree(engine, &m)) {
+    GameError("Player move : Engine Couldn't find move");
+    return GAME_STATUS_ERROR;
+  }
+  //If player made the engine's move.
+  if(color == engine->mycolor) {
+    GameError( "Player move : not an engine's move (Warning)");
+    return GAME_STATUS_ERROR;
+  }
+  return status;
 }
 
 _BoardMove * GameEngineMove(_Game * g) {
-  _Engine * e = g->engine;
-  if(!e)
+  _Engine * engine = g->engine;
+  if(!engine) {
+    GameError("Engine Move : Engine Not Found");
     return NULL;
-  _BoardMove * move = e->engine(e);
-  if(move)
-    GameMove(g, move);
+  }
+  if(g->board->color != engine->mycolor) {
+    //It's not engine;s turn;
+    GameError("Engine Move : Not Engine's turn");
+    return NULL;
+  }
+  if( !engine->engine(engine) ) {
+    GameError("Engine Move : Engine Not Found");
+    return NULL;
+  }
+  _BoardMove * move = &engine->tree->move;
+  if (GameMove(g, move) == GAME_STATUS_ERROR)
+    return NULL;
   return move;
 }
 
@@ -194,12 +221,19 @@ Flag GameEngineStart(_Game * g, Flag color) {
 //Undo a move
 Flag GameUnmove(_Game * g){
   if(!g) {
-    fprintf(stderr, "Error : Game not available");
+    GameError("Game not available");
     return GAME_STATUS_ERROR;
   }
   if( !GamePopHistory(g) ) 
     return GAME_STATUS_ERROR;
-  GameFEN(g); //may switch of this
+  GameFEN(g); //may switch off this
+
+  //Update engine, if running
+  _Engine * e = g->engine;
+  if(e)
+    // A costly process to redo the tree
+    e->tree = TreePrev(e->tree, g->board); 
+
   //status of the game if undo was successfull
   return g->board->status;
 }

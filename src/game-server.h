@@ -1,3 +1,9 @@
+/**
+  TODO:
+1) A second thread that runs the game, so that you don't crash
+2)   
+*/
+
 #include "game.h"
 #include <ws.h>
 
@@ -8,15 +14,17 @@ enum MSG_TYPE {
   MSG_IS_FEN   =  "f", // send only
   MSG_IS_BOARD =  "b", // recv only
   MSG_IS_MOVE  =  "m", // send/recv
-  MSG_IS_PLAYER  =  "p", // send/recv
+  MSG_IS_PLAYER  =  "p", // recv only
   MSG_IS_MAKE_MOVE =  "M", // recv only
-  MSG_IS_UNDO  =  "u", // send only
-  MSG_IS_RESTART = "r", // send only
+  MSG_IS_UNDO  =  "u", // recv only
+  MSG_IS_RESTART = "r", // recv only
   MSG_IS_META  =  "x", // send/recv
   MSG_IS_TEXT  =  "t", // send/recv
-  MSG_IS_GAME_STATUS =  "g", // send/recv 
+  MSG_IS_GAME_STATUS =  "g", // send only 
   MSG_IS_WARNING =  "w", // send/recv
+  MSG_IS_WARNING =  "W", // send/recv
   MSG_IS_ERROR =  "e", // send/recv
+  MSG_IS_ERROR =  "E", // send/recv
   MSG_IS_DEBUG =  "d"  // send/recv
 }
 */
@@ -32,10 +40,11 @@ void ServerDestroy() {
 static inline 
 void ServerError (ws_cli_conn_t client, char err[]) {
   if(! (err[0] == 'e' || err[0] == 'E' ||  // error
-       err[0] == 'w' || err[0] == 'W' ) )  // or a warning
-  {
-    fprintf(stderr, "\nError : Wrong encoding by server for the ");
-    fprintf(stderr, "following error/warning msg.\n\t[%s]", err);
+       err[0] == 'w' || err[0] == 'W' ) )   { // or a warning
+    fprintf(stderr, 
+      "\nError : Wrong encoding by server for the ");
+    fprintf(stderr, 
+      "following error/warning msg.\n\t[%s]", err);
   }
   else {
     ws_sendframe_txt(client, err);
@@ -45,15 +54,24 @@ void ServerError (ws_cli_conn_t client, char err[]) {
 }
 
 static inline
-void ServerCommandSuccess (ws_cli_conn_t client, char msg[]) {
-  if(! (msg[0] == 'S')) 
-  {
-    fprintf(stderr, "\nError : Wrong encoding by server for the ");
-    fprintf(stderr, "following \"success\" msg.\n\t[%s]", msg);
-    fflush(stderr);
+void ServerSend (ws_cli_conn_t client, char msg[]) {
+  /* types of send messages are s: start, S: success,
+  .. f: fen, m: move, x: metadata, t: text, g: game status,
+  .. d: debug flag
+  */
+  char allowed[] = "sSfmxtgd";
+   
+  if(strchr(allowed, msg[0])) {
+    fprintf(stdout, "\nServer Sending: %s", msg);
+    fflush(stdout);
+    ws_sendframe_txt(client, msg);
   }
   else {
-    ws_sendframe_txt(client, msg);
+    fprintf(stderr, 
+      "\nError : Wrong encoding by server for the ");
+    fprintf(stderr, 
+      "following \"send\" msg.\n\t[%s]", msg);
+    fflush(stderr);
   }
 }
 
@@ -61,7 +79,6 @@ Flag
 ServerInit (ws_cli_conn_t client,                            
   const unsigned char *msg, uint64_t size, int type)
 {
-    
   if (  type != WS_FR_OP_TXT  ) {
     ServerError(client, 
       "Error : Client Msg should be String (Start/Restart)");
@@ -69,8 +86,7 @@ ServerInit (ws_cli_conn_t client,
   }
 
   char cmd = (char ) msg[0];
-  if( cmd == 'f' ) // if the message is fen
-  {
+  if( cmd == 'f' )  { // if the message is fen
     if ( size <= 25 ) {   // FEN is short
       ServerError(client, "Error : Short FEN");
       return GAME_STATUS_ERROR;
@@ -105,25 +121,23 @@ ServerInit (ws_cli_conn_t client,
   GamePrintBoard(GAME_SERVER, 0);
     
   //Succesfully created a new game
-  ServerCommandSuccess(client,"Success : New game");
+  ServerSend(client,"Success : New game");
   return GAME_SERVER->board->status;
 }
 
 Flag 
-ServerEngineInit (ws_cli_conn_t client,                            
+ServerEngineInit (ws_cli_conn_t client,
   const unsigned char *msg, uint64_t size, int type)
 {
-    
   if (  type != WS_FR_OP_TXT  ) {
     ServerError(client, 
-      "Error : Client Message should be String (Start/Restart)");
+      "Error : Client Msg should be String (Start/Restart)");
     return GAME_STATUS_ERROR;
   }
 
   if( !(  (msg[0] == 'p') && 
           (msg[1] == 'w' || msg[1] == 'b') &&
-          (size == 2) ) )
-  {
+          (size == 2) ) ) {
 	  ServerError(client, 
       "Error : Player Setting Message should be 'pw' or 'pb'");
     return GAME_STATUS_ERROR;
@@ -138,9 +152,12 @@ ServerEngineInit (ws_cli_conn_t client,
     return GAME_STATUS_ERROR;
   }
 
-  if(GAME_SERVER->engine) 
+  if(GAME_SERVER->engine) {
+    ServerError(client, "Warning : Resetting Server Player");
     EngineDestroy(GAME_SERVER->engine);
+  }
 
+  ServerSend(client, "Success : server player assigned");
   GAME_SERVER->engine = e;  
 
   return GameStatus(GAME_SERVER);
@@ -159,11 +176,11 @@ Flag ServerBoard() {
 Flag ServerMove( ws_cli_conn_t client,
   const unsigned char *msg, uint64_t size, int type) 
 {
+  /* Server is asked to make a move ( 'M' ) */
   if( ( msg[0] != 'M' ) || 
         // message should be 'M' (i.e Make a move)
       ( type != WS_FR_OP_TXT )  ||  // Wrong msg format
-      ( size != 1 ) )  //wrong length
-  {   
+      ( size != 1 ) )  { //wrong length
     ServerError(client, 
       "Error : Wrong Client Message (Make a move)!");
     return GAME_STATUS_ERROR;
@@ -182,12 +199,15 @@ Flag ServerMove( ws_cli_conn_t client,
   }
 
   //Engine Make a move on GAME_SERVER.
-  _BoardMove * m = engine->engine(engine);
+  _BoardMove * m = GameEngineMove(GAME_SERVER);
   if(!m) {
+    GameErrorPrint();
     ServerError(client, 
       "Error : Engine Failed to make a move");
     return GAME_STATUS_ERROR;
   }
+    
+  GamePrintBoard(GAME_SERVER, 0); //0 delay
  
   //Encode return message with the move information 
   char ret_msg[7] = {'m',
@@ -199,7 +219,7 @@ Flag ServerMove( ws_cli_conn_t client,
           MAPPING[m->promotion&~WHITE],
     '\0'
   };
-  ws_sendframe_txt(client, ret_msg);
+  ServerSend(client, ret_msg);
 
   return GameStatus(GAME_SERVER);
 }
@@ -209,30 +229,29 @@ Flag ClientUnmove( ws_cli_conn_t client,
 {
   if( ( msg[0] != 'u' ) || // message should be 'u' (undo)
       ( type != WS_FR_OP_TXT )  ||  // Wrong msg format
-      ( size != 1 ) )  //wrong length
-  {   
+      ( size != 1 ) )  { //wrong length    
     ServerError(client, 
       "Error : Wrong Client Message (Undo)!");
     return GAME_STATUS_ERROR;
   }
 
-  if ( !GAME_SERVER  )  // cannot find game
-  {   
+  if ( !GAME_SERVER  )  {// cannot find game
     ServerError(client, 
       "Error : Cannot find the game! Start/Restart a game.");
     return GAME_STATUS_ERROR;
   }
   Flag status = GameUnmove(GAME_SERVER);
   if(status == GAME_CONTINUE) {
-    ServerCommandSuccess(client, "Success : Undo");
+    ServerSend(client, "Success : Undo");
     //send the new fen
     char fen[FEN_MAXSIZE + 1];
     sprintf(fen, "%c%s", 'f', GAME_SERVER->fen);
-    ws_sendframe_txt (client, fen);
+    ServerSend (client, fen);
     //Print the board 
     GamePrintBoard(GAME_SERVER, 0); //0 delay
   }
   else { 
+    GameErrorPrint();
     ServerError(client, "Error : Couldn't undo a move.");
   }
 
@@ -244,14 +263,12 @@ Flag ClientMove( ws_cli_conn_t client,
 {
   if( ( msg[0] != 'm' ) || // if the message is not 'move'
       ( type != WS_FR_OP_TXT )  ||  // Wrong msg format
-      ( ! ( size == 5 || size == 6 ) ) )  //wrong length
-  {   
+      ( ! ( size == 5 || size == 6 ) ) ) { //wrong length
     ServerError(client, 
       "Error : Wrong Client Message (Move)!");
     return GAME_STATUS_ERROR;
   }
-  if ( !GAME_SERVER  )  // cannot find game
-  {   
+  if ( !GAME_SERVER  ) { // cannot find game
     ServerError(client, 
       "Error : Cannot find the game! Start/Restart a game.");
     return GAME_STATUS_ERROR;
@@ -268,8 +285,7 @@ Flag ClientMove( ws_cli_conn_t client,
     promotion |= board->color;
   if( ( promotion > 15 ) || // invalid promotion piece
       ( from >= OUTSIDE )  ||  
-      ( to >= OUTSIDE ) )
-  {   
+      ( to >= OUTSIDE ) ) {   
     ServerError(client, 
       "Error : Cannot identify squares or promotion piece");
     return GAME_STATUS_ERROR;
@@ -285,14 +301,16 @@ Flag ClientMove( ws_cli_conn_t client,
   for(int i=0; i<nmoves; ++i, ++move) {
     if(move->from.square == from && move->to.square == to &&
        move->promotion == promotion) {
-      Flag status = GameMove(GAME_SERVER, move);
+      Flag status = GamePlayerMove(GAME_SERVER, move);
       if(status == GAME_STATUS_ERROR) {
-        ServerError(client, "Error : Cannot Move the board");
+        GameErrorPrint();
+        ServerError(client, 
+  "Error : Cannot Move the board or Update the Engine");
         return GAME_STATUS_ERROR;
       }
       else {
         GamePrintBoard(GAME_SERVER, 0); //0 delay
-        ServerCommandSuccess(client, "Success : Board Moved");
+        ServerSend(client, "Success : Board Moved");
         return GAME_SERVER->board->status;
       } 
     }
@@ -317,15 +335,22 @@ Flag Server( ws_cli_conn_t client,
     ServerError(client, "Error : Message of zero length!");
     return 0;
   }
+
+  fprintf(stdout, "\nServer Received: %s", msg);
+fflush(stdout);
+  /* types of recv messages are r: restart, p: server player,
+  .. f: fen, u: undo, M: make a move, d: debug flag
+  */
+
   char cmd = (char) msg[0];
   if( cmd == 'r' || cmd == 'f' )
-    // 'r' : restart, 'f' : start with fen specified
+    /* 'r' : restart, 'f' : start with fen specified */
     return ServerInit (client, msg, size, type);
   else if (cmd == 'm') 
     /* reflect client's move in the server */
     return ClientMove (client, msg, size, type);
   else if( cmd == 'p' )
-    // 'p' : server player
+    /* 'p' : server player */
     return ServerEngineInit (client, msg, size, type);
   else if (cmd == 'u') 
     /* reflect client's undo command in the server */

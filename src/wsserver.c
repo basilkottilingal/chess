@@ -46,7 +46,7 @@ void onopen(ws_cli_conn_t client)
   //create a game with default board
   if(!GAME_SERVER)  {
     GAME_SERVER = GameNew(NULL);
-    ServerCommandSuccess(client, 
+    ServerSend(client, 
       "Success: Server Connected: New game.");
   }
   else {
@@ -55,7 +55,7 @@ void onopen(ws_cli_conn_t client)
       "Warning : There is an ongoing game. Restart?"); 
     char fen[FEN_MAXSIZE + 1];
     sprintf(fen, "%c%s", 'f', GAME_SERVER->fen);
-    ws_sendframe_txt (client, fen); 
+    ServerSend(client, fen); 
   }
 }
 
@@ -109,7 +109,8 @@ void onmessage(ws_cli_conn_t client,
   if (Server (client, msg, size, type) != GAME_STATUS_ERROR) 
     return;
   else
-    ServerError (client, "Error: Server failed to decode msg");
+    ServerError (client, 
+      "Error : Server failed to decode/implement client msg");
 
 	/**
 	 * Mimicks the same frame type received and re-send it again

@@ -122,6 +122,17 @@ void BoardCopy(_Board * b, _Board * source){
   memcpy (b, source, sizeof(_Board));
 }
 
+char GameErrorBuffer[100] = {'\0'};
+
+void GameError(char * err) {
+  sprintf(GameErrorBuffer, "%s", err);
+}
+
+void GameErrorPrint(){
+  fprintf(stderr, "\nError : %s", GameErrorBuffer);
+  fflush(stderr); 
+}
+
 void BoardInitIterator(){
   if(GAMEBOARD) 
     return;

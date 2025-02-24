@@ -12,9 +12,8 @@ typedef struct _Engine{
   _Tree * tree;
   //fn pointer to update the tree when opponent makes move
   Flag (* update_tree) (struct _Engine * e, _BoardMove * move);
-  //fn pointer. to evaluate 'best' move. 
   //By default the tree is also updated.
-  _BoardMove * (*engine) (struct _Engine * e);
+  Flag (*engine) (struct _Engine * e);
 }_Engine;
 
 Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
@@ -212,7 +211,7 @@ Flag TreeNodeNegamax(_Tree * node) {
   return 1;
 }
 
-_BoardMove * EngineMinimax(_Engine * e) {
+Flag EngineMinimax(_Engine * e) {
   /* Run the minimax evaluate algo*/
   _Tree * root = e->tree;
     
@@ -223,12 +222,14 @@ _BoardMove * EngineMinimax(_Engine * e) {
   Flag ichild = root->ichild;
 
   _Tree * next = TreeNext(root, ichild);
-  if(!next)
-    return NULL;
+  if(!next) {
+    GameError("EngineMinimax : TreeNext() failed");
+    return 0;
+  }
 
   e->tree = next;
   
-  return &next->move;
+  return 1;
 }
 
 

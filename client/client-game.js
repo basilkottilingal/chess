@@ -91,7 +91,7 @@ export class ChessBoard {
     }
   }
 
-  /* Trigger when you stop dragging a piece */
+/* Trigger when you stop dragging a piece */
   pieceDragEnd(e){
     return new Promise( (resolve) => {
     let img = e.target;
@@ -100,38 +100,36 @@ export class ChessBoard {
           img.style.display = 'block';
         else 
           console.log("Weird");
-
-        if ( !this.piece ) {
-          resolve (null);
-          return;
+        if ( this.piece ) {
+          this.piece = null;
+          this.moves.forEach( move => {
+            //remove highlight of the valid target squares
+            const div = document.getElementById(move.to);
+            if(div)
+              div.classList.remove('move-highlight');
+          });
+          this.moves = null;
+          if(this.move) {
+            /* A move detected by piece drag */
+            if (this.move.flags.includes('p')) {
+              /* In case of promotion, it has to wait till a 
+              .. promotion piece is selected by the player*/
+              this.move.promotion = await this.promotion(this.move); 
+              /* Switch off promotion overlay display */
+              document.getElementById('promotion-overlay').style.display = 'none';
+              document.getElementById('board-overlay').style.display = 'none';
+            }
+            /* player Made a valid move.*/
+            resolve(this.move); 
+            this.move = null;
+          }
+          else {
+            resolve(null);
+          }
         }
-
-        this.piece = null;
-        this.moves.forEach( move => {
-          //remove highlight of the valid target squares
-          const div = document.getElementById(move.to);
-          if(div)
-            div.classList.remove('move-highlight');
-        });
-        this.moves = null;
-
-        if(!this.move) {
+        else {
           resolve(null);
-          return;
         }
-            
-        /* A move detected by piece drag */
-        if (this.move.flags.includes('p')) {
-          /* In case of promotion, it has to wait till a 
-          .. promotion piece is selected by the player*/
-          this.move.promotion = await this.promotion(this.move); 
-          /* Switch off promotion overlay display */
-          document.getElementById('promotion-overlay').style.display = 'none';
-          document.getElementById('board-overlay').style.display = 'none';
-        }
-        /* player Made a valid move.*/
-        resolve(this.move); 
-        this.move = null;
       }, 0);
     });
   }
@@ -209,19 +207,21 @@ export class ChessBoard {
 
           const dragEndHandler = async (e) => {
             let move = await this.pieceDragEnd(e);
-            if(move) {
-              //console.log("move success");
-              pieces.forEach(img => {
-                /* Remove all the drag related eventListeners attached to ..
-                .. chess pieces */ 
-                const handlers = boundHandlers.get(img);
-                if(handlers) {
-                  img.removeEventListener('dragend', handlers.dragEndHandler);
-                  img.removeEventListener('dragstart', handlers.dragStartHandler);
-                }
-              })
-            }
-            resolve(move); 
+            resolve(move); // move or null
+            if(move) 
+              resolve(move); 
+
+            //delete all the eventListening of dragend/start
+            //.. even if move is null
+            pieces.forEach(img => {
+              /* Remove all the drag related eventListeners attached to ..
+              .. chess pieces */ 
+              const handlers = boundHandlers.get(img);
+              if(handlers) {
+                img.removeEventListener('dragend', handlers.dragEndHandler);
+                img.removeEventListener('dragstart', handlers.dragStartHandler);
+              }
+            })
           }
           piece.addEventListener('dragend', dragEndHandler);
 
@@ -236,6 +236,9 @@ export class ChessBoard {
   /* Promote a pawn. 'p' -> 'q'/'b'/'r'/'n'*/
   async promotion(move) {
     return new Promise ( (resolve) => {
+      //Appear the piece moved on board
+      this.startMove(move);
+
       const promotionOverlay = 
         document.getElementById('promotion-overlay');
       const boardOverlay = 
@@ -255,15 +258,16 @@ export class ChessBoard {
           option.classList.remove('promotion-invert');
         const handleClick = async () => {
           //await this.pawnPromotion(option);
-          const p = option.getAttribute('data-piece'); 
-          console.log(p);  
+          const p = option.getAttribute('data-piece');
+
+          resolve(p); 
+          //console.log(p);  
           /* Disable all the eventListen of type 'click' */
           options.forEach( (opt) => {
             opt.removeEventListener('click', handleClick);
-          }); 
+          });
   
           // Once a promotion piece is clicked, this function is resolved
-          resolve(p); 
         };
         // Make each option listening for a 'click' 
         option.addEventListener('click', handleClick); 
@@ -287,21 +291,19 @@ export class ChessBoard {
       square.appendChild(piece);
     }
   }
-  
-  finishPromotion(move){
-    const promotion = move.promotion;
-    const piece = 
-      move.color === 'w' ? promotion.toUpperCase() : promotion;
-    const square = document.getElementById(move.to);
-    const img = square.querySelector('img');
-    if(img){
-      img.alt = promotion;
-      img.id = 
-        'rnbqkp'.includes(piece) ? 'b' : 'w';
-      img.src = 'imgs/' + img.id + '/' + piece + '.png';
-    }
-  }
 
+  finishPromotion(move) {
+    let piece = 
+      document.getElementById(move.to).querySelector('img');
+      /* In case of promotion.*/
+    let promotion = move.color === 'w' ? 
+        move.promotion.toUpperCase() : 
+        move.promotion.toLowerCase();
+    piece.alt = promotion;
+    piece.id = move.color;
+    piece.src = 'imgs/' + piece.id + '/' + promotion + '.png';
+  }
+ 
   finishCastling(move){
     /* King is already moved on the board. ..
     .. Now move the rook on the board*/
@@ -330,17 +332,24 @@ export class ChessBoard {
   }
 
   /*Use this function to reflect a move on the board */
-  playerMove(move){
+  playerMove(move, isServer){
     return new Promise(async (resolve) => {
-      this.startMove(move);
      /* Update player's move (mouse drag) into ..
      .. the chess.js database and take care of special cases */
       if (move) {
-        if(move.flags.includes('p')) {
-          /* See if it's a castling */
-          console.log('Promotion ' + move.promotion);
+        let isProm = move.flags.includes('p');
+        if(isServer?true:isProm?false:true)
+        {
+          //console.log('Piece Moved');
+          this.startMove(move);
+        }
+      
+        /* SPECIAL CASES */
+        if(isProm) {
+          /* See if it's a promotion */
+          //console.log('Promotion ' + move.flags);
           this.finishPromotion(move);
-        }  
+        }
         if(move.flags === 'q' || move.flags === 'k') {
           /* See if it's a castling */
           console.log('Castling ' + move.flags);
@@ -359,46 +368,5 @@ export class ChessBoard {
     }); // end of Promise
   }
   
-
-  botMove(move){
-
-    /* Reflect the bot's move on the chessboard */
-    /* Random move for the moment */
-    const squareFrom = document.getElementById(move.from);
-    const squareTo = document.getElementById(move.to);
-    const piece = squareFrom.querySelector('img');
-    if (squareTo.querySelector('img')) {
-      /* Capture */
-      let capturedPiece = squareTo.querySelector('img');
-      squareTo.replaceChild( piece, capturedPiece );
-      // Memory management
-      //this.pieceFree(capturedPiece);
-      capturedPiece = null;
-    } else {
-      /* Normal Chess Move / "Quiet Move" */ 
-      squareTo.appendChild( piece );
-    }
-    //squareFrom.removeChild( piece );
-    if(move.flags.includes('p')){
-      const promotion = move.color === 'w' ? 
-  move.p.toUpperCase() : move.p;
-      piece.id = 
-        'rnbqkp'.includes(promotion) ? 'b' : 'w';
-      piece.src = piece.id + '/' + promotion + '.png';
-      piece.alt = promotion;
-    } 
-    /* Take care of special moves */
-    this.move = move;
-    this.playerMove(true);
-    this.move = null;
-  }
-
-  randomMove(){
-    const moves = this.chess.moves();  
-    const imove = Math.floor(Math.random() * moves.length); 
-    const _move = moves[imove];
-    const move = this.chess.move(_move);
-    this.botMove(move); 
-  }
   
 } //End of Class ChessGame

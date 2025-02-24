@@ -502,9 +502,7 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
   /* Once a move is made, by player/opponent,
   .. Tree has to be updated.  */
   if(!(root->flags & IS_ROOT_NODE)) {
-    fprintf(stderr, 
-      "ERROR: Only root node allowed in TreeNext()"); 
-    fflush(stderr);
+    GameError("Only root node allowed in TreeNext()"); 
     return NULL;
   }
 
@@ -512,8 +510,7 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
     root->children[ichild];    
 
   if(!next) {
-    fprintf(stderr, "ERROR: Cannot find the move"); 
-    fflush(stderr);
+    GameError("ERROR: Cannot find the move"); 
     return NULL;
   }
 
@@ -533,6 +530,21 @@ _Tree * TreeNext(_Tree * root, Flag ichild) {
 
   /* 'next' is the new 'root' node*/
   return next;
+}
+
+_Tree * TreePrev(_Tree * root, _Board * board) {
+  /* Once a move is made, by player/opponent,
+  .. Tree has to be updated.  */
+  if(!(root->flags & IS_ROOT_NODE)) {
+    GameError("Only root node allowed in TreePrev()"); 
+    return NULL;
+  }
+
+  // TODO: fix this. 
+  // You shouldn't delete the existing tree completely
+  Flag depthmax = root->depthmax;
+  TreeDestroy(root);
+  return Tree(board, depthmax); 
 }
 
 
