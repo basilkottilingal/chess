@@ -1,3 +1,12 @@
+/**
+.. TODO: 
+.. (1) multithread few functions, like
+.. expanding tree compuattion , while waiting for
+.. clients move.
+.. (2) alphabeta pruning. expand pool a bit.
+.. (3) Optimized tree data structure. (minimal and aligned).
+.. (4) Tree search even if out of treepool memory.
+*/
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
