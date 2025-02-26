@@ -15,9 +15,9 @@ typedef struct _Node {
 
 typedef struct _Edge {
   /* End node of this edge */
-  _Node * next;  
+  _Node * end;  
   /* Next Edge of this edge's parent */
-  struct _Edge * next;
+  struct _Edge * sibling;
   /* Data for the edge */
   void * data;
 } _Edge;
@@ -30,6 +30,16 @@ typedef struct {
 } _Tree;
 
 _Tree * TreeIterator = NULL;
+
+static inline 
+_Edge * EdgeNext(_Edge * e) {
+  while(e->next) {
+    e = e->next;
+    if(e->end)
+      return;
+  }
+  return NULL; 
+}
 
 /* ---------------------------------------------------------
 ------------------------------------------------------------
@@ -58,7 +68,7 @@ Tree Traversal without a recursion function.
 --------------------------------------------------------- */
 
 typedef Flag (* TreeNodeFunction) (_Node * node); 
-_Node * NodeStack[TREE_MAX_DEPTH];
+_Edge * EdgeStack[TREE_MAX_DEPTH];
 
 void TreeEachNode(_Node * node, 
   Flag searchDepth, TreeNodeFunction func){
@@ -68,8 +78,9 @@ void TreeEachNode(_Node * node,
     return;
   }
 
+  //_Edge root = {.end = node, .sibling = NULL, .data = NULL}; 
   Flag level = 0;
-  NodeStack[0] = NULL;
+  EdgeStack[0] = NULL;
  
   while(level >= 0) { 
 
