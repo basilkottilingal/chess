@@ -15,7 +15,7 @@ typedef struct _Node {
 
 typedef struct _Edge {
   /* End node of this edge */
-  _Node * end_node;  
+  _Node * node;  
   /* Next Edge of this edge's parent */
   struct _Edge * sibling;
   /* Data for the edge */
@@ -68,28 +68,27 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
   if(!*level--) 
     return NULL;
 
-  /* Update the depth of parent */
+  /* Update the depth of parent 
+  .. fixme: update parent's flag too*/
   _Edge * parent = EdgeStack[*level];
   Flag depth = 0;
   _Edge * child = parent->child;
   while(child) {
-    if(child->end_node)
-      if(depth < child->end_node->depth)
-        depth = child->end_node->depth;
+    if(child->node)
+      if(depth < child->node->depth)
+        depth = child->node->depth;
     child = child->sibling;
   }
-  parent->end_node->depth = 1 + depth;
+  parent->node->depth = 1 + depth;
   return parent;
 }
 
 static inline
 _Edge * EdgeGotoChild(_Edge * edge, int * level) {
-  if(!edge->end_node)
-    return NULL;
-  _Edge * child = edge->end_node->child;
+  assert(edge->node);
+  _Edge * child = edge->node->child;
   if(!child)
     return NULL;
-  _Edge * child = edge->end_node->child;
   EdgeStack[++*level] = child;
   return child;
 }
@@ -117,19 +116,24 @@ void TreeEachNode(_Node * node,
   int level = 0;
   
   /* We iterate through the edges rather than the nodes.
-  .. We get the node as , edge->end_node */
-  _Edge root = {.end = node, .sibling = NULL, .data = NULL},
+  .. We get the node as , edge->node */
+  _Edge root = {.node = node, .sibling = NULL, .data = NULL},
     * edge = &root;
  
   while(level >= 0) { 
 
+    /* run the 'func' with the node and go down the tree */ 
     while(level <= searchDepth) {
 
       /* Do something with node here  */
-      if(func && edge->end_node)
-        func(edge->end_node);
+      if(func && edge->node)
+        func(edge->node);
       /* End of "Do something with node here"*/  
-      
+
+      /*Cannot go further down */     
+      if(!edge->node || (level == searchDepth) )
+        break;
+ 
       _Edge * child = EdgeGotoChild(edge, &level);
       if(!child) 
         break;
@@ -166,13 +170,13 @@ void TreeEachNodePostOrder(_Node * node,
   int level = 0;
   
   /* We iterate through the edges rather than the nodes.
-  .. We get the node as , edge->end_node */
-  _Edge root = {.end = node, .sibling = NULL, .data = NULL},
+  .. We get the node as , edge->node */
+  _Edge root = {.node = node, .sibling = NULL, .data = NULL},
     * edge = &root;
  
   while(level >= 0) { 
 
-    while(level <= searchDepth) {
+    while(level < searchDepth && edge->node) {
       _Edge * child = EdgeGotoChild(edge, &level);
       if(!child) 
         break;
@@ -183,8 +187,8 @@ void TreeEachNodePostOrder(_Node * node,
     .. Go to parent's sibling (if any more left ) or .. */
     while ( level >= 0 ) {
       /* Do something with node here  */
-      if(rfunc && edge->end_node)
-        rfunc(edge->end_node);
+      if(rfunc && edge->node)
+        rfunc(edge->node);
       /* End of "Do something with node here"*/  
       
       _Edge * sibling = EdgeGotoSibling(edge, &level);
@@ -212,6 +216,8 @@ _Edge * EdgeNew() {
   _Edge * edge = EdgeFromPool();
   edge->data   = MoveFromPool();
 }
+
+_Mempool * 
 
 _Node * NodeRoot(_Board * board, _) {
   assert(b->status == GAME_CONTINUE);
