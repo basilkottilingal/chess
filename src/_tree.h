@@ -15,7 +15,7 @@ typedef struct _Node {
 
 typedef struct _Edge {
   /* End node of this edge */
-  _Node * end;  
+  _Node * end_node;  
   /* Next Edge of this edge's parent */
   struct _Edge * sibling;
   /* Data for the edge */
@@ -56,21 +56,50 @@ Tree Traversal without a recursion function.
  1  2
 ------------------------------------------------------------
 --------------------------------------------------------- */
-static inline   
-void TreeUpdateParentDepth(_Node * parent) {
-  Flag depth = 0;
-  _Edge * e = parent->child;
-  while(e) {
-    if(e->end)
-      depth = (depth < e->end->depth) ? e->end->depth : depth;
-    e = e->sibling;
-  }
-  parent->depth = 1 + depth;
-  //return depth;
-}
 
 typedef Flag (* TreeNodeFunction) (_Node * node); 
-_Edge * _EdgeStack_[TREE_MAX_DEPTH+1];
+
+_Edge * EdgeStack[TREE_MAX_DEPTH];
+
+static inline   
+_Edge * EdgeGotoParent(_Edge *edge, int * level) {
+  /* It applies for root node only. ..
+  .. which doesn't have a parent*/
+  if(!*level--) 
+    return NULL;
+
+  /* Update the depth of parent */
+  _Edge * parent = EdgeStack[*level];
+  Flag depth = 0;
+  _Edge * child = parent->child;
+  while(child) {
+    if(child->end_node)
+      if(depth < child->end_node->depth)
+        depth = child->end_node->depth;
+    child = child->sibling;
+  }
+  parent->end_node->depth = 1 + depth;
+  return parent;
+}
+
+static inline
+_Edge * EdgeGotoChild(_Edge * edge, int * level) {
+  if(!edge->end_node)
+    return NULL;
+  _Edge * child = edge->end_node->child;
+  if(!child)
+    return NULL;
+  _Edge * child = edge->end_node->child;
+  EdgeStack[++*level] = child;
+  return child;
+}
+
+static inline
+_Edge * EdgeGotoSibling(_Edge * edge, int * level) {
+  _Edge * sibling = edge->sibling;
+  EdgeStack[*level] = sibling;
+  return sibling;
+}
 
 /* Traverse through each nodes without a recursion.
 .. It is the Depth First Search (DFS pre-Order) routine.
@@ -85,62 +114,37 @@ void TreeEachNode(_Node * node,
     return;
   }
 
-  Flag level = 0;
+  int level = 0;
   
+  /* We iterate through the edges rather than the nodes.
+  .. We get the node as , edge->end_node */
   _Edge root = {.end = node, .sibling = NULL, .data = NULL},
     * edge = &root;
-  _Edge ** EdgeStack = &_EdgeStack_[1];
-  EdgeStack[-1] = NULL;
-  EdgeStack[0] = edge;
  
   while(level >= 0) { 
 
     while(level <= searchDepth) {
-      /* We iterate through the edges rather than the nodes.
-      .. We get the node as , edge->end */
-      _Node * node = edge->end;
-      if(!node)
-        break;
 
       /* Do something with node here  */
-      if(func)
-        func(node);
+      if(func && edge->end_node)
+        func(edge->end_node);
       /* End of "Do something with node here"*/  
       
-      /* Going down the tree */
-      if(node->depth == 0) {  
-        /* Cannot Go down further.
-        .. fixme: do dynamical tree. i.e tree can,
-        .. expand to max level while traversal.*/
-        assert(node->child == NULL);
-        assert(node->flags & IS_LEAF_NODE);
-        break; 
-      }
-      else if(level <= searchDepth) {
-        //Go to 1st child if node->level is not yet "depth"
-        assert(node->child);
-        edge = node->child;
-        EdgeStack[++level] = edge; //edge->sibling;
-        //Update Depth-max everytime;
-        //node->depthmax = node->parent->depthmax - 1;
-      } 
+      _Edge * child = EdgeGotoChild(edge, &level);
+      if(!child) 
+        break;
+      edge = child;
     }
 
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( level >= 0 ) {
-      _Edge * parent = EdgeStack[level - 1];
-      //Update depth of parent everytime.
-      TreeUpdateParentDepth(parent, edge);
-      edge = edge->next;
-      if( edge ) {  
-        EdgeStack[level] = edge;
-        //Update Depth-max everytime;
-        //node->depthmax = node->parent->depthmax - 1;
-        break;
+      _Edge * sibling = EdgeGotoSibling(edge, &level);
+      if(sibling) {
+        edge = sibling;
+        break;  
       }
-      edge = parent;
-      --level;
+      edge = EdgeGotoParent(edge, &level);
     } 
   }
 
@@ -149,10 +153,10 @@ void TreeEachNode(_Node * node,
 /* Traverse through each nodes without a recursion.
 .. It is the Depth First Search (DFS post-Order) routine.
 .. You can send a function that manipulate the node->data
-.. as 'func' arguement of the function.  
+.. as 'rfunc' arguement of the function.  
 */
 void TreeEachNodePostOrder(_Node * node, 
-  Flag searchDepth, TreeNodeFunction func){
+  Flag searchDepth, TreeNodeFunction rfunc){
 
   if(!node || (searchDepth > TREE_MAX_DEPTH) ) {
     GameError("TreeEachNodePostOrder() : aborted");
@@ -161,62 +165,68 @@ void TreeEachNodePostOrder(_Node * node,
 
   int level = 0;
   
+  /* We iterate through the edges rather than the nodes.
+  .. We get the node as , edge->end_node */
   _Edge root = {.end = node, .sibling = NULL, .data = NULL},
     * edge = &root;
-  EdgeStack[0] = edge;
  
   while(level >= 0) { 
 
     while(level <= searchDepth) {
-      /* We iterate through the edges rather than the nodes.
-      .. We get the node as , edge->end */
-      _Node * node = edge->end;
-      if(!node)
+      _Edge * child = EdgeGotoChild(edge, &level);
+      if(!child) 
         break;
-
-      
-      /* Going down the tree */
-      if(node->depth == 0) {  
-        /* Cannot Go down further.
-        .. fixme: do dynamical tree. i.e tree can,
-        .. expand to max level while traversal.*/
-        assert(node->child == NULL);
-        assert(node->flags & IS_LEAF_NODE);
-        break; 
-      }
-      else if(level <= searchDepth) {
-        //Go to 1st child if node->level is not yet "depth"
-        assert(node->child);
-        edge = node->child;
-        EdgeStack[++level] = edge; //edge->sibling;
-        //Update Depth-max everytime;
-        //node->depthmax = node->parent->depthmax - 1;
-      } 
+      edge = child;
     }
 
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( level >= 0 ) {
       /* Do something with node here  */
-      _Node * node = edge->end;
-        if(rfunc && node)
-          rfunc(node);
+      if(rfunc && edge->end_node)
+        rfunc(edge->end_node);
       /* End of "Do something with node here"*/  
-
-      _Edge * parent = EdgeStack[level - 1];
-      //Update depth of parent everytime.
-      TreeUpdateParentDepth(parent, edge);
-      edge = edge->next;
-      if( edge ) {  
-        EdgeStack[level] = edge;
-        //Update Depth-max everytime;
-        //node->depthmax = node->parent->depthmax - 1;
-        break;
+      
+      _Edge * sibling = EdgeGotoSibling(edge, &level);
+      if(sibling) {
+        edge = sibling;
+        break;  
       }
-      edge = parent;
-      --level;
+      edge = EdgeGotoParent(edge, &level);
     } 
   }
-
 }
+
+enum TREE_NODE_FLAG {
+  NODE_LEAF = 1,
+  NODE_ROOT = 2,
+  NODE_PRUNED = 4,
+  NODE_PARTIALLY_PRUNED = 8
+};
+
+/* NOTE: if using this array 
+.. switch of multithreading if any */
+Array MOVES_ARRAY = {.p = NULL, .len = 0, .max = 0};
+
+_Edge * EdgeNew() {
+  _Edge * edge = EdgeFromPool();
+  edge->data   = MoveFromPool();
+}
+
+_Node * NodeRoot(_Board * board, _) {
+  assert(b->status == GAME_CONTINUE);
+
+  root->depth = 0;
+  root->depthmax = depthmax;
+  //root->level = 0; 
+  root->flags = IS_LEAF_NODE | IS_ROOT_NODE;
+  root->nchildren = 0;
+  // Tree connection
+  root->parent = NULL;
+  root->children = NULL;
+  // create new board & copy content from 'b'
+  //root->board = Board(b); 
+  BoardCopy(&root->board, b);
+}
+
 
