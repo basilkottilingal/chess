@@ -159,7 +159,7 @@ Flag BoardIsKingAttacked(_Board * b, Flag color)  {
   return(BoardIsSquareAttacked(b, king, !color));
 }
 
-Flag BoardIsMoveValid(_Board * b, _BoardMove * move) {
+Flag BoardIsMoveValid(_Board * b, _Move * move) {
 
     BoardMove(b, move);
     Flag valid = !BoardIsKingAttacked(b, b->color);
@@ -192,7 +192,7 @@ void BoardMovesFrom( Square * from,
       Flag flags = IS_EMPTY(to)  
         ? MOVE_NORMAL : MOVE_CAPTURE;
       //create a new array for moves if not already created; 
-      _BoardMove move = {
+      _Move move = {
         .from.piece = SQUARE_PIECE(from),
         .from.square = *from,
         .to.piece = SQUARE_PIECE(to),
@@ -246,7 +246,7 @@ void BoardKingMoves(_Board *b, Square * from, Array * moves){
     }
     
     if(available) {
-      _BoardMove move = {
+      _Move move = {
         .from.piece = SQUARE_PIECE(king),
         .from.square = *king,
         .to.piece = EMPTY,
@@ -285,7 +285,7 @@ void BoardKingMoves(_Board *b, Square * from, Array * moves){
     }
     
     if(available) {
-      _BoardMove move = {
+      _Move move = {
         .from.piece = SQUARE_PIECE(king),
         .from.square = *king,
         .to.piece = EMPTY,
@@ -331,7 +331,7 @@ void BoardPawnMoves(_Board * b, Square * from,
 
     flags |= IS_PROMOTION(from, to) ? MOVE_PROMOTION : 0;
 
-    _BoardMove move = {
+    _Move move = {
       .from.piece = SQUARE_PIECE(from),
       .from.square = *from,
       .to.piece = SQUARE_PIECE(to),
@@ -361,7 +361,7 @@ void BoardPawnMoves(_Board * b, Square * from,
       break; //capture, block, outside leads to "break"
     Flag flags = MOVE_NORMAL;
     flags |= IS_PROMOTION(from, to) ? MOVE_PROMOTION : 0;
-    _BoardMove move = {
+    _Move move = {
       .from.piece = SQUARE_PIECE(from),
       .from.square = *from,
       .to.piece = SQUARE_PIECE(to),
@@ -451,10 +451,10 @@ Flag BoardAllMoves(_Board * b, Array * moves){
     }
   
   //Removing Invalid Moves
-  size_t smove = sizeof(_BoardMove);
+  size_t smove = sizeof(_Move);
   int nmoves =  (int) (moves->len / smove);
-  _BoardMove * move = (_BoardMove *) (moves->p);
-  _BoardMove * m = move;
+  _Move * move = (_Move *) (moves->p);
+  _Move * m = move;
   for(int i=0; i<nmoves; ++i, ++move) {
     if(BoardIsMoveValid(b, move)) {
       if(!(m == move)) //To avoid memcpy to same dest
@@ -476,7 +476,7 @@ Flag BoardAllMoves(_Board * b, Array * moves){
 }
 
 Flag
-BoardUpdateMetadata(_Board * b, _BoardMove * move) {
+BoardUpdateMetadata(_Board * b, _Move * move) {
 
   //Udate the halfclock, fullclock
   if(!b->color)
@@ -527,7 +527,7 @@ BoardUpdateMetadata(_Board * b, _BoardMove * move) {
 }
 
 Flag  
-BoardNext(_Board * b, _BoardMove * move, Array * moves){
+BoardNext(_Board * b, _Move * move, Array * moves){
 
   if(!move) {
     fprintf(stderr, "\nERROR: Move not chosen");

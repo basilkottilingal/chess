@@ -200,7 +200,7 @@ Flag ServerMove( ws_cli_conn_t client,
   }
 
   //Engine Make a move on GAME_SERVER.
-  _BoardMove * m = GameEngineMove(GAME_SERVER);
+  _Move * m = GameEngineMove(GAME_SERVER);
   if(!m) {
     ServerError(client, 
       "Error : Engine Failed to make a move");
@@ -295,8 +295,8 @@ Flag ClientMove( ws_cli_conn_t client,
   //GameStatus(GAME_SERVER);
 
   Flag nmoves = 
-    (Flag) (GAME_SERVER->moves->len/sizeof(_BoardMove) );
-  _BoardMove * move = (_BoardMove *) GAME_SERVER->moves->p;
+    (Flag) (GAME_SERVER->moves->len/sizeof(_Move) );
+  _Move * move = (_Move *) GAME_SERVER->moves->p;
   for(int i=0; i<nmoves; ++i, ++move) {
     if(move->from.square == from && move->to.square == to &&
        move->promotion == promotion) {

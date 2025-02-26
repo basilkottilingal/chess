@@ -21,7 +21,7 @@ k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 */
 
 Flag ClientMakesAMove(_Game * g) {
-  int nmoves = (g->moves->len) / sizeof(_BoardMove);
+  int nmoves = (g->moves->len) / sizeof(_Move);
   return floor (((double) nmoves)*rand()/RAND_MAX);
 }
 
@@ -71,7 +71,7 @@ int main(){
   
     if(server->board->color == WHITE) {
       //White engine plays
-      _BoardMove * move = GameEngineMove(server);
+      _Move * move = GameEngineMove(server);
       if(!move) {
         fprintf(stderr, 
           "Error : Engine couldn't evaluate a move");
@@ -83,16 +83,16 @@ int main(){
     }
     else {
       Flag imove = ClientMakesAMove(server);
-      //_BoardMove * move = &server->tree->children[imove]->move;
-      _BoardMove ClientMove;
-      memcpy(&ClientMove, (_BoardMove *) server->moves->p
-        + imove, sizeof(_BoardMove));
+      //_Move * move = &server->tree->children[imove]->move;
+      _Move ClientMove;
+      memcpy(&ClientMove, (_Move *) server->moves->p
+        + imove, sizeof(_Move));
 
       //tell it to the sever engine
-      Flag success = GamePlayerMove(server, &ClientMove);
-      if(!success) {
-        fprintf(stderr, 
-          "Error : Engine couldn't find the move from Client");
+      Flag status = GamePlayerMove(server, &ClientMove);
+      if(status == GAME_STATUS_ERROR) {
+        GameError("Engine couldn't find the move from Client");
+        GameErrorPrint();
         break;
       }
     }

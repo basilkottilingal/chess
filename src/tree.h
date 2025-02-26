@@ -26,7 +26,7 @@ typedef struct _Tree {
   _Board board;
   
   //which 'move' from last board resulted this board
-  _BoardMove move;
+  _Move move;
 
   //Tree Connection using pointers
   struct _Tree * parent;   //parent node
@@ -113,7 +113,7 @@ void TreeRootNode(_Tree * root, _Board * b, Flag depthmax) {
 }
 
 void TreeChildNode(_Tree * child, _Tree * parent, 
-    _BoardMove * move) {
+    _Move * move) {
 
   assert(parent && move);
   assert(parent->board.status == GAME_CONTINUE);
@@ -127,7 +127,7 @@ void TreeChildNode(_Tree * child, _Tree * parent,
   child->parent = parent;
   child->children = NULL;
   //Which baord move resulted in 'child'
-  memcpy(&child->move, move, sizeof(_BoardMove));
+  memcpy(&child->move, move, sizeof(_Move));
   //Create the board of the child.
   _Board * board = &child->board;
   BoardCopy(board, &parent->board);
@@ -186,8 +186,8 @@ Flag TreeNodeExpand(_Tree * node) {
   }
 
   assert(MOVES_ARRAY.len);
-  _BoardMove * move = (_BoardMove *) (MOVES_ARRAY.p);
-  Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_BoardMove));
+  _Move * move = (_Move *) (MOVES_ARRAY.p);
+  Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_Move));
   if( TreeAvailability() < (size_t) nmoves) {
     //fprintf(stderr, "OoM");
     //fprintf(stderr, "\nWARNING: Ran out of Tree Memory Block");

@@ -68,17 +68,17 @@ int main(){
 
     //Now. Engine plays for both player
     e->mycolor = b->color; 
-    _BoardMove * m = e->engine(e);
+    Flag yes = e->engine(e);
     fprintf(stdout, "\n Move Evaluation by Engine Ends"); fflush(stdout);
       
-    if(!m) {
+    if(!yes) {
       fprintf(stdout, "\n Cannot find Move"); fflush(stdout);
       break;
     }
     fprintf(stdout, "\n Tree Game Move "); fflush(stdout);
 
     //move board
-    BoardNext(b, m, moves);
+    BoardNext(b, &e->tree->move, moves);
 
     BoardPrint(b); 
   }  

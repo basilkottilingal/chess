@@ -4,7 +4,7 @@
 ------------------------------------------------------------
   3 structs commonly used in this header file.
   a) unsigned char : A square of the chessboard
-  b) _BoardMove : Info corresponding to a move from ..
+  b) _Move : Info corresponding to a move from ..
     the current board location
   c) _Game : Store all the information corresponding to ..
     a chess game including board information, other ..
@@ -92,12 +92,12 @@ Flag GameSetBoard(_Game * g, const char * _fen) {
 ------------------------------------------------------------
 --------------------------------------------------------- */
 
-void GamePushHistory(_Game * g, _BoardMove * move){
+void GamePushHistory(_Game * g, _Move * move){
   if(!g->history)
     g->history = array_new(); 
   /** Add the current board and specified move to history */
   array_append ( g->history, g->board, sizeof(_Board) );
-  array_append ( g->history, move, sizeof(_BoardMove) );
+  array_append ( g->history, move, sizeof(_Move) );
   //TODO: Add move also to the history 
 }
 
@@ -105,7 +105,7 @@ Flag GamePopHistory(_Game * g){
   /** Remove last move from history. ..
   .. In case of reverting a move */
   Array * h = g->history;
-  size_t size =  sizeof(_Board) + sizeof(_BoardMove);
+  size_t size =  sizeof(_Board) + sizeof(_Move);
   if(!h) {
     fprintf(stderr, "Warning: History not allocated");
     return 0;
@@ -152,7 +152,7 @@ void GameFEN(_Game * g){
 //}
 
 //Next Move
-Flag GameMove(_Game * g, _BoardMove * move){
+Flag GameMove(_Game * g, _Move * move){
 
   if(! (g && move)) {
     GameError("Game/move not available");
@@ -166,9 +166,9 @@ Flag GameMove(_Game * g, _BoardMove * move){
   return status;
 }
 
-Flag GamePlayerMove(_Game * g, _BoardMove * move) {
-  _BoardMove m; 
-  memcpy(&m, move, sizeof(_BoardMove));
+Flag GamePlayerMove(_Game * g, _Move * move) {
+  _Move m; 
+  memcpy(&m, move, sizeof(_Move));
   Flag color = g->board->color; 
   Flag status = GameMove(g, &m);
   _Engine * engine = g->engine;
@@ -188,7 +188,7 @@ Flag GamePlayerMove(_Game * g, _BoardMove * move) {
   return status;
 }
 
-_BoardMove * GameEngineMove(_Game * g) {
+_Move * GameEngineMove(_Game * g) {
   _Engine * engine = g->engine;
   if(!engine) {
     GameError("Engine Move : Engine Not Found");
@@ -203,7 +203,7 @@ _BoardMove * GameEngineMove(_Game * g) {
     GameError("Engine Move : Engine Not Found");
     return NULL;
   }
-  _BoardMove * move = &engine->tree->move;
+  _Move * move = &engine->tree->move;
   if (GameMove(g, move) == GAME_STATUS_ERROR)
     return NULL;
   return move;
@@ -241,13 +241,13 @@ Flag GameUnmove(_Game * g){
 Flag GameBot(_Game * g) {
   // Algorithm Not yet implemented
   // Random move (As of now)
-  _BoardMove * move = NULL;
+  _Move * move = NULL;
       
   if(g->moves->len) {
     
-    int nmoves = (g->moves->len) / sizeof(_BoardMove);
+    int nmoves = (g->moves->len) / sizeof(_Move);
 
-    move = (_BoardMove *) g->moves->p;
+    move = (_Move *) g->moves->p;
     int imove = floor (((double) nmoves)*rand()/RAND_MAX);
     move += imove;
   }

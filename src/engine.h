@@ -11,12 +11,12 @@ typedef struct _Engine{
   //Tree from which you deduce the 'best' moves
   _Tree * tree;
   //fn pointer to update the tree when opponent makes move
-  Flag (* update_tree) (struct _Engine * e, _BoardMove * move);
+  Flag (* update_tree) (struct _Engine * e, _Move * move);
   //By default the tree is also updated.
   Flag (*engine) (struct _Engine * e);
 }_Engine;
 
-Flag EngineUpdateTree(_Engine * e, _BoardMove * m){
+Flag EngineUpdateTree(_Engine * e, _Move * m){
   _Tree * root = e->tree;
 
   //if(!root)

@@ -437,9 +437,9 @@ typedef struct {
   Flag flags;
   Piece promotion;
   //char SAN[8];
-}_BoardMove;
+}_Move;
 
-Flag BoardMoveCompare(_BoardMove * m, _BoardMove * M) {
+Flag BoardMoveCompare(_Move * m, _Move * M) {
   //Careful: doesn't compare all fields.
   //It works only if _Board is same.
   Flag isSame =  (m->flags == M->flags)  &&
@@ -455,7 +455,7 @@ Flag BoardMoveCompare(_BoardMove * m, _BoardMove * M) {
   return 1;
 }
 
-char* BoardMoveSAN (_BoardMove * m) {
+char* BoardMoveSAN (_Move * m) {
   //fixme: Not et impelemented 
   assert(0);
   NOT_UNUSED(m);
@@ -486,7 +486,7 @@ enum GAME_STATUS{
   GAME_AGREES = 6
 };
  
-void BoardMove(_Board * b, _BoardMove * move){
+void BoardMove(_Board * b, _Move * move){
 
   b->status |= GAME_METADATA_NOTUPDATED;
   assert(move);
@@ -546,7 +546,7 @@ void BoardMove(_Board * b, _BoardMove * move){
   
 } 
   
-void BoardUnmove(_Board * b, _BoardMove * move){
+void BoardUnmove(_Board * b, _Move * move){
   
   //assert(b->status == GAME_METADATA_NOTUPDATED);
   b->status &= ~GAME_METADATA_NOTUPDATED;

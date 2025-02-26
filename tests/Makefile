@@ -3,18 +3,9 @@ CC = gcc
 CFLAGS = -Wall -Wextra 
 #CFLAGS += -std=c11 -Wconversion
 
-# Target executable
-TARGET = program
+libnnue.a:
+	cd ../src/nnue && make
 
-SRC = ../src
-NNUE = ../src/nnue
-OBJ = ../obj
-
-# Dependencies for nnue eval 
-nnue = $(NNUE)/nnue.cpp $(NNUE)/misc.cpp
-
-# make an execuatable.
-# example
-#  $ make move.tst && ./run 
-%.tst: %.c 
-	$(CC) $(CFLAGS) $< $(nnue) -o run -lm
+#compile the main webserver file (wsserver.c);
+%.t: libnnue.a %.c
+	gcc -std=c99 -o run $*.c -I ../src/nnue -L ../src/nnue -lnnue -lm

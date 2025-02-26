@@ -52,8 +52,8 @@ int main(){
   Array moves = {.p = NULL, .len = 0, .max = 0};
   Flag status = BoardAllMoves(b, &moves);
   if(status == GAME_CONTINUE) {
-    _BoardMove * move = moves.p;
-    Flag nmoves = (Flag) (moves.len/sizeof(_BoardMove));
+    _Move * move = moves.p;
+    Flag nmoves = (Flag) (moves.len/sizeof(_Move));
     for(Flag i=0; i<nmoves; ++i, ++move){
 {
       clock_t start_time = clock();
