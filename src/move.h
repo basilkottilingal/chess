@@ -529,19 +529,18 @@ BoardUpdateMetadata(_Board * b, _Move * move) {
 Flag  
 BoardNext(_Board * b, _Move * move, Array * moves){
 
-  if(!move) {
-    fprintf(stderr, "\nERROR: Move not chosen");
-    fprintf(stderr, "\nProbably loaded game is over");
-    fflush(stdout);
-    return GAME_STATUS_ERROR; //Game Stopped
+  if(! (move || moves) ) {
+    GameError("BoardNext() : Aborted");
+    return GAME_STATUS_ERROR; 
   }
 
   //Move the bitboard 
   BoardMove(b, move); 
   //Update the associated metadata of the board
-  if ( BoardUpdateMetadata(b, move) == GAME_STATUS_ERROR )
+  if ( BoardUpdateMetadata(b, move) == GAME_STATUS_ERROR ) {
+    GameError("BoardNext() : Metadata update failed");
     return GAME_STATUS_ERROR;
-    
+  }
  
   //Store the list of moves in ; 
   return(BoardAllMoves(b, moves));

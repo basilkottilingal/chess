@@ -2,6 +2,23 @@
 typedef struct _Node _Node;
 typedef struct _Edge _Edge;
 
+/**
+          _Node parent;                      level
+        (_Board + flags)
+          /      
+         /       
+        /
+  _Edge child; ------>  _Edge sibling;   ----> NULL;
+  (_Move)               (_Move)
+      /                    \
+     /                      \
+    /                        \
+_Node node1;               _Node node2       level+1
+(_Board, flags)          (_Board, flags)
+*/
+
+
+
 struct _Node{
   /* First child */
   _Edge * child;
@@ -67,7 +84,8 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
   if(!*level--) 
     return NULL;
 
-  /* Update the depth of parent */
+  /* Update the depth of parent.
+  .. fixme: update flags of parent too*/
   Flag depth = 0;
   _Edge * parent = EdgeStack[*level],
         * child = parent->node->child;
@@ -216,10 +234,19 @@ Flag TreeEachNodePostOrder(_Node * node,
 }
 
 enum TREE_NODE_FLAG {
+  /* This node is pooled from a reserved memory pool. 
+  .. Have to be freed before traversing back to parent.*/
+  NODE_IS_RESERVED = 128,
+  /* Identify the node in the tree */
   NODE_LEAF = 1,
-  NODE_ROOT = 2,
-  NODE_PRUNED = 4,
-  NODE_PARTIALLY_PRUNED = 8
+  NODE_PARENT = 2,
+  NODE_ROOT = 4,
+  /* If node is pruned as it doesn's seems a reasonable move */
+  NODE_PRUNED = 8,
+  NODE_IS_MYMOVE = 16,
+  /* Identifying crtitical moves */
+  NODE_IS_SURE_WIN = 32
+  /* sure loss = not my move && node is sure win */
 };
 
 /* NOTE: if using this array 
@@ -245,33 +272,38 @@ Flag TreePoolInit(){
 
 static inline
 _Edge * EdgeNew(_Node * parent, _Move * move) {
-  /* New edge */
-  _Edge * edge = (_Edge *) MempoolAllocateFrom(NODE_POOL);
-  if(!edge) 
-    return NULL;
-  /* add this edge to the linked list of 
-  .. children edges of parent */
-  edge->sibling = parent->child;
-  parent->child = edge;
-  /* End node of edge */
-  edge->node = NULL;
-  /* Set the move data */
-  mempcy(&edge->move, move, sizeof(_Move));
 
   return edge;
 }
 
 static inline
 Flag NodeSetEdges(_Node * parent) {
-  /*node->child = NULL; */
+  /* First child. Not yet assigned*/
+  parent->child = NULL;
+  parent->nchildren = 0;
+ 
   if(BoardAllMoves(board, &MOVES_ARRAY) ==  GAME_STATUS_ERROR)
     return 0;
   _Move * move = (_Move *) (MOVES_ARRAY.p);
   Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_Move));
+
   for(Flag i=0; i<nmoves; ++i, ++move) {
-    if(!EdgeNew(parent, move))
+    /* New edge */
+    _Edge * edge = (_Edge *) MempoolAllocateFrom(NODE_POOL);
+    if(!edge) 
       return 0;
+    /* add this edge to the linked list of 
+    .. children edges of parent */
+    edge->sibling = parent->child;
+    parent->child = edge;
+    ++(parent->nchildren);
+    /* End node of edge. Not yet assigned*/
+    edge->node = NULL;
+    /* Set the move data */
+    mempcy(&edge->move, move, sizeof(_Move));
   }
+
+  return 1;
 }
 
 static inline
@@ -299,15 +331,24 @@ _Node * NodeNewChild(_Node * parent, _Edge * edge) {
   /* Weird! */
   if(edge->node)
     return NULL;
-  /* New Node */
+
+  /* New Node as the end node of 'edge'*/
   _Node * node = (_Node *) MempoolAllocateFrom(NODE_POOL);
   if(!node) 
     return NULL;
+  edge->node = node;
+
   /* Set Board by inheriting from parent, and then ..
-  .. move the board by 'move'. 
-  .. WARNING: the status is not yet updated*/
-  mempcy(&node->board, &parent->board, sizeof(_Board));
-  BoardMove(&node->board, &edge->move);
+  .. move the board by 'move'. */ 
+  _Board * board = &node->board;
+  _Move * move = &edge->move;
+  mempcy(board, &parent->board, sizeof(_Board));
+  BoardMove(board, move);
+  if ( BoardUpdateMetadata(board, move) == GAME_STATUS_ERROR ) {
+    MempoolDeallocateTo(NODE_POOL, node); 
+    return NULL;
+  }
+
   /* Set flags and counts */
   node->flags &= ~NODE_LEAF;
   node->flags |= NODE_PARENT;
@@ -318,18 +359,17 @@ _Node * NodeNewChild(_Node * parent, _Edge * edge) {
   /* Create edges with all possible moves*/
   if(!NodeSetEdges(node))
     return 0;
-  edge->node = node;
 
   return node;
 }
 
 static inline
-Flag NodeFree(_Node * node){
-  if(node->depth) {
+Flag NodeFree(_Node * parent){
+  if(parent->depth) {
     /* Only a leaf can be deleted */
     return 0;
   }
-  while(node->child) {
+  while(parent->child) {
     /* Delete edges and the children nodes they are
     .. pointing to */
     _Edge * edge = parent->child;
@@ -338,7 +378,7 @@ Flag NodeFree(_Node * node){
       return 0;
     MempoolDeallocateTo(EDGE_POOL, edge);
   }
-  MempoolDeallocateTo(NODE_POOL, node);
+  MempoolDeallocateTo(NODE_POOL, parent);
   return 1;
 }
 
@@ -357,8 +397,8 @@ Flag NodePrune(_Node * parent) {
     if(edge->node) {
       if(!NodeFree(edge->node))
         return 0;
+      edge->node = NULL;
     }
-    MempoolDeallocateTo(EDGE_POOL, edge);
   }
   parent->depth = 0;
   parent->flags &= ~NODE_PARENT;
