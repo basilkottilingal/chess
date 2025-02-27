@@ -234,8 +234,8 @@ Flag TreeEachNodePostOrder(_Node * node,
       /* Do something with node here  */
       if(rfunc && edge->node) {
         if(!rfunc(edge->node)) {
-          GameError("TreeEachNodePostOrder() : rfunc() failed");
-          return 0;
+          //GameError("TreeEachNodePostOrder() : rfunc() failed");
+          //return 0;
         }
       }
       /* End of "Do something with node here"*/  
@@ -304,7 +304,7 @@ Flag NodeSetEdges(_Node * parent) {
 
   for(Flag i=0; i<nmoves; ++i, ++move) {
     /* New edge */
-    _Edge * edge = (_Edge *) MempoolAllocateFrom(NODE_POOL);
+    _Edge * edge = (_Edge *) MempoolAllocateFrom(EDGE_POOL);
     if(!edge) {
       parent->flags |= NODE_PRUNED;
       return 0;
@@ -490,12 +490,18 @@ _Tree * Tree(_Board * board, Flag depthmax) {
 }
 
 Flag TreeDestroy(_Tree * tree) {
-  fprintf(stdout, "\nPool free nodes %ld, edges %ld",
-    NODE_POOL->nfree, EDGE_POOL->nfree);
+  size_t nnodes = tree->nnodes, nedges = tree->nedges;
+
+  /* Prune entire tree */
   TreeEachNodePostOrder(tree->root, tree->depthmax, NodePrune);
   NodeFree(tree->root);
   free(tree);
-  fprintf(stdout, "\nPool free nodes %ld, edges %ld",
-    NODE_POOL->nfree, EDGE_POOL->nfree);
+
+  /*Stats of pool to verify */
+  fprintf(stdout, "\nPool free nodes before %ld, now %ld",
+    nnodes, NODE_POOL->nfree);
+  fprintf(stdout, "\nPool free edges before %ld, now %ld",
+    nedges, EDGE_POOL->nfree);
+  return 1;
 }
 
