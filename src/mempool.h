@@ -3,12 +3,11 @@
 
 #define MEMPOOL 
 
-//random number < UINT32_MAX
 #define SAFETY_ENCODE 0xFBC9183 
 
-// Define a struct for the free list node
+/* Define a struct for the free list node */
 typedef struct _FreeNode {
-  // Pointer to the next free slot
+  /* Pointer to the next free slot */
   struct _FreeNode *next; 
 
   /* while freeing, encode "safety" to SAFETY_ENCODE 
@@ -17,49 +16,45 @@ typedef struct _FreeNode {
   uint32_t safety;
 }_FreeNode;
 
-// Define the memory pool struct
+/* Memory pool */
 typedef struct _Mempool {
-  size_t object_size;  // Size of each object
-  size_t block_size;   // Number of objects in the block
-  size_t nfree;   // No of freenodes in the block
-  void * memory_block;  // Pointer to the memory block
-  /* NOTE: Perfer making blocks that align with ..
+
+  /* Size of a node */
+  size_t object_size;  
+
+  /* memory block size */
+  size_t block_size;  
+ 
+  /* No of freenodes in the block */
+  size_t nfree;   
+
+  /* Pointer to the memory block .
+  .. NOTE: Perfer making blocks that align with ..
   .. multiples of kB or MB */
-  /* WARNING: There is no provision to know, if you,
-  .. deallocate same node multiple times */
-  _FreeNode * free_list; // Linked list of free slots
+  void * memory_block; 
+ 
+  /* Staring node of  Linked list of free slots */
+  _FreeNode * free_list; 
 
   /* incase of a linked list of pool is reqd
   struct _Mempool * next; 
   */
 } _Mempool;
 
-_Mempool* Mempool(size_t object_size, size_t nobjects) {
-  // Initialize the memory pool
-  // FIXME: Redo this:
+/* Creating a memor pool*/
+_Mempool * Mempool(size_t object_size, size_t nobjects) {
 
   if(object_size < sizeof (_FreeNode)){
-    fprintf(stderr, "\nERROR: \
-Oject size should be atleast %ld ", sizeof(void *));
-    // Otherwise you might overwrite when typecasting ..
-    // .. empty memspaces to _FreeNode * 
-    fflush(stderr);  
+    /* Otherwise you might overwrite used nodes when 
+    .. typecasting empty memspaces to _FreeNode */
+    GameError("Mempool() : insufficient object_size");
     return NULL;
   }
-  if(object_size%8) {
-    fprintf(stderr, "\nWARNING: \
-Prefer a multiple of 64 bit for object size. \
-Dicarding for the moment");
-  }
+  if(object_size%8) 
+    GameError ("Mempool() : Warning: Ignoring 64 bit alignment criteria");
     
   _Mempool * pool = 
     (_Mempool*)malloc(sizeof(_Mempool));
-  if (!pool) {
-    fprintf(stderr, "\nERROR: \
-Failed to allocate memory for the pool.\n");
-    fflush(stderr);  
-    return NULL;
-  }
 
   size_t Bytes = nobjects * object_size,
     kB = Bytes/1024, MB = Bytes/(1024*1024);
@@ -79,8 +74,7 @@ Failed to allocate memory for the pool.\n");
   pool->nfree        = nfree;
   pool->memory_block = malloc(block_size);
   if (!pool->memory_block) {
-    fprintf(stderr, "\nERROR:\
-Failed to allocate memory block for the pool.");
+    GameError("Mempool() : malloc() of memory block failed");
     free(pool);
     return NULL;
   }
@@ -96,7 +90,7 @@ Failed to allocate memory block for the pool.");
   }
 
   fprintf(stdout, "\nMemBlock[%ld bytes] created. \n\
-Can accomodate %ld Objects each of size %ld",
+Can accomodate %ld Objects each of size %ld\n",
 pool->block_size, pool->nfree, pool->object_size);
   fflush(stdout);
 
@@ -106,14 +100,15 @@ pool->block_size, pool->nfree, pool->object_size);
 // Allocate memory from the pool
 void * MempoolAllocateFrom(_Mempool * pool) {
   if (!pool){
-    fprintf(stderr, "ERROR: No pool Mentioned!");
-    fflush(stderr);
+    GameError("MempoolAllocateFrom() : No pool Mentioned!");
     return NULL;
   }
   if (!pool->free_list) {
-    fprintf(stderr, "WARNING:\
-No free slots available in the pool.");
+#if 0
+    fprintf(stderr, 
+      "WARNING : No free slots available in the pool.");
     fflush(stderr);
+#endif
     return NULL;
   }
 
@@ -122,9 +117,7 @@ No free slots available in the pool.");
   pool->free_list = node->next;
   --(pool->nfree);
   if(node->safety != SAFETY_ENCODE)  {
-    fprintf(stderr, "error:\
-double allocation of same memory pool address");
-    fflush(stderr);
+    GameError("MempoolAllocateFrom() : double allocation!");
     return NULL;
   }
   node->safety = 0;
@@ -132,30 +125,29 @@ double allocation of same memory pool address");
   return (void*) node;
 }
 
-// Deallocate memory back to the pool
-void MempoolDeallocateTo(_Mempool * pool, void * ptr) {
+/* Deallocate memory back to the pool */
+Flag MempoolDeallocateTo(_Mempool * pool, void * ptr) {
   if (!pool || !ptr) {
-    fprintf(stderr, "ERROR:\
-Either of pool or node NOT mentioned!");
-    fflush(stderr);
-    return;
+    GameError("MempoolDeallocateTo() : aborted");
+    return 0;
   }
 
-  // Add the slot back to the free list
+  /* Add the slot back to the free list.
+  .. Check if it's a double freeing */
   _FreeNode *node = (_FreeNode*)ptr;
   if(node->safety == SAFETY_ENCODE)  {
-    fprintf(stderr, "error:\
-double freeing of memory pool");
-    fflush(stderr);
-    return;
+    GameError("MempoolDeallocateTo() : double freeing");
+    return 0;
   }
   node->next = pool->free_list;
   node->safety = SAFETY_ENCODE;
   pool->free_list = node;
   ++(pool->nfree);
+
+  return 1;
 }
 
-// Free the entire memory pool
+/* Free the entire memory pool */
 void MempoolFree(_Mempool *pool) {
   if (!pool) return;
 

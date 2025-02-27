@@ -1,23 +1,23 @@
 #include "move.h"
+#include "mempool.h"
 typedef struct _Node _Node;
 typedef struct _Edge _Edge;
 
 /**
-          _Node parent;                      level
+          _Node parent;                    @level
         (_Board + flags)
           /      
          /       
         /
-  _Edge child; ------>  _Edge sibling;   ----> NULL;
-  (_Move)               (_Move)
-      /                    \
-     /                      \
-    /                        \
-_Node node1;               _Node node2       level+1
-(_Board, flags)          (_Board, flags)
+  _Edge child; -->  _Edge sibling1; --> _Edge sib2; .. --> NULL;
+  (_Move)           (_Move)
+      /                \
+     /                  \
+    /                    \
+_Node node0;        _Node node1            @level+1
+(_Board, flags)    (_Board, flags)
+
 */
-
-
 
 struct _Node{
   /* First child */
@@ -87,12 +87,16 @@ _Edge * EdgeStack[TREE_MAX_DEPTH];
 
 static inline   
 _Edge * EdgeGotoParent(_Edge *edge, int * level) {
-  /* It applies for root node only. ..
-  .. which doesn't have a parent*/
-  if(!*level--) 
+fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
+
+  /* Go up */ 
+  if(! (*level)--) 
+    /* It applies for root node only. ..
+    .. which doesn't have a parent*/
     return NULL;
 
-  /* Update the depth of parent.
+  /* Pop from the stack. 
+  .. Updating depth of parent.
   .. fixme: update flags of parent too*/
   Flag depth = 0;
   _Edge * parent = EdgeStack[*level],
@@ -104,25 +108,33 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
     child = child->sibling;
   }
   parent->node->depth = 1 + depth;
+fprintf(stdout, "->[P%d]",*level); fflush(stdout);
   return parent;
 }
 
 static inline
 _Edge * EdgeGotoChild(_Edge * edge, int * level) {
+fprintf(stdout, "\n[D %d]",*level); fflush(stdout);
   assert(edge->node);
-  _Edge * child = edge->node->child;
-  if(!child)
+  /* Check if it's a leaf cell */
+  if(!edge->node->depth)
     return NULL;
-  //if(child->node) 
-  //  child->node->depthmax = edge->node->depthmax - 1;
-  EdgeStack[++*level] = child;
+  _Edge * child = edge->node->child;
+  if(child)
+    /* Go down. Update Stack */
+    EdgeStack[++*level] = child;
+fprintf(stdout, "->[C%d]",*level); fflush(stdout);
   return child;
 }
 
 static inline
 _Edge * EdgeGotoSibling(_Edge * edge, int * level) {
+fprintf(stdout, "\n[R %d]",*level); fflush(stdout);
   _Edge * sibling = edge->sibling;
+  /* Update Stack */
+  //if(sibling)
   EdgeStack[*level] = sibling;
+fprintf(stdout, "->[S%d]",*level); fflush(stdout);
   return sibling;
 }
 
@@ -155,12 +167,12 @@ Flag TreeEachNode(_Node * node,
       /* Do something with node here  */
       if(func && edge->node)
         if(!func(edge->node)){
-          GameError("TreeEachNode() : func() failed");
-          return 0;
+          //GameError("TreeEachNode() : func() failed");
+          //return 0;
         }
       /* End of "Do something with node here"*/  
 
-      /*Cannot go further down */     
+      /* Cannot go further down */     
       if(!edge->node || (level == searchDepth) )
         break;
   
@@ -177,6 +189,7 @@ Flag TreeEachNode(_Node * node,
       _Edge * sibling = EdgeGotoSibling(edge, &level);
       if(sibling) {
         edge = sibling;
+        //fixme: if(sibling->node)
         break;  
       }
       edge = EdgeGotoParent(edge, &level);
@@ -232,6 +245,7 @@ Flag TreeEachNodePostOrder(_Node * node,
       _Edge * sibling = EdgeGotoSibling(edge, &level);
       if(sibling) {
         edge = sibling;
+        //fixme: if(sibling->node)
         break;  
       }
       edge = EdgeGotoParent(edge, &level);
@@ -261,36 +275,29 @@ enum TREE_NODE_FLAG {
 .. switch off multithreading if any */
 Array MOVES_ARRAY = {.p = NULL, .len = 0, .max = 0};
 
-_Edge * EdgeNew() {
-  _Edge * edge = EdgeFromPool();
-  edge->data   = MoveFromPool();
-}
-
 _Mempool * NODE_POOL  = NULL;
 _Mempool * EDGE_POOL  = NULL;
 
 Flag TreePoolInit(){
   /* 1 MB each for sets of nodes and edges */
-  EDGE_POOL = 
-    Mempool(sizeof(_Edge), 1 + 1024*1024/sizeof(_Edge)); 
-  NODE_POOL = 
-    Mempool(sizeof(_Node), 1 + 1024*1024/sizeof(_Node)); 
+  if(!EDGE_POOL)  
+    EDGE_POOL = 
+      Mempool(sizeof(_Edge), 1 + 1024*1024/sizeof(_Edge)); 
+  if(!NODE_POOL)  
+    NODE_POOL = 
+      Mempool(sizeof(_Node), 1 + 1024*1024/sizeof(_Node)); 
   return (EDGE_POOL && NODE_POOL);
 }
 
 static inline
-_Edge * EdgeNew(_Node * parent, _Move * move) {
-
-  return edge;
-}
-
-static inline
 Flag NodeSetEdges(_Node * parent) {
-  /* First child. Not yet assigned*/
+  /* First child. Not yet assigned
+  .. assert(!parent->child && !parent->nchildren);
+  */
   parent->child = NULL;
   parent->nchildren = 0;
- 
-  if(BoardAllMoves(board, &MOVES_ARRAY) ==  GAME_STATUS_ERROR)
+
+  if(BoardAllMoves(&parent->board, &MOVES_ARRAY) ==  GAME_STATUS_ERROR)
     return 0;
   _Move * move = (_Move *) (MOVES_ARRAY.p);
   Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_Move));
@@ -298,8 +305,10 @@ Flag NodeSetEdges(_Node * parent) {
   for(Flag i=0; i<nmoves; ++i, ++move) {
     /* New edge */
     _Edge * edge = (_Edge *) MempoolAllocateFrom(NODE_POOL);
-    if(!edge) 
+    if(!edge) {
+      parent->flags |= NODE_PRUNED;
       return 0;
+    }
     /* add this edge to the linked list of 
     .. children edges of parent */
     edge->sibling = parent->child;
@@ -308,7 +317,7 @@ Flag NodeSetEdges(_Node * parent) {
     /* End node of edge. Not yet assigned*/
     edge->node = NULL;
     /* Set the move data */
-    mempcy(&edge->move, move, sizeof(_Move));
+    memcpy(&edge->move, move, sizeof(_Move));
   }
 
   return 1;
@@ -316,12 +325,16 @@ Flag NodeSetEdges(_Node * parent) {
 
 static inline
 _Node * NodeNewRoot(_Board * board) {
+  if(board->status != GAME_CONTINUE) {
+    GameError("NodeNewRoot() : Game over / Error ");
+    return NULL;
+  }
   /* New node */
   _Node * node = (_Node *) MempoolAllocateFrom(NODE_POOL);
   if(!node) 
     return NULL;
   /* Set Board */
-  mempcy(&node->board, board, sizeof(_Board));
+  memcpy(&node->board, board, sizeof(_Board));
   /* Set flags and counts */
   node->flags = NODE_ROOT|NODE_LEAF;
   node->depth = 0;
@@ -350,7 +363,7 @@ _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   .. move the board by 'move'. */ 
   _Board * board = &node->board;
   _Move * move = &edge->move;
-  mempcy(board, &parent->board, sizeof(_Board));
+  memcpy(board, &parent->board, sizeof(_Board));
   BoardMove(board, move);
   if ( BoardUpdateMetadata(board, move) == GAME_STATUS_ERROR ) {
     MempoolDeallocateTo(NODE_POOL, node); 
@@ -358,12 +371,9 @@ _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   }
 
   /* Set flags and counts */
-  node->flags &= ~NODE_LEAF;
-  node->flags |= NODE_PARENT;
+  node->flags = NODE_LEAF;
   node->depth = 0;
   node->nchildren = 0;
-  /* First edge child. */ 
-  node->child = NULL; 
   /* Create edges with all possible moves*/
   if(!NodeSetEdges(node))
     return 0;
@@ -427,8 +437,8 @@ Flag NodeExpand(_Node * parent) {
   if(!parent->child)
     return 0;
 
-  while(parent->child) {
-    _Edge * edge = parent->child;
+  _Edge * edge = parent->child;
+  while(edge) {
     
     /* Weird. Expected the edge's end node not assigned */
     if(edge->node)
@@ -441,6 +451,8 @@ Flag NodeExpand(_Node * parent) {
     .. saving the tree (Not yet)*/
     if(!edge->node)
       parent->flags |= NODE_PRUNED;
+
+    edge = edge->sibling;
   }
 
   parent->depth = 1;
@@ -452,16 +464,38 @@ Flag NodeExpand(_Node * parent) {
 
 
 _Tree * Tree(_Board * board, Flag depthmax) {
-  if(!board || (depthmax > TREE_DEPTH_MAX)) {
+  if(!board || (depthmax > TREE_MAX_DEPTH)) {
     GameError("Tree() : aborted");
     return NULL;
   }
-  
-  _Node * root = NodeNewRoot(board);
-  if(!root) {
-    GameError("Tree() : 0 nodes available");
+  if(!TreePoolInit()) {
+    GameError("Tree() : Pool cannot be created.");
     return NULL;
   }
-  
+  _Node * root = NodeNewRoot(board);
+  if(!root) {
+    GameError("Tree() : Cannot Create root");
+    return NULL;
+  }
+  _Tree * tree = (_Tree *) malloc(sizeof(_Tree)); 
+  tree->root = root;
+  tree->depthmax = depthmax;
+  tree->nnodes = NODE_POOL->nfree;
+  tree->nedges = EDGE_POOL->nfree;
+
+  /* Create tree to maxdepth */
+  TreeEachNode(root, depthmax-1, NodeExpand);  
+
+  return tree;
+}
+
+Flag TreeDestroy(_Tree * tree) {
+  fprintf(stdout, "\nPool free nodes %ld, edges %ld",
+    NODE_POOL->nfree, EDGE_POOL->nfree);
+  TreeEachNodePostOrder(tree->root, tree->depthmax, NodePrune);
+  NodeFree(tree->root);
+  free(tree);
+  fprintf(stdout, "\nPool free nodes %ld, edges %ld",
+    NODE_POOL->nfree, EDGE_POOL->nfree);
 }
 
