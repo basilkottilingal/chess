@@ -43,7 +43,15 @@ struct _Edge {
   _Move move; 
 };
 
-typedef _Node _Tree;
+typedef struct {
+  /* Root node of the tree */
+  _Node * root;
+  /* Depth allowed */
+  Flag depthmax;
+  /* Pool availability at the beginning
+  .. before the tree creation */
+  size_t nedges, nnodes;
+} _Tree;
 
 _Tree * TreeIterator = NULL;
 
@@ -327,7 +335,7 @@ _Node * NodeNewRoot(_Board * board) {
   return node;
 }
 
-_Node * NodeNewChild(_Node * parent, _Edge * edge) {
+_Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   /* Weird! */
   if(edge->node)
     return NULL;
@@ -407,24 +415,53 @@ Flag NodePrune(_Node * parent) {
 }
 
 Flag NodeExpand(_Node * parent) {
-  if(parent->depth || parent->child)
+  /* Weird. Expected a leaf node (i.e depth = 0)*/
+  if(parent->depth)
     return 0;
 
-  _Board * board = &(parent->board);
-  BoardAllMoves( board, &MOVES_ARRAY );
-  
-  if( board->status == GAME_ERROR ) 
+  /* Game Over */
+  if(parent->board.status != GAME_CONTINUE)
+    return 1;
+
+  /* Weird. Expected all the moves are evaluated*/
+  if(!parent->child)
     return 0;
 
-    return ; 
-  } else if ( node->depthmax == 0 ){
-    node->flags |= IS_PRUNED_NODE;
-    return 0; // cannot expand bcs of tree depth limit
+  while(parent->child) {
+    _Edge * edge = parent->child;
+    
+    /* Weird. Expected the edge's end node not assigned */
+    if(edge->node)
+      return 0;
+
+    /* Assign a new leaf node with a 'board' and status */
+    edge->node = NodeNewLeaf(parent, edge);
+
+    /* Out of memory. So Prune or TreeTraverse without  
+    .. saving the tree (Not yet)*/
+    if(!edge->node)
+      parent->flags |= NODE_PRUNED;
   }
+
+  parent->depth = 1;
+  parent->flags &= ~NODE_LEAF;
+  parent->flags |= NODE_PARENT;
 
   return 1;
 }
 
 
-
+_Tree * Tree(_Board * board, Flag depthmax) {
+  if(!board || (depthmax > TREE_DEPTH_MAX)) {
+    GameError("Tree() : aborted");
+    return NULL;
+  }
+  
+  _Node * root = NodeNewRoot(board);
+  if(!root) {
+    GameError("Tree() : 0 nodes available");
+    return NULL;
+  }
+  
+}
 
