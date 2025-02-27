@@ -70,7 +70,7 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
   /* Update the depth of parent */
   Flag depth = 0;
   _Edge * parent = EdgeStack[*level],
-        * child = parent->child;
+        * child = parent->node->child;
   while(child) {
     if(child->node)
       if(depth < child->node->depth)
@@ -243,23 +243,7 @@ Flag TreePoolInit(){
   return (EDGE_POOL && NODE_POOL);
 }
 
-_Node * NodeNewRoot(_Board * board) {
-  /* New node */
-  _Node * node = (_Node *) MempoolAllocateFrom(NODE_POOL);
-  if(!node) 
-    return NULL;
-  /* Set Board */
-  mempcy(&node->board, board, sizeof(_Board));
-  /* Set flags and counts */
-  node->flags = NODE_ROOT|NODE_LEAF;
-  node->depth = 0;
-  node->nchildren = 0;
-  /* First edge */
-  node->child = NULL; 
-
-  return node;
-}
-
+static inline
 _Edge * EdgeNew(_Node * parent, _Move * move) {
   /* New edge */
   _Edge * edge = (_Edge *) MempoolAllocateFrom(NODE_POOL);
@@ -275,6 +259,40 @@ _Edge * EdgeNew(_Node * parent, _Move * move) {
   mempcy(&edge->move, move, sizeof(_Move));
 
   return edge;
+}
+
+static inline
+Flag NodeSetEdges(_Node * parent) {
+  /*node->child = NULL; */
+  if(BoardAllMoves(board, &MOVES_ARRAY) ==  GAME_STATUS_ERROR)
+    return 0;
+  _Move * move = (_Move *) (MOVES_ARRAY.p);
+  Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_Move));
+  for(Flag i=0; i<nmoves; ++i, ++move) {
+    if(!EdgeNew(parent, move))
+      return 0;
+  }
+}
+
+static inline
+_Node * NodeNewRoot(_Board * board) {
+  /* New node */
+  _Node * node = (_Node *) MempoolAllocateFrom(NODE_POOL);
+  if(!node) 
+    return NULL;
+  /* Set Board */
+  mempcy(&node->board, board, sizeof(_Board));
+  /* Set flags and counts */
+  node->flags = NODE_ROOT|NODE_LEAF;
+  node->depth = 0;
+  node->nchildren = 0;
+  /* First edge */
+  node->child = NULL; 
+  /* Create edges with all possible moves*/
+  if(!NodeSetEdges(node))
+    return 0;
+
+  return node;
 }
 
 _Node * NodeNewChild(_Node * parent, _Edge * edge) {
@@ -297,7 +315,9 @@ _Node * NodeNewChild(_Node * parent, _Edge * edge) {
   node->nchildren = 0;
   /* First edge child. */ 
   node->child = NULL; 
-
+  /* Create edges with all possible moves*/
+  if(!NodeSetEdges(node))
+    return 0;
   edge->node = node;
 
   return node;
@@ -305,9 +325,18 @@ _Node * NodeNewChild(_Node * parent, _Edge * edge) {
 
 static inline
 Flag NodeFree(_Node * node){
-  if(node->child || node->depth) {
+  if(node->depth) {
     /* Only a leaf can be deleted */
     return 0;
+  }
+  while(node->child) {
+    /* Delete edges and the children nodes they are
+    .. pointing to */
+    _Edge * edge = parent->child;
+    parent->child = edge->sibling;
+    if(edge->node) 
+      return 0;
+    MempoolDeallocateTo(EDGE_POOL, edge);
   }
   MempoolDeallocateTo(NODE_POOL, node);
   return 1;
