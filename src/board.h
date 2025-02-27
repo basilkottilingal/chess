@@ -494,7 +494,7 @@ void BoardMove(_Board * b, _Move * move){
     to = move->to.square;
   Piece * pieces = b->pieces;
 
-  
+#if 0 
   if(pieces[from] != move->from.piece) {
     BoardPrint(b);
     Square * A = SquarePointer(from);
@@ -505,6 +505,7 @@ void BoardMove(_Board * b, _Move * move){
       SQUARE_FILE(B), SQUARE_RANK(B), MAPPING[move->to.piece]);
     fflush(stdout);
   }
+#endif
   
   assert(pieces[from] == move->from.piece);
   
