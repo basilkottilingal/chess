@@ -1,3 +1,5 @@
+#include <stdlib.h>
+size_t edges_traversed = 0, nodes_traversed = 0;
 #define TREE_MAX_DEPTH 5
 #include "../src/_tree.h"
 //Run this test script using
@@ -33,6 +35,16 @@ Flag TreeNodePrint(_Tree * node){
 }
 */
 
+Flag NodeCount(_Node * node) {
+  nodes_traversed++;
+  _Edge * e = node->child;
+  while(e) {
+    edges_traversed++;
+    e = e->sibling;
+  }
+  return 1;
+}
+
 
 int main(){
   _Board * b = Board(NULL);
@@ -54,9 +66,10 @@ int main(){
   BoardPrint(b);
 
   _Tree * t = Tree(b, 5);
-  TreeEachNode(t->root, 5, NULL);
+  TreeEachNodePostOrder(t->root, 5, NodeCount);
+  fprintf(stdout, "\nNodes found: %ld. Edges found %ld",
+    nodes_traversed, edges_traversed);
   TreeDestroy(t);
-  
 
   return 0;
 }
