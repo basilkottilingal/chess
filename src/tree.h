@@ -55,219 +55,7 @@ typedef struct {
   size_t nedges, nnodes;
 } _Tree;
 
-_Tree * TreeIterator = NULL;
 
-/* ---------------------------------------------------------
-------------------------------------------------------------
-Tree Traversal without a recursion function.
-1) Depth-First Search (Pre-Order) is implemented in ..
-   .. TreeEachNode(). Is used (a) to create the tree, 
-   .. (b) Inherit something from parent .
-   .. Ex: f(child) = Inherit(f(parent));
-     1
-    / \
-   2   5
-  / \
- 3  4
-2) Depth-First Search (Post-Order). 
-   Refer TreeEachNodePostOrder(). 
-   Is used for reduction operation vertically up.
-    Ex: f(parent) = max {f(children)}
-   as in minimax algorithm.
-   Is also used prune each subtree, in one go.
-     5
-    / \
-   3   4
-  / \
- 1  2
-------------------------------------------------------------
---------------------------------------------------------- */
-
-typedef Flag (* TreeNodeFunction) (_Node * node); 
-
-_Edge * EdgeStack[TREE_MAX_DEPTH];
-
-static inline   
-_Edge * EdgeGotoParent(_Edge *edge, int * level) {
-  #if 0
-    fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
-  #endif
-
-  /* Go up */ 
-  if(! (*level)--) 
-    /* It applies for root node only. ..
-    .. which doesn't have a parent*/
-    return NULL;
-
-  /* Pop from the stack. 
-  .. Updating depth of parent.
-  .. fixme: update flags of parent too*/
-  Flag depth = 0;
-  _Edge * parent = EdgeStack[*level],
-        * child = parent->node->child;
-  while(child) {
-    if(child->node)
-      if(depth < child->node->depth)
-        depth = child->node->depth;
-    child = child->sibling;
-  }
-  parent->node->depth = 1 + depth;
-  #if 0
-    fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
-  #endif
-  return parent;
-}
-
-static inline
-_Edge * EdgeGotoChild(_Edge * edge, int * level) {
-
-  #if 0
-    fprintf(stdout, "\n[D %d]",*level); fflush(stdout);
-    assert(edge->node);
-  #endif
-
-  /* Check if it's a leaf cell */
-  if(!edge->node->depth)
-    return NULL;
-  _Edge * child = edge->node->child;
-  if(child)
-    /* Go down. Update Stack */
-    EdgeStack[++*level] = child;
-
-  #if 0
-    fprintf(stdout, "->[C%d]",*level); fflush(stdout);
-  #endif
-
-  return child;
-}
-
-static inline
-_Edge * EdgeGotoSibling(_Edge * edge, int * level) {
-  #if 0
-    fprintf(stdout, "\n[R %d]",*level); fflush(stdout);
-  #endif
-  _Edge * sibling = edge->sibling;
-  /* Update Stack */
-  EdgeStack[*level] = sibling;
-  #if 0
-    fprintf(stdout, "->[S%d]",*level); fflush(stdout);
-  #endif
-  return sibling;
-}
-
-/* Traverse through each nodes without a recursion.
-.. It is the Depth First Search (DFS pre-Order) routine.
-.. You can send a function that manipulate the node->data
-.. as 'func' arguement of the function.  
-*/
-Flag TreeEachNode(_Node * node, 
-  Flag searchDepth, TreeNodeFunction func){
-
-  if(!node || (searchDepth > TREE_MAX_DEPTH) ) {
-    GameError("TreeEachNode() : aborted");
-    return 0;
-  }
-
-  int level = 0;
-  
-  /* We iterate through the edges rather than the nodes.
-  .. We get the node as , edge->node */
-  _Edge root = {.node = node, .sibling = NULL},
-    * edge = &root;
-  EdgeStack[0] = edge;
- 
-  while(level >= 0) { 
-
-    /* run the 'func' with the node and go down the tree */ 
-    while(level <= searchDepth) {
-
-      /* Do something with node here  */
-      if(func && edge->node)
-        func(edge->node);
-      /* End of "Do something with node here"*/  
-
-      /* Cannot go further down */     
-      if(!edge->node || (level == searchDepth) )
-        break;
-  
-      /* Go to child */
-      _Edge * child = EdgeGotoChild(edge, &level);
-      if(!child) 
-        break;
-      edge = child;
-    }
-
-    /* Going to sibling (if any more left to traverse) or ..
-    .. Go to parent's sibling (if any more left ) or .. */
-    while ( level >= 0 ) {
-      _Edge * sibling = EdgeGotoSibling(edge, &level);
-      if(sibling) {
-        edge = sibling;
-        //fixme: if(sibling->node)
-        break;  
-      }
-      edge = EdgeGotoParent(edge, &level);
-    } 
-  }
-
-  return 1;
-}
-
-/* Traverse through each nodes without a recursion.
-.. It is the Depth First Search (DFS post-Order) routine.
-.. You can send a function that manipulate the node->data
-.. as 'rfunc' arguement of the function.  
-*/
-Flag TreeEachNodePostOrder(_Node * node, 
-  Flag searchDepth, TreeNodeFunction rfunc){
-
-  if(!node || (searchDepth > TREE_MAX_DEPTH) ) {
-    GameError("TreeEachNodePostOrder() : aborted");
-    return 0;
-  }
-
-  int level = 0;
-  
-  /* We iterate through the edges rather than the nodes.
-  .. We get the node as , edge->node */
-  _Edge root = {.node = node, .sibling = NULL},
-    * edge = &root;
-  EdgeStack[0] = edge; 
- 
-  while(level >= 0) { 
-
-    /* Go to the bottom most node */
-    while(level < searchDepth && edge->node) {
-      _Edge * child = EdgeGotoChild(edge, &level);
-      if(!child) 
-        break;
-      edge = child;
-    }
-
-    while ( level >= 0 ) {
-      /* Do something with node here  */
-      if(rfunc && edge->node) {
-        if(!rfunc(edge->node)) {
-  GameError("TreeEachNodePostOrder() : rfunc() failed");
-  return 0;
-        }
-      }
-      /* End of "Do something with node here"*/  
-    
-      /* Going to sibling (if any more left to traverse) 
-      .. or go to parent */
-      _Edge * sibling = EdgeGotoSibling(edge, &level);
-      if(sibling) {
-        edge = sibling;
-        //fixme: if(sibling->node)
-        break;  
-      }
-      edge = EdgeGotoParent(edge, &level);
-    } 
-  }
-
-  return 1;
-}
 
 enum TREE_NODE_FLAG {
   /* This node is pooled from a reserved memory pool. 
@@ -399,23 +187,35 @@ _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
 }
 
 static inline
+Flag NodeEdgesFree(_Node * parent) {
+  while(parent->child) {
+    /* Delete edges and the children nodes they are
+    .. pointing to */
+    _Edge * edge = parent->child;
+    if(edge->node)
+      return 0;
+    parent->child = edge->sibling;
+    MempoolDeallocateTo(EDGE_POOL, edge);
+  }
+  return 1;
+}
+
+static inline
 Flag NodeFree(_Node * parent){
   if(parent->depth) {
     /* Only a leaf can be deleted */
     return 0;
   }
-  while(parent->child) {
-    /* Delete edges and the children nodes they are
-    .. pointing to */
-    _Edge * edge = parent->child;
-    parent->child = edge->sibling;
-    assert(!edge->node);
-    MempoolDeallocateTo(EDGE_POOL, edge);
+  if(NodeEdgesFree(parent)) {
+    /* If all the edges are deleted, 
+    .. delete the node too */
+    MempoolDeallocateTo(NODE_POOL, parent);
+    return 1;
   }
-  MempoolDeallocateTo(NODE_POOL, parent);
-  return 1;
+  return 0;
 }
 
+static inline
 Flag NodePrune(_Node * parent) {
   if(parent->depth != 1) {
     /* Only a node with depth 1 can be pruned 
@@ -480,6 +280,293 @@ Flag NodeExpand(_Node * parent) {
 }
 
 
+/* ---------------------------------------------------------
+------------------------------------------------------------
+Tree Traversal without a recursion function.
+1) Depth-First Search (Pre-Order) is implemented in ..
+   .. TreeEachNode(). Is used (a) to create the tree, 
+   .. (b) Inherit something from parent .
+   .. Ex: f(child) = Inherit(f(parent));
+     1
+    / \
+   2   5
+  / \
+ 3  4
+2) Depth-First Search (Post-Order). 
+   Refer TreeEachNodePostOrder(). 
+   Is used for reduction operation vertically up.
+    Ex: f(parent) = max {f(children)}
+   as in minimax algorithm.
+   Is also used prune each subtree, in one go.
+     5
+    / \
+   3   4
+  / \
+ 1  2
+------------------------------------------------------------
+--------------------------------------------------------- */
+
+_Tree * TreeIterator = NULL;
+typedef Flag (* TreeNodeFunction) (_Node * node); 
+
+_Edge * EdgeStack[TREE_MAX_DEPTH];
+
+static inline   
+_Edge * EdgeGotoParent(_Edge *edge, int * level) {
+  #if 0
+    fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
+  #endif
+
+  /* Go up */ 
+  if(! (*level)--) 
+    /* It applies for root node only. ..
+    .. which doesn't have a parent*/
+    return NULL;
+
+  /* Pop from the stack. 
+  .. Updating depth of parent.
+  .. fixme: update flags of parent too*/
+  Flag depth = 0;
+  _Edge * parent = EdgeStack[*level],
+        * child = parent->node->child;
+  while(child) {
+    if(child->node)
+      if(depth < child->node->depth)
+        depth = child->node->depth;
+    child = child->sibling;
+  }
+  parent->node->depth = 1 + depth;
+  #if 0
+    fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
+  #endif
+  return parent;
+}
+
+static inline
+_Edge * EdgeGotoChild(_Edge * edge, int * level) {
+
+  #if 0
+    fprintf(stdout, "\n[D %d]",*level); fflush(stdout);
+    assert(edge->node);
+  #endif
+
+  /* Check if it's a leaf cell */
+  if(!edge->node->depth)
+    return NULL;
+  _Edge * child = edge->node->child;
+  if(child)
+    /* Go down. Update Stack */
+    EdgeStack[++*level] = child;
+
+  #if 0
+    fprintf(stdout, "->[C%d]",*level); fflush(stdout);
+  #endif
+
+  return child;
+}
+
+static inline
+_Edge * EdgeGotoSibling(_Edge * edge, int * level) {
+  #if 0
+    fprintf(stdout, "\n[R %d]",*level); fflush(stdout);
+  #endif
+  _Edge * sibling = edge->sibling;
+  /* Update Stack */
+  EdgeStack[*level] = sibling;
+  #if 0
+    fprintf(stdout, "->[S%d]",*level); fflush(stdout);
+  #endif
+  return sibling;
+}
+
+/* Prune the entire tree starting from root. It is
+.. same as DFS Post Order. But doesn't pass any function.
+.. Sole purpose is prune down the tree, leaving just the 
+.. 'root' */
+Flag TreePrune(_Node * root) {
+  if(!root->depth) {
+    NodeEdgesFree(root);
+    return 1;
+  }
+
+  _Edge root_edge = {.node = root, .sibling = NULL},
+    * edge = &root_edge;
+  EdgeStack[0] = edge;
+  int level = 0;
+ 
+  while(level >= 0) { 
+
+    /* Go to the bottom most, left most node */
+    while(edge->node) {
+      _Edge * child = EdgeGotoChild(edge, &level);
+      if(!child) 
+        break;
+      edge = child;
+    }
+
+    while ( level >= 0 ) {
+      if(edge->node) 
+        /* Prune the node. */
+        if(!NodePrune(edge->node)) {
+          GameError("TreePrune() : NodePrune() failed");
+          return 0;
+        }
+    
+      /* Going to sibling (if any more left to traverse) 
+      .. or go to parent */
+      _Edge * sibling = EdgeGotoSibling(edge, &level);
+      if(sibling) {
+        edge = sibling;
+        break;  
+      }
+      edge = EdgeGotoParent(edge, &level);
+    } 
+  }
+  
+  /* Also, remove the edges starting from node */  
+  NodeEdgesFree(root);
+
+  return 1;
+}
+
+/* Traverse through each nodes without a recursion.
+.. It is the Depth First Search (DFS pre-Order) routine.
+.. You can send a function that manipulate the node->data
+.. as 'func' arguement of the function.  
+*/
+Flag TreeEachNode(_Node * node, 
+  Flag searchDepth, TreeNodeFunction func){
+
+  if(!node || (searchDepth > TREE_MAX_DEPTH) ) {
+    GameError("TreeEachNode() : aborted");
+    return 0;
+  }
+
+  int level = 0;
+  
+  /* We iterate through the edges rather than the nodes.
+  .. We get the node as , edge->node */
+  _Edge root = {.node = node, .sibling = NULL},
+    * edge = &root;
+  EdgeStack[0] = edge;
+ 
+  while(level >= 0) { 
+
+    /* run the 'func' with the node and go down the tree */ 
+    while(level <= searchDepth) {
+  
+      _Node * node = edge->node;
+    
+      if(!node) 
+        break;
+
+      /* Expand the node, if it's a leaf node node */
+      if(!node->depth && level < searchDepth)
+        NodeExpand(node);
+
+      /* Do something with node here  */
+      if(func)
+        func(node);
+      /* End of "Do something with node here"*/  
+
+      /* Cannot go further down */     
+      if(level == searchDepth) {
+        /* Don't need the part of the tree down from here */
+        TreePrune(node);
+        break;
+      }
+  
+      /* Go to child */
+      _Edge * child = EdgeGotoChild(edge, &level);
+      if(!child) 
+        break;
+      edge = child;
+    }
+
+    /* Going to sibling (if any more left to traverse) or ..
+    .. Go to parent's sibling (if any more left ) or .. */
+    while ( level >= 0 ) {
+      _Edge * sibling = EdgeGotoSibling(edge, &level);
+      if(sibling) {
+        edge = sibling;
+        //fixme: if(sibling->node)
+        break;  
+      }
+      edge = EdgeGotoParent(edge, &level);
+    } 
+  }
+
+  return 1;
+}
+
+
+/* Traverse through each nodes without a recursion.
+.. It is the Depth First Search (DFS post-Order) routine.
+.. You can send a function that manipulate the node->data
+.. as 'rfunc' arguement of the function.  
+*/
+Flag TreeEachNodePostOrder(_Node * node, 
+  Flag searchDepth, TreeNodeFunction rfunc){
+
+  if(!node || (searchDepth > TREE_MAX_DEPTH) ) {
+    GameError("TreeEachNodePostOrder() : aborted");
+    return 0;
+  }
+
+  int level = 0;
+  
+  /* We iterate through the edges rather than the nodes.
+  .. We get the node as , edge->node */
+  _Edge root = {.node = node, .sibling = NULL},
+    * edge = &root;
+  EdgeStack[0] = edge; 
+ 
+  while(level >= 0) { 
+
+    /* Go to the bottom most, left most node */
+    while(level <= searchDepth && edge->node) {
+      /* Expand the node, if it's a leaf node node */
+      _Node * node = edge->node;
+      if(!node->depth)
+        NodeExpand(node);
+      /*Go down */
+      _Edge * child = EdgeGotoChild(edge, &level);
+      if(!child) 
+        break;
+      edge = child;
+    }
+      
+    /* Prune down the line, where you will never visit */
+    if(edge->node) { 
+      TreePrune(edge->node); 
+      assert(!edge->node->child);
+    }
+
+    while ( level >= 0 ) {
+      /* Do something with node here  */
+      if(rfunc && edge->node) {
+        if(!rfunc(edge->node)) {
+  GameError("TreeEachNodePostOrder() : rfunc() failed");
+  return 0;
+        }
+      }
+      /* End of "Do something with node here"*/  
+    
+      /* Going to sibling (if any more left to traverse) 
+      .. or go to parent */
+      _Edge * sibling = EdgeGotoSibling(edge, &level);
+      if(sibling) {
+        edge = sibling;
+        //fixme: if(sibling->node)
+        break;  
+      }
+      edge = EdgeGotoParent(edge, &level);
+    } 
+  }
+
+  return 1;
+}
+
 _Tree * Tree(_Board * board, Flag depthmax) {
   if(!board || (depthmax > TREE_MAX_DEPTH)) {
     GameError("Tree() : aborted");
@@ -503,8 +590,9 @@ _Tree * Tree(_Board * board, Flag depthmax) {
   }
   tree->root = root;
 
-  /* Create tree to maxdepth */
+  /* Create tree to maxdepth.
   TreeEachNode(root, depthmax-1, NodeExpand);  
+  */
 
   return tree;
 }
@@ -516,7 +604,8 @@ Flag TreeDestroy(_Tree * tree) {
     edges = nedges - EDGE_POOL->nfree;
 
   /* Prune entire tree */
-  TreeEachNodePostOrder(tree->root, tree->depthmax, NodePrune);
+  //TreeEachNodePostOrder(tree->root, tree->depthmax, NodePrune);
+  TreePrune(tree->root);
   NodeFree(tree->root);
   free(tree);
 

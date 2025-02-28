@@ -66,7 +66,8 @@ int main(){
   BoardPrint(b);
 
   _Tree * t = Tree(b, 5);
-  TreeEachNodePostOrder(t->root, 4, NodeCount);
+  TreeEachNode(t->root, 5, NodeCount);
+  //TreeEachNodePostOrder(t->root, 5, NodeCount);
   fprintf(stdout, "\nNodes found: %ld. Edges found %ld",
     nodes_traversed, edges_traversed);
   TreeDestroy(t);
