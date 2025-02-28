@@ -17,41 +17,21 @@ typedef struct _Engine{
 }_Engine;
 
 Flag EngineUpdateTree(_Engine * e, _Move * m){
-  _Tree * root = e->tree;
+  _Node * root = e->tree->root;
 
-  //if(!root)
-  //  return 0;
-
-  _Board * b = &root->board;
-  if(b->status != GAME_CONTINUE)
-    return 0;
-
-  //if(!(root->nchildren && root->children))
-  //  return 0;
-
-  _Tree ** children = root->children;
-
-  for(Flag i=0; i<root->nchildren; ++i) {
-    _Tree * child = children[i];
-
-    //if(!child)
-    //  return 0;
-    if(BoardMoveCompare(m, &child->move)) {
-
-      _Tree * next = TreeNext(e->tree, i);
-      if(!next)
-        //weird. We expect root node to have all children
+  _Edge * edge = root->child;
+  while (edge) { 
+    if(BoardMoveCompare(&edge->move, m)) {
+      _Tree * next = TreeNext(root, edge);
+      if(!next) {
+        GameError("EngineUpdateTree() : TreeNext() failed");
         return 0;
-
-      //Old tree will be deleted in TreeNext();
-      e->tree = next; 
-
+      }
+      e->tree = tree;
       return 1;
     }
   }
-  
-  //couldn't find
-  fprintf(stderr, "No move");
+  GameError("EngineUpdateTree() : Move not found");
   return 0;
 }
  
@@ -177,6 +157,7 @@ int negaMax( int depth ) {
 */
 
 Flag TreeReorderMoves(_Tree * node) {
+  /*
   if(node->flags & IS_LEAF_NODE)
     return 0;
 
@@ -185,18 +166,29 @@ Flag TreeReorderMoves(_Tree * node) {
   // .. killer move, etc.
   // Ordering helps to prune most of the tree.
   return 1; 
+  */
 }
 
-Flag TreeNodeNegamax(_Tree * node) {
+_Edge * THIS_IS_THE_MOVE = NULL;
+
+Flag TreeNodeNegamax(_Node * node) {
+  _Node * node = tree->root;
   if(!node->depth)  {
     //FIXME: use/search hashtable. Implement table 1st
-    node->eval = NnueEvaluate(&node->board);
+    node->alpha = NnueEvaluate(&node->board);
   }
   else {
+    double alpha = -ENGINE_EVAL_MAX;
+    _Edge * edge = node->child;
+    THIS_IS_THE_MOVE = NULL;
+    while(edge) {
+      if(edge->node)
+        if((-edge->node->alpha > alpha)) 
+      edge = edge->sibling;
+    }
     node->ichild = node->nchildren; //An invalid number
     _Tree ** children = node->children;
     assert(children);
-    node->eval = -ENGINE_EVAL_MAX;
     for(int i=0; i<node->nchildren; ++i, ++children) {
       _Tree * child = *children;
       assert(child);

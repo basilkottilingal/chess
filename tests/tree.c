@@ -1,4 +1,4 @@
-#define TREE_MAX_DEPTH 6
+#define TREE_MAX_DEPTH 7
 #include "../src/tree.h"
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
@@ -56,7 +56,7 @@ int main(){
   //unsigned int status = Game(g);
   //GameError(status);
   //_Tree * tree = Tree(b, TREE_MAX_DEPTH);
-  _Tree * tree = Tree(b, 3);
+  _Tree * tree = Tree(b, 6);
   tree->depthmax = 4;
   TreeEachNode(tree, 4, TreeNodeExpand);
   tree->depthmax = 5;

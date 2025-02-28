@@ -1,7 +1,7 @@
 #include <stdlib.h>
 size_t edges_traversed = 0, nodes_traversed = 0;
-#define TREE_MAX_DEPTH 5
-#include "../src/_tree.h"
+#define TREE_MAX_DEPTH 7
+#include "../src/tree.h"
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
 
@@ -52,7 +52,7 @@ int main(){
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //BoardSetFromFEN(b,"k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
-  //BoardSetFromFEN(b,"r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  BoardSetFromFEN(b,"r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
   //BoardSetFromFEN(b,"rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   //BoardSetFromFEN(b,"8/k7/8/K7/8/8/8/8 b - - 0 1");
   //BoardSetFromFEN(b,"k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
@@ -62,11 +62,11 @@ int main(){
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
-  BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
+  //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
   BoardPrint(b);
 
   _Tree * t = Tree(b, 5);
-  TreeEachNodePostOrder(t->root, 5, NodeCount);
+  TreeEachNodePostOrder(t->root, 4, NodeCount);
   fprintf(stdout, "\nNodes found: %ld. Edges found %ld",
     nodes_traversed, edges_traversed);
   TreeDestroy(t);
