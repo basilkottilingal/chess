@@ -1,3 +1,5 @@
+#include <stdlib.h>
+size_t edges_traversed = 0, nodes_traversed = 0;
 #define TREE_MAX_DEPTH 7
 #include "../src/tree.h"
 //Run this test script using
@@ -17,7 +19,6 @@ rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3
 k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30
 6)Game already over
 8/k7/8/K7/8/8/8/8 b - - 0 1
-*/
 
 Flag TreeNodePrint(_Tree * node){
 
@@ -32,6 +33,17 @@ Flag TreeNodePrint(_Tree * node){
   BoardPrint(&node->board);
   return 1;
 }
+*/
+
+Flag NodeCount(_Node * node) {
+  nodes_traversed++;
+  _Edge * e = node->child;
+  while(e) {
+    edges_traversed++;
+    e = e->sibling;
+  }
+  return 1;
+}
 
 
 int main(){
@@ -40,7 +52,7 @@ int main(){
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //BoardSetFromFEN(b,"k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
-  //BoardSetFromFEN(b,"r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
+  BoardSetFromFEN(b,"r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
   //BoardSetFromFEN(b,"rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   //BoardSetFromFEN(b,"8/k7/8/K7/8/8/8/8 b - - 0 1");
   //BoardSetFromFEN(b,"k7/1Q6/K7/8/8/8/8/8 b - - 0 1");
@@ -50,27 +62,20 @@ int main(){
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
-  BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
+  //BoardSetFromFEN(b,"8/7p/8/7P/8/8/8/5k1K b - - 0 1");
   BoardPrint(b);
 
-  //unsigned int status = Game(g);
-  //GameError(status);
-  //_Tree * tree = Tree(b, TREE_MAX_DEPTH);
-  _Tree * tree = Tree(b, 6);
-  tree->depthmax = 4;
-  TreeEachNode(tree, 4, TreeNodeExpand);
-  tree->depthmax = 5;
-  TreeEachNode(tree, 5, TreeNodeExpand);
+  Flag depthmax = TREE_MAX_DEPTH;
 
-  tree = TreeNext(tree, 0);
+  _Tree * t = Tree(b, depthmax);
+  TreeEachNode(t->root, depthmax, NodeCount);
+  //TreeEachNodePostOrder(t->root, 5, NodeCount);
+  fprintf(stdout, "\nNodes found: %ld. Edges found %ld",
+    nodes_traversed, edges_traversed);
+  TreeDestroy(t);
 
-  //Debug
-  TreeEachNode(tree, 5, TreeNodeCheckFlags);
-  TreeEachNode(tree, 5, TreeNodePrint);
-
-  TreeDestroy(tree);
-
-  //GameDestroy(b);
+  //If it prints nothing, test ran fine.
+  GameErrorPrint();
 
   return 0;
 }

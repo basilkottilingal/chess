@@ -524,7 +524,7 @@ Flag TreeEachNodePostOrder(_Node * node,
   while(level >= 0) { 
 
     /* Go to the bottom most, left most node */
-    while(level <= searchDepth && edge->node) {
+    while(level < searchDepth && edge->node) {
       /* Expand the node, if it's a leaf node node */
       _Node * node = edge->node;
       if(!node->depth)
@@ -539,7 +539,9 @@ Flag TreeEachNodePostOrder(_Node * node,
     /* Prune down the line, where you will never visit */
     if(edge->node) { 
       TreePrune(edge->node); 
+      #if 0
       assert(!edge->node->child);
+      #endif
     }
 
     while ( level >= 0 ) {
@@ -602,22 +604,35 @@ Flag TreeDestroy(_Tree * tree) {
     nedges = tree->nedges,
     nodes = nnodes - NODE_POOL->nfree, 
     edges = nedges - EDGE_POOL->nfree;
+  
+  fprintf(stdout, 
+    "\nDestroying Tree. depth %d, maxdepth %d", 
+    tree->root->depth, tree->depthmax);
 
   /* Prune entire tree */
-  //TreeEachNodePostOrder(tree->root, tree->depthmax, NodePrune);
   TreePrune(tree->root);
   NodeFree(tree->root);
   free(tree);
 
-  /*Stats of pool to verify */
+  /*Print Stats of pool to verify */
   fprintf(stdout, "\nnode pool consumed %ld", nodes);
   fprintf(stdout, "\nedge pool consumed %ld", edges);
   fprintf(stdout, 
-    "\nnode pool: before creation %ld. after destruction %ld",
+    "\nnode pool: before creation %ld. after destruction %ld.",
     nnodes, NODE_POOL->nfree);
   fprintf(stdout, 
     "\nedge pool: before creation %ld. after destruction %ld",
     nedges, EDGE_POOL->nfree);
+  size_t ledges = nedges - EDGE_POOL->nfree, 
+         lnodes = nnodes - NODE_POOL->nfree;
+  fprintf(stdout,"\nlost %ld edges, %ld nodes",
+    ledges, lnodes);
+
+  if(ledges || lnodes) {
+    GameError("TreeDestroy() : Reporting memory leak");
+    return 0;
+  }
+
   return 1;
 }
 
