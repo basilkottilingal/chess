@@ -452,7 +452,7 @@ struct AlphaBeta AlphaBetaStack[TREE_MAX_DEPTH];
 
 Flag AlphaBetaPruning(_Edge * edge, int * level) {
   Flag l = (Flag) (*level) - 1;
-  if( l & 2) {
+  if( l & 2 ) {
     /* Minimising player */
     AlphaBetaStack[l].val = 
       fmin(AlphaBetaStack[l].val, AlphaBetaStack[l+1].val);
@@ -483,7 +483,7 @@ Flag AlphaBetaPruning(_Edge * edge, int * level) {
 }
 
 /* Alpha Beta pruning */
-_Edge * TreeAlphaBeta(_Node * root, Flag searchDepth) {
+_Move * TreeAlphaBeta(_Node * root, Flag searchDepth) {
 
   if(!root || (searchDepth > TREE_MAX_DEPTH) ) {
     GameError("TreeEachNode() : aborted");
@@ -573,10 +573,24 @@ _Edge * TreeAlphaBeta(_Node * root, Flag searchDepth) {
 
   assert(!level);
 
+  int val = -ENGINE_EVAL_MAX;
+  edge = root->child;
+  _Move * move = NULL;
+/*
+  while(edge) {
+    if(edge->node) {
+      if(val < edge->node->alpha) {
+        val = edge->node->val;
+        move = &edge->move;
+      }
+    }
+    edge = edge->sibling;
+  }
+*/
   fprintf(stdout, "\nTree Statistics .Edges %ld, Nodes %ld",
     EdgeCount, NodeCount);  
 
-  return NULL;
+  return move;
 }
 
 /* ---------------------------------------------------------
