@@ -1,5 +1,6 @@
 #include "engine.h"
 #include "mempool.h"
+#include "math.h"
 typedef struct _Node _Node;
 typedef struct _Edge _Edge;
 
@@ -293,8 +294,8 @@ _Edge * EdgeGotoSibling(_Edge * edge, int * level) {
   #if 0
     fprintf(stdout, "\n[R %d]",*level); fflush(stdout);
   #endif
+  /* Goto sibling. Update Stack */
   _Edge * sibling = edge->sibling;
-  /* Update Stack */
   EdgeStack[*level] = sibling;
   #if 0
     fprintf(stdout, "->[S%d]",*level); fflush(stdout);
@@ -449,6 +450,38 @@ struct AlphaBeta {
   
 struct AlphaBeta AlphaBetaStack[TREE_MAX_DEPTH];
 
+Flag AlphaBetaPruning(_Edge * edge, int * level) {
+  Flag l = (Flag) (*level) - 1;
+  if( l & 2) {
+    /* Minimising player */
+    AlphaBetaStack[l].val = 
+      fmin(AlphaBetaStack[l].val, AlphaBetaStack[l+1].val);
+    AlphaBetaStack[l].beta = 
+      fmin(AlphaBetaStack[l].val, AlphaBetaStack[l].beta);
+  }
+  else {
+    /* Maximising player */
+    AlphaBetaStack[l].val = 
+      fmax(AlphaBetaStack[l].val, AlphaBetaStack[l+1].val);
+    AlphaBetaStack[l].alpha = 
+      fmax(AlphaBetaStack[l].val, AlphaBetaStack[l].alpha);
+  }
+  if(AlphaBetaStack[l].alpha >= AlphaBetaStack[l].beta) {
+    /* Prune upcoming siblings of 'edge'*/
+    _Edge * sibling = edge->sibling;
+    while(sibling) {
+      if(sibling->node) {
+        TreePrune(sibling->node);
+        sibling->node = NodeFree(sibling->node);
+      }
+      sibling = sibling->sibling;
+    }
+    return 1;
+  }
+
+  return 0;
+}
+
 /* Alpha Beta pruning */
 _Edge * TreeAlphaBeta(_Node * root, Flag searchDepth) {
 
@@ -479,22 +512,27 @@ _Edge * TreeAlphaBeta(_Node * root, Flag searchDepth) {
     /* run the 'func' with the node and go down the tree */ 
     while(level <= searchDepth) {
       ++EdgeCount;
-    
+   
+      /* Create edge->node if not available */ 
       _Node * node = NodeNewLeaf(parent->node, edge);
       if(!node) 
         break;
       ++NodeCount;
 
-      /* Do something with node here  */
+      /* Inheriting alpha/beta from parent */
       AlphaBetaStack[level] = AlphaBetaStack[level-1];
-      AlphaBetaStack[level].val = level&1 ?
+      AlphaBetaStack[level].val = 
+        level&1 ?  /* Odd level: Minimising player */
         ENGINE_EVAL_MAX : -ENGINE_EVAL_MAX;
 
-      /*  */     
+      /*Prune the part that you won't explore*/     
       if( level == searchDepth ) {
         TreePrune(node);
         break;
       }
+      /* If edges are not available, create them */
+      if(!node->child)
+        NodeSetEdges(node);
   
       /* Go to child */
       _Edge * child = EdgeGotoChild(edge, &level);
@@ -506,13 +544,23 @@ _Edge * TreeAlphaBeta(_Node * root, Flag searchDepth) {
 
     /* Evaluate for leaf node */
     _Node * node = NodeNewLeaf(parent->node, edge);
-    if(node) { 
+    if(node)  
       AlphaBetaStack[level].val = NnueEvaluate(&node->board);
-    }
+    else
+      GameError("TreeAlphaBeta() : Leaf node not available");
+    
 
     /* Going to sibling (if any more left to traverse) or ..
     .. Go to parent's sibling (if any more left ) or .. */
     while ( level >= 1 ) {
+
+      /* Reduction operation. of alpha, beta */
+      if(AlphaBetaPruning(edge, &level)) {
+        edge = EdgeGotoParent(edge, &level);
+        parent = level ? EdgeStack[level-1] : NULL;
+        if(!level) break;
+      }
+
       _Edge * sibling = EdgeGotoSibling(edge, &level);
       if(sibling) {
         edge = sibling;
