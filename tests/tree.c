@@ -1,6 +1,6 @@
 #include <stdlib.h>
 size_t edges_traversed = 0, nodes_traversed = 0;
-#define TREE_MAX_DEPTH 7
+#define TREE_MAX_DEPTH 3
 #include "../src/tree.h"
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
@@ -68,7 +68,10 @@ int main(){
   Flag depthmax = TREE_MAX_DEPTH;
 
   _Tree * t = Tree(b, depthmax);
-  TreeEachNode(t->root, depthmax, NodeCount);
+
+  TreeAlphaBeta(t->root, depthmax);
+
+  //TreeEachNode(t->root, depthmax, NodeCount);
   //TreeEachNodePostOrder(t->root, 5, NodeCount);
   fprintf(stdout, "\nNodes found: %ld. Edges found %ld",
     nodes_traversed, edges_traversed);

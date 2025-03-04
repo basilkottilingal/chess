@@ -1,4 +1,4 @@
-#include "move.h"
+#include "engine.h"
 #include "mempool.h"
 typedef struct _Node _Node;
 typedef struct _Edge _Edge;
@@ -29,11 +29,12 @@ struct _Node{
   /* Depth of this node */
   Flag depth;
   /* Depth allowed */
-  Flag depthmax;
+  Flag nmoves;
   /* Number of children. */
   Flag nchildren;
-  /* For engine */
+  /* For engine 
   double alpha, beta;
+  */
 };
 
 struct _Edge {
@@ -55,12 +56,7 @@ typedef struct {
   size_t nedges, nnodes;
 } _Tree;
 
-
-
 enum TREE_NODE_FLAG {
-  /* This node is pooled from a reserved memory pool. 
-  .. Have to be freed before traversing back to parent.*/
-  NODE_IS_RESERVED = 128,
   /* Identify the node in the tree */
   NODE_LEAF = 1,
   NODE_PARENT = 2,
@@ -69,8 +65,11 @@ enum TREE_NODE_FLAG {
   NODE_PRUNED = 8,
   NODE_IS_MYMOVE = 16,
   /* Identifying crtitical moves */
-  NODE_IS_SURE_WIN = 32
+  NODE_IS_SURE_WIN = 32,
   /* sure loss = not my move && node is sure win */
+  /* This node is pooled from a reserved memory pool. 
+  .. Have to be freed before traversing back to parent.*/
+  NODE_RESERVED = 128
 };
 
 /* NOTE: if using this array 
@@ -151,15 +150,15 @@ _Node * NodeNewRoot(_Board * board) {
 }
 
 _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
-  /* Weird! */
+  /* Skip */
   if(edge->node) {
-    GameError("NodeNewLeaf() : Edge already has an end node"); 
-    return NULL;
+    //GameError("NodeNewLeaf() : Redefinition"); 
+    return edge->node;
   }
 
   /* New Node as the end node of 'edge'*/
   _Node * node = (_Node *) MempoolAllocateFrom(NODE_POOL);
-  if(!node) 
+  if(!node)  
     return NULL;
   edge->node = node;
 
@@ -182,6 +181,8 @@ _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   if(!NodeSetEdges(node))
     /* In case few edges are not created (out of memory) */
     node->flags |= NODE_PRUNED;
+  if(NODE_POOL->nfree < TREE_MAX_DEPTH + 50)
+    node->flags |= NODE_RESERVED; 
 
   return node;
 }
@@ -201,110 +202,21 @@ Flag NodeEdgesFree(_Node * parent) {
 }
 
 static inline
-Flag NodeFree(_Node * parent){
+_Node * NodeFree(_Node * parent){
   if(parent->depth) {
-    /* Only a leaf can be deleted */
-    return 0;
+    /* Only a leaf can be deleted. 
+    .. 'parent' is not yet deleted*/
+    return parent;
   }
   if(NodeEdgesFree(parent)) {
     /* If all the edges are deleted, 
     .. delete the node too */
     MempoolDeallocateTo(NODE_POOL, parent);
-    return 1;
+    return NULL;
   }
-  return 0;
+  /* not yet deleted */
+  return parent;
 }
-
-static inline
-Flag NodePrune(_Node * parent) {
-  if(parent->depth != 1) {
-    /* Only a node with depth 1 can be pruned 
-    .. (i.e all children are leaves)
-    */
-    return 1;
-  }
-  _Edge * edge = parent->child;
-  while(edge) {
-    /* Delete edges and the children nodes they are
-    .. pointing to */
-    if(edge->node) {
-      if(!NodeFree(edge->node))
-        return 0;
-      edge->node = NULL;
-    }
-    edge = edge->sibling;
-  }
-  parent->depth = 0;
-  parent->flags &= ~NODE_PARENT;
-  parent->flags |= NODE_LEAF|NODE_PRUNED;
-  return 1;
-}
-
-Flag NodeExpand(_Node * parent) {
-  /* Weird. Expected a leaf node (i.e depth = 0)*/
-  if(parent->depth)
-    return 0;
-
-  /* Game Over */
-  if(parent->board.status != GAME_CONTINUE)
-    return 1;
-
-  /* Weird. Expected all the moves are evaluated*/
-  if(!parent->child)
-    return 0;
-
-  _Edge * edge = parent->child;
-  while(edge) {
-    
-    /* Weird. Expected the edge's end node not assigned */
-    if(edge->node)
-      return 0;
-
-    /* Assign a new leaf node with a 'board' and status */
-    edge->node = NodeNewLeaf(parent, edge);
-
-    /* Out of memory. So Prune or TreeTraverse without  
-    .. saving the tree (Not yet)*/
-    if(!edge->node) {
-      parent->flags |= NODE_PRUNED;
-    }
-
-    edge = edge->sibling;
-  }
-
-  parent->depth = 1;
-  parent->flags &= ~NODE_LEAF;
-  parent->flags |= NODE_PARENT;
-
-  return 1;
-}
-
-
-/* ---------------------------------------------------------
-------------------------------------------------------------
-Tree Traversal without a recursion function.
-1) Depth-First Search (Pre-Order) is implemented in ..
-   .. TreeEachNode(). Is used (a) to create the tree, 
-   .. (b) Inherit something from parent .
-   .. Ex: f(child) = Inherit(f(parent));
-     1
-    / \
-   2   5
-  / \
- 3  4
-2) Depth-First Search (Post-Order). 
-   Refer TreeEachNodePostOrder(). 
-   Is used for reduction operation vertically up.
-    Ex: f(parent) = max {f(children)}
-   as in minimax algorithm.
-   Is also used prune each subtree, in one go.
-     5
-    / \
-   3   4
-  / \
- 1  2
-------------------------------------------------------------
---------------------------------------------------------- */
 
 _Tree * TreeIterator = NULL;
 typedef Flag (* TreeNodeFunction) (_Node * node); 
@@ -329,13 +241,27 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
   Flag depth = 0;
   _Edge * parent = EdgeStack[*level],
         * child = parent->node->child;
+  Flag count = 0;
   while(child) {
-    if(child->node)
-      if(depth < child->node->depth)
-        depth = child->node->depth;
+    _Node * node = child->node;
+    if(node) {
+      if((node->flags & NODE_RESERVED) && (!node->depth)) 
+        child->node = NodeFree(node);
+      else {
+        ++count;
+        if(depth < node->depth)
+          depth = node->depth;
+      }
+    }
     child = child->sibling;
   }
-  parent->node->depth = 1 + depth;
+  if(!count) {
+    parent->node->flags &= ~NODE_PARENT;
+    parent->node->flags |= NODE_LEAF|NODE_PRUNED;
+    parent->node->depth = 0;
+  }
+  else
+    parent->node->depth = 1 + depth;
   #if 0
     fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
   #endif
@@ -350,12 +276,9 @@ _Edge * EdgeGotoChild(_Edge * edge, int * level) {
     assert(edge->node);
   #endif
 
-  /* Check if it's a leaf cell */
-  if(!edge->node->depth)
-    return NULL;
+  /* Go down the tree. Update Stack */
   _Edge * child = edge->node->child;
   if(child)
-    /* Go down. Update Stack */
     EdgeStack[++*level] = child;
 
   #if 0
@@ -405,13 +328,12 @@ Flag TreePrune(_Node * root) {
     }
 
     while ( level >= 0 ) {
-      if(edge->node) 
-        /* Prune the node. */
-        if(!NodePrune(edge->node)) {
-          GameError("TreePrune() : NodePrune() failed");
-          return 0;
-        }
     
+      /* Do Something with edge->node */
+      if(edge->node && level) 
+        edge->node = NodeFree(edge->node);
+      /* End of "Do something with edge->node"*/
+
       /* Going to sibling (if any more left to traverse) 
       .. or go to parent */
       _Edge * sibling = EdgeGotoSibling(edge, &level);
@@ -428,6 +350,213 @@ Flag TreePrune(_Node * root) {
 
   return 1;
 }
+
+_Tree * Tree(_Board * board, Flag depthmax) {
+  if(!board || (depthmax > TREE_MAX_DEPTH)) {
+    GameError("Tree() : aborted");
+    return NULL;
+  }
+  if(!TreePoolInit()) {
+    GameError("Tree() : Pool cannot be created.");
+    return NULL;
+  }
+
+  _Tree * tree = (_Tree *) malloc(sizeof(_Tree)); 
+  tree->depthmax = depthmax;
+  tree->nnodes = NODE_POOL->nfree;
+  tree->nedges = EDGE_POOL->nfree;
+
+  _Node * root = NodeNewRoot(board);
+  if(!root) {
+    free(tree);
+    GameError("Tree() : Cannot Create root");
+    return NULL;
+  }
+  tree->root = root;
+
+  /* Create tree to maxdepth.
+  TreeEachNode(root, depthmax-1, NodeExpand);  
+  */
+
+  return tree;
+}
+
+Flag TreeDestroy(_Tree * tree) {
+  size_t nnodes = tree->nnodes, 
+    nedges = tree->nedges,
+    nodes = nnodes - NODE_POOL->nfree, 
+    edges = nedges - EDGE_POOL->nfree;
+  
+  fprintf(stdout, "\nDestroying Tree. depth %d, maxdepth %d", 
+    tree->root->depth, tree->depthmax);
+
+  /* Prune entire tree */
+  TreePrune(tree->root);
+  if(NodeFree(tree->root)) {
+    GameError("TreeDestroy() : TreePrune() failed");
+    return 0;
+  }
+  free(tree);
+
+  /*Print Stats of pool to verify */
+  fprintf(stdout, "\nnode pool consumed %ld", nodes);
+  fprintf(stdout, "\nedge pool consumed %ld", edges);
+  fprintf(stdout, 
+    "\nnode pool: before creation %ld. after destruction %ld.",
+    nnodes, NODE_POOL->nfree);
+  fprintf(stdout, 
+    "\nedge pool: before creation %ld. after destruction %ld",
+    nedges, EDGE_POOL->nfree);
+  size_t ledges = nedges - EDGE_POOL->nfree, 
+         lnodes = nnodes - NODE_POOL->nfree;
+  fprintf(stdout,"\nlost %ld edges, %ld nodes",
+    ledges, lnodes);
+
+  if(ledges || lnodes) {
+    GameError("TreeDestroy() : Reporting memory leak");
+    return 0;
+  }
+
+  return 1;
+}
+
+_Tree * TreeNext(_Tree * tree, _Edge * edge) {
+  if(!(tree && edge)) {
+    GameError("TreeNext() : aborted");
+    return NULL;
+  }
+  if(edge->node) {
+    _Tree * next = (_Tree *)malloc(sizeof(_Tree));
+    memcpy(next, tree, sizeof(_Tree));
+    next->root = edge->node;
+    next->root->flags |= NODE_ROOT;
+    edge->node = NULL;
+    TreeDestroy(tree);
+    return next;
+  }
+  TreePrune(tree->root);
+  BoardNext(&tree->root->board, &edge->move, &MOVES_ARRAY);
+  _Tree * next = Tree(&tree->root->board, tree->depthmax);
+  if(!next)
+    GameError("TreeNext() : failed");
+  TreeDestroy(tree);
+  return next;
+}
+
+struct AlphaBeta {
+  double alpha, beta, val;
+};
+  
+struct AlphaBeta AlphaBetaStack[TREE_MAX_DEPTH];
+
+/* Alpha Beta pruning */
+_Edge * TreeAlphaBeta(_Node * root, Flag searchDepth) {
+
+  if(!root || (searchDepth > TREE_MAX_DEPTH) ) {
+    GameError("TreeEachNode() : aborted");
+    return NULL;
+  }
+
+  if(!root->child)
+    NodeSetEdges(root);
+
+  size_t EdgeCount = 0, NodeCount = 1;
+
+  /* We iterate through the edges rather than the nodes.
+  .. We get the node as , edge->node */
+  _Edge root_edge = {.node = root, .sibling = NULL},
+    * edge = root->child, * parent = &root_edge;
+  AlphaBetaStack[0] = (struct AlphaBeta)
+    {.alpha = -ENGINE_EVAL_MAX, .beta = ENGINE_EVAL_MAX, 
+     .val = -ENGINE_EVAL_MAX};
+  EdgeStack[0] = parent;
+  EdgeStack[1] = edge;
+  
+  int level = 1;
+ 
+  while(level >= 1) { 
+
+    /* run the 'func' with the node and go down the tree */ 
+    while(level <= searchDepth) {
+      ++EdgeCount;
+    
+      _Node * node = NodeNewLeaf(parent->node, edge);
+      if(!node) 
+        break;
+      ++NodeCount;
+
+      /* Do something with node here  */
+      AlphaBetaStack[level] = AlphaBetaStack[level-1];
+      AlphaBetaStack[level].val = level&1 ?
+        ENGINE_EVAL_MAX : -ENGINE_EVAL_MAX;
+
+      /*  */     
+      if( level == searchDepth ) {
+        TreePrune(node);
+        break;
+      }
+  
+      /* Go to child */
+      _Edge * child = EdgeGotoChild(edge, &level);
+      if(!child) 
+        break;
+      parent = edge;
+      edge = child;
+    }
+
+    /* Evaluate for leaf node */
+    _Node * node = NodeNewLeaf(parent->node, edge);
+    if(node) { 
+      AlphaBetaStack[level].val = NnueEvaluate(&node->board);
+    }
+
+    /* Going to sibling (if any more left to traverse) or ..
+    .. Go to parent's sibling (if any more left ) or .. */
+    while ( level >= 1 ) {
+      _Edge * sibling = EdgeGotoSibling(edge, &level);
+      if(sibling) {
+        edge = sibling;
+        break;  
+      }
+      edge = EdgeGotoParent(edge, &level);
+      parent = level ? EdgeStack[level-1] : NULL;
+    } 
+  }
+
+  assert(!level);
+
+  fprintf(stdout, "\nTree Statistics .Edges %ld, Nodes %ld",
+    EdgeCount, NodeCount);  
+
+  return NULL;
+}
+
+/* ---------------------------------------------------------
+------------------------------------------------------------
+Tree Traversal without a recursion function.
+1) Depth-First Search (Pre-Order) is implemented in ..
+   .. TreeEachNode(). Is used (a) to create the tree, 
+   .. (b) Inherit something from parent .
+   .. Ex: f(child) = Inherit(f(parent));
+     1
+    / \
+   2   5
+  / \
+ 3  4
+2) Depth-First Search (Post-Order). 
+   Refer TreeEachNodePostOrder(). 
+   Is used for reduction operation vertically up.
+    Ex: f(parent) = max {f(children)}
+   as in minimax algorithm.
+   Is also used prune each subtree, in one go.
+     5
+    / \
+   3   4
+  / \
+ 1  2
+------------------------------------------------------------
+--------------------------------------------------------- */
+#if 0
 
 /* Traverse through each nodes without a recursion.
 .. It is the Depth First Search (DFS pre-Order) routine.
@@ -568,71 +697,4 @@ Flag TreeEachNodePostOrder(_Node * node,
 
   return 1;
 }
-
-_Tree * Tree(_Board * board, Flag depthmax) {
-  if(!board || (depthmax > TREE_MAX_DEPTH)) {
-    GameError("Tree() : aborted");
-    return NULL;
-  }
-  if(!TreePoolInit()) {
-    GameError("Tree() : Pool cannot be created.");
-    return NULL;
-  }
-
-  _Tree * tree = (_Tree *) malloc(sizeof(_Tree)); 
-  tree->depthmax = depthmax;
-  tree->nnodes = NODE_POOL->nfree;
-  tree->nedges = EDGE_POOL->nfree;
-
-  _Node * root = NodeNewRoot(board);
-  if(!root) {
-    free(tree);
-    GameError("Tree() : Cannot Create root");
-    return NULL;
-  }
-  tree->root = root;
-
-  /* Create tree to maxdepth.
-  TreeEachNode(root, depthmax-1, NodeExpand);  
-  */
-
-  return tree;
-}
-
-Flag TreeDestroy(_Tree * tree) {
-  size_t nnodes = tree->nnodes, 
-    nedges = tree->nedges,
-    nodes = nnodes - NODE_POOL->nfree, 
-    edges = nedges - EDGE_POOL->nfree;
-  
-  fprintf(stdout, 
-    "\nDestroying Tree. depth %d, maxdepth %d", 
-    tree->root->depth, tree->depthmax);
-
-  /* Prune entire tree */
-  TreePrune(tree->root);
-  NodeFree(tree->root);
-  free(tree);
-
-  /*Print Stats of pool to verify */
-  fprintf(stdout, "\nnode pool consumed %ld", nodes);
-  fprintf(stdout, "\nedge pool consumed %ld", edges);
-  fprintf(stdout, 
-    "\nnode pool: before creation %ld. after destruction %ld.",
-    nnodes, NODE_POOL->nfree);
-  fprintf(stdout, 
-    "\nedge pool: before creation %ld. after destruction %ld",
-    nedges, EDGE_POOL->nfree);
-  size_t ledges = nedges - EDGE_POOL->nfree, 
-         lnodes = nnodes - NODE_POOL->nfree;
-  fprintf(stdout,"\nlost %ld edges, %ld nodes",
-    ledges, lnodes);
-
-  if(ledges || lnodes) {
-    GameError("TreeDestroy() : Reporting memory leak");
-    return 0;
-  }
-
-  return 1;
-}
-
+#endif

@@ -529,7 +529,7 @@ BoardUpdateMetadata(_Board * b, _Move * move) {
 Flag  
 BoardNext(_Board * b, _Move * move, Array * moves){
 
-  if(! (move || moves) ) {
+  if(! move ) {
     GameError("BoardNext() : Aborted");
     return GAME_STATUS_ERROR; 
   }
