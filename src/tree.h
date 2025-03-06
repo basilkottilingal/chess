@@ -152,10 +152,8 @@ _Node * NodeNewRoot(_Board * board) {
 
 _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   /* Skip */
-  if(edge->node) {
-    //GameError("NodeNewLeaf() : Redefinition"); 
+  if(edge->node) 
     return edge->node;
-  }
 
   /* New Node as the end node of 'edge'*/
   _Node * node = (_Node *) MempoolAllocateFrom(NODE_POOL);
@@ -182,7 +180,7 @@ _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   if(!NodeSetEdges(node))
     /* In case few edges are not created (out of memory) */
     node->flags |= NODE_PRUNED;
-  if(NODE_POOL->nfree < TREE_MAX_DEPTH + 50)
+  if( NODE_POOL->nfree < TREE_MAX_DEPTH + 50 ) 
     node->flags |= NODE_RESERVED; 
 
   return node;
@@ -226,10 +224,6 @@ _Edge * EdgeStack[TREE_MAX_DEPTH];
 
 static inline   
 _Edge * EdgeGotoParent(_Edge *edge, int * level) {
-  #if 0
-    fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
-  #endif
-
   /* Go up */ 
   if(! (*level)--) 
     /* It applies for root node only. ..
@@ -245,61 +239,48 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
   Flag count = 0;
   while(child) {
     _Node * node = child->node;
-    if(node) {
-      if((node->flags & NODE_RESERVED) && (!node->depth)) 
-        child->node = NodeFree(node);
-      else {
-        ++count;
-        if(depth < node->depth)
-          depth = node->depth;
-      }
+    /* Deallocate reserved nodes*/
+    if(node) 
+      if(node->flags & NODE_RESERVED) 
+        node = NodeFree(node);
+    /* depth of parent = max{depth of children} + 1 */
+    if(node) { 
+      ++count;
+      if(depth < node->depth)
+        depth = node->depth;
     }
     child = child->sibling;
   }
   if(!count) {
+    /* In case of no child nodes, parent becomes a leaf */
     parent->node->flags &= ~NODE_PARENT;
     parent->node->flags |= NODE_LEAF|NODE_PRUNED;
     parent->node->depth = 0;
   }
   else
     parent->node->depth = 1 + depth;
-  #if 0
-    fprintf(stdout, "\n[U %d]",*level); fflush(stdout);
-  #endif
   return parent;
 }
 
 static inline
 _Edge * EdgeGotoChild(_Edge * edge, int * level) {
-
-  #if 0
-    fprintf(stdout, "\n[D %d]",*level); fflush(stdout);
-    assert(edge->node);
-  #endif
-
   /* Go down the tree. Update Stack */
   _Edge * child = edge->node->child;
   if(child)
     EdgeStack[++*level] = child;
-
-  #if 0
-    fprintf(stdout, "->[C%d]",*level); fflush(stdout);
-  #endif
-
   return child;
 }
 
 static inline
 _Edge * EdgeGotoSibling(_Edge * edge, int * level) {
-  #if 0
-    fprintf(stdout, "\n[R %d]",*level); fflush(stdout);
-  #endif
   /* Goto sibling. Update Stack */
+  _Node * node = edge->node;
+  if(node)
+    /* Deallocate reserved nodes*/
+    if(node->flags & NODE_RESERVED)
+      edge->node = NodeFree(node);
   _Edge * sibling = edge->sibling;
   EdgeStack[*level] = sibling;
-  #if 0
-    fprintf(stdout, "->[S%d]",*level); fflush(stdout);
-  #endif
   return sibling;
 }
 
@@ -450,9 +431,11 @@ struct AlphaBeta {
   
 struct AlphaBeta AlphaBetaStack[TREE_MAX_DEPTH];
 
+/* See if there is a alpha/beta cutoff */
 Flag AlphaBetaPruning(_Edge * edge, int * level) {
+  /* Parent level */
   Flag l = (Flag) (*level) - 1;
-  if( l & 2 ) {
+  if( l & 1 ) {
     /* Minimising player */
     AlphaBetaStack[l].val = 
       fmin(AlphaBetaStack[l].val, AlphaBetaStack[l+1].val);
@@ -476,9 +459,10 @@ Flag AlphaBetaPruning(_Edge * edge, int * level) {
       }
       sibling = sibling->sibling;
     }
+    /* Yes. Cutoff */
     return 1;
   }
-
+  /* No cut off */
   return 0;
 }
 
@@ -542,7 +526,8 @@ _Move * TreeAlphaBeta(_Node * root, Flag searchDepth) {
       edge = child;
     }
 
-    /* Evaluate for leaf node */
+    /* Evaluate for leaf node .
+    .. The board is evaluated using NNUE evaluation*/
     _Node * node = NodeNewLeaf(parent->node, edge);
     if(node)  
       AlphaBetaStack[level].val = NnueEvaluate(&node->board);
@@ -558,7 +543,7 @@ _Move * TreeAlphaBeta(_Node * root, Flag searchDepth) {
       if(AlphaBetaPruning(edge, &level)) {
         edge = EdgeGotoParent(edge, &level);
         parent = level ? EdgeStack[level-1] : NULL;
-        if(!level) break;
+        continue;
       }
 
       _Edge * sibling = EdgeGotoSibling(edge, &level);
