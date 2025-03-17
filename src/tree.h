@@ -242,7 +242,7 @@ _Edge * EdgeGotoParent(_Edge *edge, int * level) {
     /* Deallocate reserved nodes*/
     if(node) 
       if(node->flags & NODE_RESERVED) 
-        node = NodeFree(node);
+       child->node = node = NodeFree(node);
     /* depth of parent = max{depth of children} + 1 */
     if(node) { 
       ++count;

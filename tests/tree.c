@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#define TREE_MAX_DEPTH 4
+#define TREE_MAX_DEPTH 6
 #include "../src/tree.h"
 //Run this test script using
 //$ gcc -Winline -o del test.c -lm&& ./del
