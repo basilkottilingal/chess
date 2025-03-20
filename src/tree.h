@@ -1,6 +1,5 @@
 #include "engine.h"
 #include "mempool.h"
-#include "math.h"
 typedef struct _Node _Node;
 typedef struct _Edge _Edge;
 
@@ -97,13 +96,14 @@ Flag NodeSetEdges(_Node * parent) {
   .. assert(!parent->child && !parent->nchildren);
   */
   parent->child = NULL;
-  parent->nchildren = 0;
+  parent->nchildren = parent->nmoves = 0;
 
   Flag status = BoardAllMoves(&parent->board, &MOVES_ARRAY); 
   if( status ==  GAME_STATUS_ERROR )
     return 0;
   _Move * move = (_Move *) (MOVES_ARRAY.p);
   Flag nmoves = (Flag) (MOVES_ARRAY.len/sizeof(_Move));
+  parent->nmoves = nmoves;
 
   for(Flag i=0; i<nmoves; ++i, ++move) {
     /* New edge */
@@ -175,7 +175,6 @@ _Node * NodeNewLeaf(_Node * parent, _Edge * edge) {
   /* Set flags and counts */
   node->flags = NODE_LEAF;
   node->depth = 0;
-  node->nchildren = 0;
   /* Create edges with all possible moves*/
   if(!NodeSetEdges(node))
     /* In case few edges are not created (out of memory) */
@@ -194,6 +193,7 @@ Flag NodeEdgesFree(_Node * parent) {
     _Edge * edge = parent->child;
     if(edge->node)
       return 0;
+    --(parent->nchildren);
     parent->child = edge->sibling;
     MempoolDeallocateTo(EDGE_POOL, edge);
   }
@@ -427,6 +427,7 @@ _Tree * TreeNext(_Tree * tree, _Edge * edge) {
 
 struct AlphaBeta {
   double alpha, beta, val;
+  _Edge * next;
 };
   
 struct AlphaBeta AlphaBetaStack[TREE_MAX_DEPTH];
@@ -467,8 +468,10 @@ Flag AlphaBetaPruning(_Edge * edge, int * level) {
 }
 
 /* Alpha Beta pruning */
-_Move * TreeAlphaBeta(_Node * root, Flag searchDepth) {
+_Move * TreeAlphaBeta(_Tree * tree) {
 
+  _Node * root = tree->root;
+  Flag searchDepth = tree->depthmax;
   if(!root || (searchDepth > TREE_MAX_DEPTH) ) {
     GameError("TreeEachNode() : aborted");
     return NULL;
@@ -485,7 +488,7 @@ _Move * TreeAlphaBeta(_Node * root, Flag searchDepth) {
     * edge = root->child, * parent = &root_edge;
   AlphaBetaStack[0] = (struct AlphaBeta)
     {.alpha = -ENGINE_EVAL_MAX, .beta = ENGINE_EVAL_MAX, 
-     .val = -ENGINE_EVAL_MAX};
+     .val = -ENGINE_EVAL_MAX, .next = NULL};
   EdgeStack[0] = parent;
   EdgeStack[1] = edge;
   
@@ -558,24 +561,32 @@ _Move * TreeAlphaBeta(_Node * root, Flag searchDepth) {
 
   assert(!level);
 
+/*
   int val = -ENGINE_EVAL_MAX;
   edge = root->child;
-  _Move * move = NULL;
-/*
+  _Edge * nextMove = NULL;
+  _Node * nextNode = NULL;
+
   while(edge) {
     if(edge->node) {
       if(val < edge->node->alpha) {
         val = edge->node->val;
-        move = &edge->move;
+        nextMove = edge;
+        nextNode = edge->node;
       }
     }
     edge = edge->sibling;
   }
+  nextMove->node = NULL;
+  tree->root = nextNode; 
+  TreePrune(root);
 */
-  fprintf(stdout, "\nTree Statistics .Edges %ld, Nodes %ld",
-    EdgeCount, NodeCount);  
 
-  return move;
+  fprintf(stdout, "\nTree Statistics .Edges %ld, Nodes %ld",
+    EdgeCount, NodeCount); 
+
+
+  return NULL;
 }
 
 /* ---------------------------------------------------------

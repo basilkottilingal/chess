@@ -68,7 +68,7 @@ int main(){
 
   _Tree * t = Tree(b, depthmax);
 
-  TreeAlphaBeta(t->root, depthmax);
+  TreeAlphaBeta(t);
 
   //TreeEachNode(t->root, depthmax, NodeCount);
   //TreeEachNodePostOrder(t->root, 5, NodeCount);
