@@ -1,5 +1,18 @@
 #include "engine.h"
 #include "mempool.h"
+
+typedef struct _Engine{
+  //which color is this Engine representing;
+  Flag mycolor; 
+  //Tree from which you deduce the 'best' moves
+  _Tree * tree;
+  //fn pointer to update the tree when opponent makes move
+  Flag (* update_tree) (struct _Engine * e, _BoardMove * move);
+  //By default the tree is also updated.
+  Flag (*engine) (struct _Engine * e);
+}_Engine;
+
+
 typedef struct _Node _Node;
 typedef struct _Edge _Edge;
 

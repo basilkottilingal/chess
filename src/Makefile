@@ -12,4 +12,7 @@ SRC=$(wildcard:*.c);
 server: libws.a libnnue.a $(SRC)
 	gcc -std=c99 -o server wsserver.c -I./nnue -I./wsServer/include -L./nnue -L./wsServer -lnnue -lws -pthread -lm -DDISABLE_VERBOSE
 
+clean:
+	rm *.o *.a
+
 all: server
