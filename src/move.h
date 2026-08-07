@@ -39,15 +39,15 @@
     { 11, 13, 12, 24 };   
   
   static inline 
-  Flag BoardIsAttackedByPiece ( Square * from, const char rays[], int nrays,
-    int depth, Square * sq)
+  Flag BoardIsAttackedByPiece ( uint8_t * from, const char rays[], int nrays,
+    int depth, uint8_t * sq)
   {
     /* 'from' square can be neither empty nor outside the box */
-    assert ( !IS_OUTSIDE(from) && !IS_EMPTY(from) );
+    assert ( IS_PIECE (from) );
   
     for (int i=0; i<nrays; ++i)
     {
-      Square * to = from;
+      uint8_t * to = from;
       for (int j=0; j<depth; ++j)
       {
         to += rays[i];
@@ -59,12 +59,12 @@
           .. Making sure that the piece occupying "to" is not of the same color
           .. as the attacking piece
           */
-          assert (!IS_BLOCKED (from,to));
+          assert (!IS_BLOCKED (from, to));
 
           /* yes, the square "sq" is attacked. */
           return 1;
         }
-        if(!IS_EMPTY(to))
+        if (!IS_EMPTY(to))
           /* blocked by another piece */
           break;
       }
@@ -72,37 +72,37 @@
     return 0; // the square "sq" is safe from an attack
   }
   
-  Flag BoardIsAttackedByBPawn (Square * from, Square * sq)
+  Flag BoardIsAttackedByBPawn (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, BPAWN_MOVES, 2, 1, sq));
   }
   
-  Flag BoardIsAttackedByWPawn (Square * from, Square * sq)
+  Flag BoardIsAttackedByWPawn (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, WPAWN_MOVES, 2, 1, sq));
   }
   
-  Flag BoardIsAttackedByRook (Square * from, Square * sq)
+  Flag BoardIsAttackedByRook (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, ROOK_MOVES, 4, 7, sq));
   }
   
-  Flag BoardIsAttackedByBishop (Square * from, Square * sq)
+  Flag BoardIsAttackedByBishop (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, BISHOP_MOVES, 4, 7, sq));
   }
   
-  Flag BoardIsAttackedByKnight (Square * from, Square * sq)
+  Flag BoardIsAttackedByKnight (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, KNIGHT_MOVES, 8, 1, sq));
   }
   
-  Flag BoardIsAttackedByQueen (Square * from, Square * sq)
+  Flag BoardIsAttackedByQueen (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, QUEEN_MOVES, 8, 7, sq));
   }
   
-  Flag BoardIsAttackedByKing (Square * from, Square * sq)
+  Flag BoardIsAttackedByKing (uint8_t * from, uint8_t * sq)
   {
     return (BoardIsAttackedByPiece (from, QUEEN_MOVES, 8, 1, sq));
   }
@@ -110,14 +110,13 @@
   /*
   .. function pointer (to see if a square is attacked) for each chesspiece
   */  
-  Flag (*BoardIsSquareAttackedByPiece [14]) (Square *from, Square * to) =
+  Flag (*BoardIsSquareAttackedByPiece [12]) (uint8_t *from, uint8_t * to) =
     {
-      NULL,                    NULL, 
-      BoardIsAttackedByBPawn,  BoardIsAttackedByWPawn, 
       BoardIsAttackedByRook,   BoardIsAttackedByRook,
       BoardIsAttackedByKnight, BoardIsAttackedByKnight,
       BoardIsAttackedByBishop, BoardIsAttackedByBishop,
       BoardIsAttackedByQueen,  BoardIsAttackedByQueen,
+      BoardIsAttackedByBPawn,  BoardIsAttackedByWPawn, 
       BoardIsAttackedByKing,   BoardIsAttackedByKing 
     };
 
@@ -129,42 +128,31 @@
   .. (a) to see if a move is valid or not; and
   .. (b) see if a move produces a check.
   */
-  Flag BoardIsSquareAttacked (_Board * b, Square *sq, Flag attackingColor)
+  Flag BoardIsSquareAttacked (_Board * b, uint8_t *sq, Flag attackingColor)
   {
     BoardMakeAvailable(b);
     if( !IS_EMPTY(sq) )
-      if( PIECE_COLOR(sq) == attackingColor )
-      {
-        /*
-        .. weird condition. This should't arise. This condn arises when we are
-        .. looking if 'sq' occupied by a piece of color 'color' is being 
-        .. checked if it's being attacked by pieces of same color!!!
-        */
-        fprintf(stderr, "Warning: Weird attack query");
-        fflush(stderr);
-        assert(0);
-      }
+      assert ( PIECE_COLOR (sq) != attackingColor );
   
     /* check if the square "sq" is attacked by any pieces of color "color" */
-    for (int i=0; i<8; ++i)
-      for (int j=0; j<8; ++j)
+    for (int i=START; i<=END; ++i)
+      for (int j=START; j<=END; ++j)
       {
         /* Replace it with square iterator */
-        Square * from = & (GAMEBOARD[i][j]);
-        if ( IS_EMPTY(from) ) 
+        uint8_t * from = & BOARD [i][j];
+        if ( IS_EMPTY (from) ) 
           continue; /* empty */
         if ( from == sq )
   	      continue;
         if ( PIECE_COLOR(from) != attackingColor )
           continue; /* Occupied by the other color */
 
-        Piece piece = SQUARE_PIECE(from); 
         /* Generate possible moves of piece & see if 'piece' can attack 'sq' */
-        if (BoardIsSquareAttackedByPiece[piece] (from, sq))
+        if (BoardIsSquareAttackedByPiece [ SQUARE_PIECE (from) ] (from, sq))
           return 1; /* "sq" is attacked */
       }
   
-    /* Square "sq" is safe from any attack */
+    /* uint8_t "sq" is safe from any attack */
     return 0;
   }
   
@@ -172,7 +160,7 @@
   Flag BoardIsKingAttacked (_Board * b, Flag color)
   {
     /* check if the King of color "color" is attacked */
-    Square * king = SquarePointer (b->king[color]);
+    uint8_t * king = SquarePointer (b->king[color]);
     return(BoardIsSquareAttacked(b, king, !color));
   }
   
@@ -189,16 +177,16 @@
   }
   
   static inline 
-  void BoardMovesFrom( Square * from, const char rays[], int nrays, int depth,
+  void BoardMovesFrom( uint8_t * from, const char rays[], int nrays, int depth,
     Array * moves)
   {
   
     /* 'from' square can be neither empty nor outside the box */
-    assert ( !IS_OUTSIDE(from) && !IS_EMPTY(from) );
+    assert ( IS_PIECE (from) );
   
     for(int i=0; i<nrays; ++i)
     {
-      Square * to = from;
+      uint8_t * to = from;
       for(int j=0; j<depth; ++j)
       {
         to += rays[i];
@@ -208,7 +196,7 @@
           break;
 
         /* Occupied by same color; 'break' moving along the ray */
-        if(IS_BLOCKED(from, to))
+        if (IS_BLOCKED(from, to))
           break;
 
         Flag flags = IS_EMPTY(to) ? MOVE_NORMAL : MOVE_CAPTURE;
@@ -234,13 +222,13 @@
     }
   }
   
-  void BoardQueenMoves (_Board *b, Square * from, Array * moves)
+  void BoardQueenMoves (_Board *b, uint8_t * from, Array * moves)
   {
     NOT_UNUSED(b);
     BoardMovesFrom(from, QUEEN_MOVES, 8, 7, moves); 
   }
   
-  void BoardKingMoves(_Board *b, Square * from, Array * moves)
+  void BoardKingMoves(_Board *b, uint8_t * from, Array * moves)
   {
     BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
     /* Check for castling ability */
@@ -249,14 +237,14 @@
     if ( (MOVE_kCASTLE << b->color) & (b->castling) )
     {
       Flag available = 1;
-      Square * king = &(GAMEBOARD[7*b->color][4]);
-      Square * rook = &(GAMEBOARD[7*b->color][7]);
+      uint8_t * king = &(GAMEBOARD[7*b->color][4]);
+      uint8_t * rook = &(GAMEBOARD[7*b->color][7]);
       assert (SQUARE_PIECE(king) == (BKING|b->color));
       assert (SQUARE_PIECE(rook) == (BROOK|b->color));  
       assert (king == from);
       for (int i=1; i<3; ++i)
       {
-        Square * sq = king + i;
+        uint8_t * sq = king + i;
         /* see if 2 squares b/w king and rook are empty */
         if (!IS_EMPTY(sq))
         {
@@ -296,15 +284,15 @@
     /* Queen Side castling */
     if ( (MOVE_qCASTLE << b->color) & (b->castling) )
     {
-      Square * king = &(GAMEBOARD[7*b->color][4]);
-      Square * rook = &(GAMEBOARD[7*b->color][0]);
+      uint8_t * king = &(GAMEBOARD[7*b->color][4]);
+      uint8_t * rook = &(GAMEBOARD[7*b->color][0]);
       assert (SQUARE_PIECE(king) == (BKING|b->color));
       assert (SQUARE_PIECE(rook) == (BROOK|b->color));  
       assert (king == from);
       Flag available = 1;
       for (int i=-3; i<0; ++i)
       {
-        Square * sq = king + i;
+        uint8_t * sq = king + i;
         /* see if 2 squares b/w king and rook are empty */
         if (!IS_EMPTY(sq))
         {
@@ -341,32 +329,32 @@
     }
   }
   
-  void BoardBishopMoves (_Board * b, Square * from, Array *moves)
+  void BoardBishopMoves (_Board * b, uint8_t * from, Array *moves)
   {
     NOT_UNUSED (b);
     BoardMovesFrom(from, BISHOP_MOVES, 4, 7, moves); 
   }
   
-  void BoardKnightMoves (_Board * b, Square * from, Array *moves)
+  void BoardKnightMoves (_Board * b, uint8_t * from, Array *moves)
   {
     NOT_UNUSED (b);
     BoardMovesFrom(from, KNIGHT_MOVES, 8, 1, moves); 
   }
   
-  void BoardRookMoves (_Board * b, Square * from, Array * moves)
+  void BoardRookMoves (_Board * b, uint8_t * from, Array * moves)
   {
     NOT_UNUSED (b);
     BoardMovesFrom(from, ROOK_MOVES, 4, 7, moves); 
   }
   
-  void BoardPawnMoves (_Board * b, Square * from,
+  void BoardPawnMoves (_Board * b, uint8_t * from,
     const char rays[], Array * moves)
   {
   
     for(int j=0; j<2; j++)
     {
       /* Diagonal advance of pawn */
-      Square * to = from + rays[j];
+      uint8_t * to = from + rays[j];
       Flag flags = IS_CAPTURE (from,to) ? 
         MOVE_CAPTURE : IS_ENPASSANTE (from,to,b) ?
         MOVE_ENPASSANTE : 0;
@@ -447,18 +435,18 @@
     }
   }
   
-  void BoardBPawnMoves (_Board * b, Square * from, Array * moves)
+  void BoardBPawnMoves (_Board * b, uint8_t * from, Array * moves)
   {
     BoardPawnMoves(b, from, BPAWN_MOVES, moves);
   }
   
-  void BoardWPawnMoves (_Board * b, Square * from, Array * moves)
+  void BoardWPawnMoves (_Board * b, uint8_t * from, Array * moves)
   {
     BoardPawnMoves(b, from, WPAWN_MOVES, moves);
   }
 
   /* function pointers (for move) for each chesspieces */
-  void (*BoardPieceMoves[14]) (_Board *, Square *, Array * ) =
+  void (*BoardPieceMoves[14]) (_Board *, uint8_t *, Array * ) =
     {
         NULL,             NULL,
         BoardBPawnMoves,  BoardWPawnMoves, 
@@ -503,7 +491,7 @@
     for (int i=0; i<8; ++i)
       for(int j=0; j<8; ++j)
       {
-        Square * from = &(GAMEBOARD[i][j]);
+        uint8_t * from = &(GAMEBOARD[i][j]);
         if ( IS_EMPTY(from) )
           continue;
         if ( PIECE_COLOR(from) != b->color )
@@ -567,7 +555,7 @@
         (move->to.square - move->from.square == 16) ) 
       b->enpassante = move->from.square + 8;
     else
-      b->enpassante = OUTSIDE+1;
+      b->enpassante = OUTSIDE;
     
     if (b->castling)
     {

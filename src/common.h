@@ -17,7 +17,7 @@
   #include <stdint.h>
   
   /*
-  .. Used to encode flags. Used for small unsigned int [0,256).
+  .. Used to encode flags. Used for small unsigned int [0, 256).
   .. Fixme : remove this. 'int' is better for modern architecture.
   .. and in case you want smaller datatypes of integers, may use int/unsigned with
   .. proper bit masking.
@@ -59,56 +59,59 @@
     memcpy (((char *)a->p) + a->len, elem, size);
     a->len += size;
   }
-  
+
   void array_shrink (Array * a)
   {
-    if(a->len < a->max)
+    if (a->len < a->max)
     {
       a->p = realloc (a->p, a->len);
       a->max = a->len;
     }
   }
-  
+
   /*
   Error Handling
   */
-  
-  Array GameErrorBuffer = {.p = NULL,.len = 0,.max = 0};
-  
-  void GameError(char * err)
+
+  Array GameErrorBuffer =
+    {.p = NULL, .len = 0, .max = 0};
+
+  void GameError (char * err)
   {
-    Array * b = &GameErrorBuffer;  
+    Array * b = &GameErrorBuffer;
     Flag n = 0;
-    char * c = err, end[2] = {'\n','\0'};
+    char * c = err,
+      end[2] =
+        { '\n', '\0' };
     /* Get the count of char in err*/
-    while(n<UINT8_MAX-1 && *c++)
+    while (n<UINT8_MAX-1 && *c++)
       n++;
-    if(!n)
+    if (!n)
       return;
-    if(b->len)
+    if (b->len)
       b->len--;
     /* Copy error to buffer. Excluding the '\0' */
-    array_append(b, err, n);
-    array_append(b, end, 2);
+    array_append (b, err, n);
+    array_append (b, end, 2);
   }
-  
-  void GameErrorFree()
+
+  void GameErrorFree ()
   {
-    Array * b = &GameErrorBuffer;  
+    Array * b = &GameErrorBuffer;
     b->len = b->max = 0;
-    if(b->p)
-      free(b->p);
+    if (b->p)
+      free (b->p);
     b->p = NULL;
   }
-  
-  void GameErrorPrint()
+
+  void GameErrorPrint ()
   {
-    char * err = (char *) GameErrorBuffer.p;  
-    if(err)
+    char * err = (char *) GameErrorBuffer.p;
+    if (err)
     {
-      fprintf(stderr, "\n=======Error======\n%s", err);
-      fflush(stderr);
+      fprintf (stderr, "\n=======Error======\n%s", err);
+      fflush (stderr);
     }
-    GameErrorFree(); 
+    GameErrorFree ();
   }
 #endif

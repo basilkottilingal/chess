@@ -1,3 +1,7 @@
+  eceuuustatic inline Square BoardSquareParse (char * s)
+  {
+    return ;
+  }
 /**
   TODO:
 1) A second thread that runs the game, so that you don't crash
