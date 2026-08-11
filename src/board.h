@@ -3,23 +3,43 @@
 
   #include "common.h"
 
+  #define a8           0
+  #define b8           1
+  #define c8           2
+  #define d8           3
+  #define e8           4  /* WK (starting position) */
+  #define f8           5
+  #define g8           6
+  #define h8           7
+  #define a1          56
+  #define b1          57
+  #define c1          58
+  #define d1          59
+  #define e1          60 /* BK (starting position) */
+  #define f1          61
+  #define g1          62
+  #define h1          63
+
   const uint8_t BOARD [12][12] =
   {
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64},
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64},
-    {64, 64,  0,  1,  2,  3,  4,  5,  6,  7, 64, 64},
+    {64, 64, a8, b8, c8, d8, e8, f8, g8, h8, 64, 64},
     {64, 64,  8,  9, 10, 11, 12, 13, 14, 15, 64, 64},
     {64, 64, 16, 17, 18, 19, 20, 21, 22, 23, 64, 64},
     {64, 64, 24, 25, 26, 27, 28, 29, 30, 31, 64, 64},
     {64, 64, 32, 33, 34, 35, 36, 37, 38, 39, 64, 64},
     {64, 64, 40, 41, 42, 43, 44, 45, 46, 47, 64, 64},
     {64, 64, 48, 49, 50, 51, 52, 53, 54, 55, 64, 64},
-    {64, 64, 56, 57, 58, 59, 60, 61, 62, 63, 64, 64},
+    {64, 64, a1, b1, c1, d1, e1, f1, g1, h1, 64, 64},
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64},
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64}
   };
-  #define START   2
-  #define END     9
+
+  #define START       2
+  #define END         9
+  #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START]);
+
   uint8_t PIECES [64];
   const char * RANKFILE [64] =
   {
@@ -57,8 +77,8 @@
 
   /*
   .. For faster translation b/w chesspiece ID ( [0:11] ) and their ASCII
-  .. repesentations ({r, R, n, N, b, B, q, Q, p, P, k, K, ., x} where
-  .. '.' represents empty square and 'X' represent OUTSIDE/INVALID chesspiece)
+  .. repesentations ({r, R, n, N, b, B, q, Q, p, P, k, K, .} where
+  .. '.' represents empty square 
   */
 
   const char ASCII [13] =
@@ -78,7 +98,7 @@
       BQUEEN,  BROOK,
     };
   #define BoardSquareParse(sq)   (8 * (8 - sq[1] + '0' ) + sq[0] - 'a')
-  #define PieceParse (p)         CHESSPIECE [p - 'A']
+  #define PieceParse(p)          CHESSPIECE [p - 'A']
 
   /*
   .. Identifying chess piece & it's info from square pointer 'S'
@@ -93,19 +113,18 @@
   #define SQUARE_RANK(S)  ('0' + 8 - (*S)/8)
   #define PIECE_ASCII(S)  ( ASCII [PIECE (S)] )
 
-  static inline uint8_t * SquarePointer (Square s)
-  {
-    return & (BOARD[s/8 + START][ (s%8) + START]);
-  }
 
   /*
   .. warning : don't change this castling order. This is the inverse of the
   .. order stipulated for castling in standard FEN (i.e K, Q, k, q)
   */
-  #define CASTLING_WK        8
-  #define CASTLING_WQ        4
-  #define CASTLING_BK        2
   #define CASTLING_BQ        1
+  #define CASTLING_BK        2
+  #define CASTLING_WQ        4
+  #define CASTLING_WK        8
+  #define CASTLING           15
+  #define CASTLING_K(c)      (CASTLING_BK << (2 * c))
+  #define CASTLING_Q(c)      (CASTLING_BQ << (2 * c))
 
   #define PROMOTION(p,c)     ( (p<<1) | c ) /* for all p in {0,1,2,3} */
   #define MOVE_NORMAL        0
@@ -128,11 +147,10 @@
 
 
   /* convert FEN string to board */
-  uint8_t BoardSetFromFEN (_Board * b, char * fen)
+  int BoardSetFromFEN (_Board * b, const char * fen)
   {
     b->npieces = 0;
-    b->king [WHITE] = OUTSIDE;
-    b->king [BLACK] = OUTSIDE;
+    b->king [WHITE] = b->king [BLACK] = OUTSIDE;
 
     /* Set board from FEN */
     uint8_t * piece = PIECES, square = 0;
@@ -148,99 +166,112 @@
       if (isdigit (c))
       {
         int nempty = c - '0';
-        if ( !(nempty > 0 && nempty <= 8) )
+        /* cannot overfille a row */
+        if ( nempty == 0 || nempty + (square % 8) > 8 )
           return 0;
         for (int i=0; i<nempty; ++i)
-        {
           *piece++ = EMPTY;
-          ++square;
-        }
+        square += nempty;
+        continue;
       }
 
-      else if (c == '/')
+      /* row breaker */
+      if (c == '/')
       {
         /* Make sure all squares of this rank are filled */
         if ( !(square%8 == 0 ) )
           return 0;
+        continue;
       }
-      else if (c == ' ')
+
+      /* end of board */
+      if (c == ' ')
       {
         /* Make sure all squares are filled */
         if ( square != OUTSIDE )
           return 0;
         break;
       }
+
+      /* expects a chesspiece ascii */
+      if (!(c == 'p' || c == 'P' ||  c == 'b' || c == 'B' ||
+          c == 'n' || c == 'N' ||  c == 'r' || c == 'R' ||
+          c == 'q' || c == 'Q' ||  c == 'k' || c == 'K') )
+      {
+        return 0;
+      }
+
+      /* Identify chesspiece ID from (valid) ASCII */
+
+      if (c == 'K' || c == 'k')
+      {
+        uint8_t color = (c == 'K') ? WHITE : BLACK;
+
+        /* There cannot be multiple kings of same color */
+        if ( b->king [color] != OUTSIDE )
+          return 0;
+
+        b->king [color] = square;
+      }
       else
       {
-        if (!(c == 'p' || c == 'P' ||  c == 'b' || c == 'B' ||
-              c == 'n' || c == 'N' ||  c == 'r' || c == 'R' ||
-              c == 'q' || c == 'Q' ||  c == 'k' || c == 'K') )
-        {
-            return 0;
-        }
-
-        /* Identify chesspiece ID from (valid) ASCII */
-        *piece++ =  PieceParse (c);
-
-        if (c == 'K' || c == 'k')
-        {
-          uint8_t color = (c == 'K') ? WHITE : BLACK;
-
-          /* There cannot be multiple kings of same color */
-          if ( b->king [color] != OUTSIDE )
-            return 0;
-
-          b->king [color] = square;
-        }
-        else
-        {
-          /* There are a max of 30 chesspieces excluding the two kings*/
-          if ( !((b->npieces)++ < 30) )
-            return 0;
-        }
-        ++square;
+        /* There are a max of 30 chesspieces excluding the two kings*/
+        if ( !((b->npieces)++ < 30) )
+          return 0;
       }
+
+      *piece++ =  PieceParse (c);
+      ++square;
     }
 
     /* Make sure that there are exacly one each of 'k' and 'K' in the FEN; */
-    if (b->king [WHITE] == OUTSIDE || b->king [BLACK] ==  OUTSIDE)
+    if (b->king [WHITE] == OUTSIDE || b->king [BLACK] == OUTSIDE)
       return 0;
 
     /* Let's see whose turn is now ('w'/'b') */
     c = *fen++;
-    if ( c != 'w' && c != 'b')
+    if ( c != 'w' && c != 'b' )
       return 0;
     b->color = *fen == 'w' ? WHITE : BLACK;
     if ( (c = *fen++) != ' ' )
       return 0;
 
     /* read castling information */
-    b->castling = '0';
-    if ( (c = *fen++) != '-')
+    b->castling = 0;
+    if ( (c = *fen++) == '-' )
       c = *fen++;
     else
     {
       uint8_t which;
-      while ( (c = *fen++) != '\0' && c != ' ')
+      do
       {
         switch (c) {
           case 'K' :
+            if ( PIECES [e1] != WKING || PIECES [h1] != WROOK )
+              return 0;
             which = CASTLING_WK;
             break;
           case 'Q' :
+            if ( PIECES [e1] != WKING || PIECES [a1] != WROOK )
+              return 0;
             which = CASTLING_WQ;
             break;
           case 'k' :
+            if ( PIECES [e8] != BKING || PIECES [h8] != BROOK )
+              return 0;
             which = CASTLING_BK;
             break;
           case 'q' :
+            if ( PIECES [e8] != BKING || PIECES [a8] != BROOK )
+              return 0;
             which = CASTLING_BQ;
             break;
           default :
             /* expects only K, Q, k or q */
             return 0;
         }
-        if ( (2*which-1) & b->castling ) {
+        if ( (2*which-1) & b->castling )
+        {
           /*
           .. bit ordering of castling is done such a way that, any violation of the
           .. stipulated castling order (KQKq) or any multiplicity of K, Q, k or q
@@ -249,7 +280,7 @@
           return 0;
         }
         b->castling |= which;
-      }
+      } while ((c = *fen++) != '\0' && c != ' ');
     }
     if (c != ' ')
       return 0;
@@ -294,7 +325,7 @@
       */
       if ( b->fullclock > 10000 )
         return 0;
-    }
+    } while ( (c = *fen++) != '\0' && c != ' ');
     /* min {fullclocks} = 1 */
     if ( b->fullclock == 0 )
       return 0;
@@ -306,7 +337,7 @@
   /* create fen string for a board */
   void BoardFEN (_Board * b, char * fen)
   {
-    Piece * piece = PIECES;
+    uint8_t * piece = PIECES;
     unsigned char nempty;
 
     /* config of pieces */
@@ -315,7 +346,7 @@
       nempty = 0;
       for (int j=0; j<8; ++j)
       {
-        if (*piece)
+        if (*piece != EMPTY)
         {
           if (nempty)
           {
@@ -358,8 +389,8 @@
       *fen++ = '-';
     else
     {
-      *fen++ = 'a' + (b->enpassante)%8;
-      *fen++ = '0' + 8 - (b->enpassante)/8;
+      *fen++ = 'a' + (b->enpassante % 8);
+      *fen++ = '0' + 8 - b->enpassante/8;
     }
     *fen++ = ' ';
 
@@ -412,15 +443,15 @@
   #define IS_CAPTURE(FROM,TO)      ( IS_PIECE (TO) &&                         \
                                      (PIECE_COLOR (FROM) != PIECE_COLOR (TO)) )
   #define IS_PROMOTION(FROM,TO)                                               \
-                                   ( (( SQUARE_PIECE (FROM) == WPAWN) &&      \
+                                   ( (( PIECE (FROM) == WPAWN) &&      \
                                       (SQUARE_RANK (TO) == '8')) ||           \
-                                     (( SQUARE_PIECE (FROM) == BPAWN) &&      \
+                                     (( PIECE (FROM) == BPAWN) &&      \
                                        (SQUARE_RANK (TO) == '1')) )
   /* fixme : rename to IS_EP_CAPTURE */
   #define IS_ENPASSANTE(FROM,TO,BOARD)                                        \
-                 ( (SQUARE_PIECE (FROM) == WPAWN && SQUARE_RANK (FROM) == '5' \
+                 ( (PIECE (FROM) == WPAWN && SQUARE_RANK (FROM) == '5' \
                        && (*TO) == (BOARD)->enpassante ) ||                   \
-                   (SQUARE_PIECE (FROM) == BPAWN && SQUARE_RANK (FROM) == '4' \
+                   (PIECE (FROM) == BPAWN && SQUARE_RANK (FROM) == '4' \
                        && (*TO) == (BOARD)->enpassante ) )
 
   typedef struct
@@ -471,49 +502,78 @@
 
   void BoardMove (_Board * b, _Move * move)
   {
+    uint8_t from = move->from.square,
+      to = move->to.square;
     assert (PIECES [from] == move->from.piece);
-    uint8_t from = move->from.square, to = move->to.square;
 
     PIECES [from] = EMPTY;
-    PIECES [to]   = (move->flags & MOVE_PROMOTION) ?
+    uint8_t piece = PIECES [to] = (move->flags & MOVE_PROMOTION) ?
       move->promotion : move->from.piece;
 
-    if (PIECES [to] == WKING)
+    if (piece == WROOK)
+    {
+      if (from == h1 && (b->castling & CASTLING_WK))
+        b->castling &= ~CASTLING_WK;
+      if (from == a1 && (b->castling & CASTLING_WQ))
+        b->castling &= ~CASTLING_WQ;
+      return;
+    }
+
+    if (piece == BROOK)
+    {
+      if (from == h8 && (b->castling & CASTLING_BK))
+        b->castling &= ~CASTLING_BK;
+      if (from == a8 && (b->castling & CASTLING_BQ))
+        b->castling &= ~CASTLING_BQ;
+      return;
+    }
+
+    if (piece == WKING)
     {
       b->king [WHITE] = to;
+      b->castling &= ~( CASTLING_WQ | CASTLING_WK );
       if (move->flags & CASTLING_WQ)
       {
-        PIECES [56] = EMPTY;
-        PIECES [59] = WROOK;
+        /* rank 1 :  "..KR.xxx"  (x : unknown)*/
+        PIECES [a1] = EMPTY;
+        PIECES [d1] = WROOK;
         return;
       }
       if (move->flags & CASTLING_WK)
       {
-        PIECES [63] = EMPTY;
-        PIECES [61] = WROOK;
+        /* rank 1 :  "xxxx.RK."  (x : unknown)*/
+        PIECES [h1] = EMPTY;
+        PIECES [f1] = WROOK;
         return;
       }
+      return;
     }
-    else if (PIECES [to] == BKING)
+
+    if (piece == BKING)
     {
       b->king [BLACK] = to;
+      b->castling &= ~( CASTLING_BQ | CASTLING_BK );
       if (move->flags & CASTLING_BQ)
       {
-        PIECES [0] = EMPTY;
-        PIECES [3] = BROOK;
+        /* rank 8 :  "..kr.xxx"  (x : unknown)*/
+        PIECES [a8] = EMPTY;
+        PIECES [d8] = BROOK;
         return;
       }
       if (move->flags & CASTLING_BK)
       {
-        PIECES [7] = EMPTY;
-        PIECES [5] = BROOK;
+        /* rank 8 :  "xxxx.rk."  (x : unknown)*/
+        PIECES [h8] = EMPTY;
+        PIECES [f8] = BROOK;
         return;
       }
+      return;
     }
 
     if (move->flags & MOVE_ENP_CAPTURE)
     {
-      pieces [to + (b->color ? 8 : -8)] = EMPTY;
+      b->enpassante = OUTSIDE;
+      PIECES [to + (b->color ? 8 : -8)] = EMPTY;
     }
   }
 
@@ -522,45 +582,58 @@
 
     uint8_t from = move->from.square, to = move->to.square;
 
-    PIECES [from] = move->from.piece;
+    uint8_t piece = PIECES [from] = move->from.piece;
     PIECES [to]   = move->to.piece;
 
-    if (PIECES [from] == WKING)
+    if (piece == WKING)
     {
       b->king [WHITE] = from;
       if (move->flags & CASTLING_WQ)
       {
-        PIECES [56] = WROOK;
-        PIECES [59] = EMPTY;
+        b->castling |= CASTLING_WQ;
+        /* rank 1 :  "R...Kxxx"  (x : unknown)*/
+        PIECES [a1] = WROOK;
+        PIECES [d1] = EMPTY;
         return;
       }
       if (move->flags & CASTLING_WK)
       {
-        PIECES [63] = WROOK;
-        PIECES [61] = EMPTY;
+        b->castling |= CASTLING_WK;
+        /* rank 1 :  "xxxxK..R"  (x : unknown)*/
+        PIECES [h1] = WROOK;
+        PIECES [f1] = EMPTY;
         return;
       }
+      return;
     }
-    else if (PIECES [from] == BKING)
+
+    if (piece == BKING)
     {
       b->king [BLACK] = from;
       if (move->flags & CASTLING_BQ)
       {
-        PIECES [0] = BROOK;
-        PIECES [3] = EMPTY;
+        b->castling |= CASTLING_BQ;
+        /* rank 8 :  "r...kxxx"  (x : unknown)*/
+        PIECES [a8] = BROOK;
+        PIECES [d8] = EMPTY;
         return;
       }
       if (move->flags & CASTLING_BK)
       {
-        PIECES [7] = BROOK;
-        PIECES [5] = EMPTY;
+        b->castling |= CASTLING_BK;
+        /* rank 8 :  "xxxxk..r"  (x : unknown)*/
+        PIECES [h8] = BROOK;
+        PIECES [f8] = EMPTY;
         return;
       }
+      return;
     }
 
-    if (move->flags & MOVE_ENPASSANTE)
+    if (move->flags & MOVE_ENP_CAPTURE)
     {
-      PIECES [to + (b->color ? 8 : -8)] = b->color ? BPAWN : WPAWN;
+      b->enpassante = to;
+      PIECES [to + (b->color ? 8 : -8)] =
+        b->color ? BPAWN : WPAWN;
     }
   }
 #endif

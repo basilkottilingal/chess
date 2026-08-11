@@ -135,6 +135,7 @@
       assert ( PIECE_COLOR (sq) != attackingColor );
   
     /* check if the square "sq" is attacked by any pieces of color "color" */
+    // fixme : move along the rays, rather than traversing through all 64 squares
     for (int i=START; i<=END; ++i)
       for (int j=START; j<=END; ++j)
       {
@@ -148,7 +149,7 @@
           continue; /* Occupied by the other color */
 
         /* Generate possible moves of piece & see if 'piece' can attack 'sq' */
-        if (BoardIsSquareAttackedByPiece [ SQUARE_PIECE (from) ] (from, sq))
+        if (BoardIsSquareAttackedByPiece [ PIECE (from) ] (from, sq))
           return 1; /* "sq" is attacked */
       }
   
@@ -160,8 +161,8 @@
   Flag BoardIsKingAttacked (_Board * b, Flag color)
   {
     /* check if the King of color "color" is attacked */
-    uint8_t * king = SquarePointer (b->king[color]);
-    return(BoardIsSquareAttacked(b, king, !color));
+    uint8_t k = b->king [color];
+    return(BoardIsSquareAttacked(b, BOARDSQ (k) , !color));
   }
   
   Flag BoardIsMoveValid (_Board * b, _Move * move)
@@ -192,31 +193,31 @@
         to += rays[i];
 
         /* Cannot move along the ray, will end up outside board */
-        if (IS_OUTSIDE(to))
+        if (IS_OUTSIDE (to))
           break;
 
         /* Occupied by same color; 'break' moving along the ray */
-        if (IS_BLOCKED(from, to))
+        if (IS_BLOCKED (from, to))
           break;
 
-        Flag flags = IS_EMPTY(to) ? MOVE_NORMAL : MOVE_CAPTURE;
+        Flag flags = IS_EMPTY (to) ? MOVE_NORMAL : MOVE_CAPTURE;
 
         /*create a new array for moves if not already created; */
         _Move move =
         {
-          .from.piece  = SQUARE_PIECE(from),
+          .from.piece  = PIECE(from),
           .from.square = *from,
-          .to.piece    = SQUARE_PIECE(to),
+          .to.piece    = PIECE(to),
           .to.square   = *to,
           .promotion   = EMPTY,
           .flags       = flags
         };
 
         /* Add to the list of possible moves. */
-        array_append( moves, &move, sizeof(move) );
+        array_append ( moves, &move, sizeof(move) );
   
         /* Cannot move further beyond a capture. */
-        if(flags & MOVE_CAPTURE)
+        if (flags & MOVE_CAPTURE)
           break;
       }
     }
@@ -227,104 +228,147 @@
     NOT_UNUSED(b);
     BoardMovesFrom(from, QUEEN_MOVES, 8, 7, moves); 
   }
-  
-  void BoardKingMoves(_Board *b, uint8_t * from, Array * moves)
+
+  void BoardWKingMoves(_Board *b, uint8_t * from, Array * moves)
   {
     BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
-    /* Check for castling ability */
 
-    /* King Side castling */
-    if ( (MOVE_kCASTLE << b->color) & (b->castling) )
+    if (*from != e1)
+      return; 
+
+    if (b->castling & CASTLING_WK)
     {
       Flag available = 1;
-      uint8_t * king = &(GAMEBOARD[7*b->color][4]);
-      uint8_t * rook = &(GAMEBOARD[7*b->color][7]);
-      assert (SQUARE_PIECE(king) == (BKING|b->color));
-      assert (SQUARE_PIECE(rook) == (BROOK|b->color));  
-      assert (king == from);
-      for (int i=1; i<3; ++i)
-      {
-        uint8_t * sq = king + i;
-        /* see if 2 squares b/w king and rook are empty */
-        if (!IS_EMPTY(sq))
-        {
-          available = 0;
-          break;
-        }
-      }
+      if (PIECES [f1] != EMPTY || PIECES [g1] != EMPTY)
+        available = 0;
       if (available)
       {
+        /* see if king, rook and the 2 squares in b/w are under attack */
         for (int i=0; i<4; ++i)
-        {
-          /* see if king, rook and the 2 squares in b/w are under attack */
-          if (BoardIsSquareAttacked (b, king + i, !b->color))
+          if (BoardIsSquareAttacked (b, from + i, BLACK))
           {
             available = 0;
             break;
           }
-        }
       }
       
       if(available)
       {
         _Move move =
         {
-          .from.piece = SQUARE_PIECE(king),
-          .from.square = *king,
-          .to.piece = EMPTY,
-          .to.square = 2 + *king,
-          .promotion = EMPTY,
-          .flags = MOVE_kCASTLE << b->color
+          .from.piece  = WKING,
+          .from.square = e1,
+          .to.piece    = EMPTY,
+          .to.square   = g1,
+          .promotion   = EMPTY,
+          .flags = CASTLING_WK
         };
-        array_append(moves,&move, sizeof(move));
+        array_append(moves, &move, sizeof(move));
       }
     }
 
 
     /* Queen Side castling */
-    if ( (MOVE_qCASTLE << b->color) & (b->castling) )
+    if (b->castling & CASTLING_WQ)
     {
-      uint8_t * king = &(GAMEBOARD[7*b->color][4]);
-      uint8_t * rook = &(GAMEBOARD[7*b->color][0]);
-      assert (SQUARE_PIECE(king) == (BKING|b->color));
-      assert (SQUARE_PIECE(rook) == (BROOK|b->color));  
-      assert (king == from);
       Flag available = 1;
-      for (int i=-3; i<0; ++i)
-      {
-        uint8_t * sq = king + i;
-        /* see if 2 squares b/w king and rook are empty */
-        if (!IS_EMPTY(sq))
-        {
-          available = 0;
-          break;
-        }
-      }
+      if (PIECES [b1] != EMPTY || PIECES [c1] != EMPTY || PIECES [d1] != EMPTY)
+        available = 0;
       if (available)
       {
-        for (int i=-4; i<1; ++i)
-        {
-          /* see if king, rook and the 3 squares in b/w are under attack */
-          if (BoardIsSquareAttacked (b, king + i, !b->color))
+        /* see if king, rook and the 2 squares in b/w are under attack */
+        for (int i=-4; i<=0; ++i)
+          if (BoardIsSquareAttacked (b, from + i, BLACK))
           {
             available = 0;
             break;
           }
-        }
       }
       
-      if (available)
+      if(available)
       {
         _Move move =
         {
-          .from.piece = SQUARE_PIECE(king),
-          .from.square = *king,
-          .to.piece = EMPTY,
-          .to.square = -2 + *king,
-          .promotion = EMPTY,
-          .flags = MOVE_qCASTLE << b->color
+          .from.piece  = WKING,
+          .from.square = e1,
+          .to.piece    = EMPTY,
+          .to.square   = c1,
+          .promotion   = EMPTY,
+          .flags = CASTLING_WQ
         };
-        array_append(moves,&move, sizeof(move));
+        array_append(moves, &move, sizeof(move));
+      }
+    }
+  }
+  
+  void BoardBKingMoves(_Board *b, uint8_t * from, Array * moves)
+  {
+    BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
+
+    if (*from != e8)
+      return; 
+
+    if (b->castling & CASTLING_BK)
+    {
+      Flag available = 1;
+      if (PIECES [f8] != EMPTY || PIECES [g8] != EMPTY)
+        available = 0;
+      if (available)
+      {
+        /* see if king, rook and the 2 squares in b/w are under attack */
+        for (int i=0; i<4; ++i)
+          if (BoardIsSquareAttacked (b, from + i, WHITE))
+          {
+            available = 0;
+            break;
+          }
+      }
+      
+      if(available)
+      {
+        _Move move =
+        {
+          .from.piece  = BKING,
+          .from.square = e8,
+          .to.piece    = EMPTY,
+          .to.square   = g8,
+          .promotion   = EMPTY,
+          .flags = CASTLING_BK
+        };
+        array_append(moves, &move, sizeof(move));
+      }
+    }
+
+
+    /* Queen Side castling */
+    if (b->castling & CASTLING_BQ)
+    {
+      Flag available = 1;
+      if (PIECES [b8] != EMPTY || PIECES [c8] != EMPTY || PIECES [d8] != EMPTY)
+        available = 0;
+      if (available)
+      {
+        /* see if king, rook and the 2 squares in b/w are under attack */
+        for (int i=-4; i<=0; ++i)
+          if (BoardIsSquareAttacked (b, from + i, BLACK))
+          {
+            available = 0;
+            break;
+          }
+      }
+      
+      if(available)
+      {
+        _Move move =
+        {
+          .from.piece  = BKING,
+          .from.square = e8,
+          .to.piece    = EMPTY,
+          .to.square   = c8,
+          .promotion   = EMPTY,
+          .flags = CASTLING_BQ
+        };
+        array_append(moves, &move, sizeof(move));
       }
     }
   }
@@ -357,7 +401,7 @@
       uint8_t * to = from + rays[j];
       Flag flags = IS_CAPTURE (from,to) ? 
         MOVE_CAPTURE : IS_ENPASSANTE (from,to,b) ?
-        MOVE_ENPASSANTE : 0;
+        MOVE_ENP_CAPTURE : 0;
     
       /*
       .. Pawn move diagonally only if it's a capture or an "en-passante"
@@ -366,29 +410,29 @@
       if(!flags) 
         continue;
   
-      flags |= IS_PROMOTION(from, to) ? MOVE_PROMOTION : 0;
+      flags |= IS_PROMOTION (from, to) ? MOVE_PROMOTION : 0;
   
       _Move move =
       {
-        .from.piece = SQUARE_PIECE (from),
+        .from.piece  = PIECE (from),
         .from.square = *from,
-        .to.piece = SQUARE_PIECE (to),
-        .to.square = *to,
-        .promotion = EMPTY,
-        .flags = flags
+        .to.piece    = PIECE (to),
+        .to.square   = *to,
+        .promotion   = EMPTY,
+        .flags       = flags
       };
        
       if (flags & MOVE_PROMOTION)
       {
-        move.promotion = SQUARE_PIECE (from);
+        move.promotion = b->color == WHITE ? WROOK : BROOK;
         for(int i=0; i<4; ++i)
         {
           /* 'p' is promoted to 'r','b','n' and 'q' */
-          move.promotion += 1 << PIECE_SHIFT;
           array_append (moves, &move, sizeof(move));
+          move.promotion += 2;
         }
       }
-      else
+      else /* if (flag == MOVE_CAPTURE | MOVE_ENP_CAPTURE)) */
       {
         array_append (moves, &move, sizeof(move));
       }
@@ -406,25 +450,25 @@
       flags |= IS_PROMOTION (from, to) ? MOVE_PROMOTION : 0;
       _Move move =
       {
-        .from.piece = SQUARE_PIECE(from),
+        .from.piece  = PIECE(from),
         .from.square = *from,
-        .to.piece = SQUARE_PIECE(to),
-        .to.square = *to,
-        .promotion = EMPTY,
-        .flags = flags
+        .to.piece    = PIECE(to),
+        .to.square   = *to,
+        .promotion   = EMPTY,
+        .flags       = flags
       };
 
       if(flags & MOVE_PROMOTION)
       {
-        move.promotion = SQUARE_PIECE(from);
+        move.promotion = b->color == WHITE ? WROOK : BROOK;
         for(int i=0; i<4; ++i)
         {
           /* 'p' is promoted to 'r','b','n' and 'q' */
-          move.promotion += 1 << PIECE_SHIFT; 
           array_append (moves, &move, sizeof(move));
+          move.promotion += 2;
         }
       }
-      else
+      else /* if (flag == MOVE_NORMAL) */
       {
         array_append (moves, &move, sizeof(move));
       }
@@ -446,15 +490,14 @@
   }
 
   /* function pointers (for move) for each chesspieces */
-  void (*BoardPieceMoves[14]) (_Board *, uint8_t *, Array * ) =
+  void (*BoardPieceMoves[12]) (_Board *, uint8_t *, Array * ) =
     {
-        NULL,             NULL,
-        BoardBPawnMoves,  BoardWPawnMoves, 
         BoardRookMoves,   BoardRookMoves,
         BoardKnightMoves, BoardKnightMoves,
         BoardBishopMoves, BoardBishopMoves,
         BoardQueenMoves,  BoardQueenMoves,
-        BoardKingMoves,   BoardKingMoves
+        BoardBPawnMoves,  BoardWPawnMoves, 
+        BoardBKingMoves,  BoardWKingMoves
     };
   
   /*
@@ -476,7 +519,7 @@
     b->status = GAME_CONTINUE;
 
     /* Look for draw */
-    if(b->halfclock == 50) 
+    if(b->halfclock == 100) 
       /* Draw by 50 moves rule. */
       b->status = (GAME_IS_A_DRAW | GAME_FIFTY_MOVES); 
     if (!b->npieces) 
@@ -495,11 +538,11 @@
         if ( IS_EMPTY(from) )
           continue;
         if ( PIECE_COLOR(from) != b->color )
-          /* occuppied by the other colot */
+          /* occuppied by the other color */
           continue;
 
         /* Generate possible moves with the 'piece' */
-        BoardPieceMoves[SQUARE_PIECE(from)](b, from, moves);
+        BoardPieceMoves[PIECE(from)](b, from, moves);
       }
     
     /* Removing Invalid Moves */
