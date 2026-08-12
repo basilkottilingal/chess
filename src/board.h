@@ -40,18 +40,45 @@
   #define END         9
   #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START]);
 
-  uint8_t PIECES [64];
-  const char * RANKFILE [64] =
+  /* represent a move */
+  typedef struct
   {
-    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
-    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
-    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
-    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
-    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
-    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
-    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
-    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8"
-  };
+    struct
+    {
+      uint8_t square;
+      uint8_t piece;
+    } from, to;
+    uint8_t flags;
+    uint8_t promotion;
+  } _Move;
+
+  /* board config (except halfclock, enpassante/castling information) */
+  uint8_t  PIECES [64];
+  uint8_t  kings [2];
+  uint8_t  color;
+  uint8_t  npieces;
+  uint16_t fullclock;
+  
+  /* additional informaion required to uniquley represent the board */
+  typedef struct
+  {
+    uint8_t enpassante;
+    uint8_t castling;
+    uint8_t status;
+    uint8_t legalMoves;
+    uint16_t halfclock;
+    uint16_t moveLoc;
+    uint64_t zobrist;
+  } _Board;
+
+  #ifndef MAX_STACK_SIZE
+  #define MAX_STACK_SIZE 64
+  #endif
+
+  _Board BoardStack [ MAX_STACK_SIZE ];
+  const _Board * BoardLast = & BoardStack [MAX_STACK_SIZE - 1];
+  Array moves = {.p = NULL, .max = 0, .len = 0};
+  #define MOVE_AT(i) ( & ((_Move * ) moves.p) [i] )
 
   #define NOT_UNUSED(x) (void)(x)
 
@@ -123,34 +150,19 @@
   #define CASTLING_WQ        4
   #define CASTLING_WK        8
   #define CASTLING           15
-  #define CASTLING_K(c)      (CASTLING_BK << (2 * c))
-  #define CASTLING_Q(c)      (CASTLING_BQ << (2 * c))
 
-  #define PROMOTION(p,c)     ( (p<<1) | c ) /* for all p in {0,1,2,3} */
   #define MOVE_NORMAL        0
   #define MOVE_CAPTURE      16
   #define MOVE_PROMOTION    32
   #define MOVE_ENP_CAPTURE  64
   #define MOVE_CHECK       128
 
-  /*
-  .. info required to uniquely represent a board position
-  */
-  typedef struct
-  {
-    uint8_t king [2], enpassante;
-    uint8_t castling, check, npieces;
-    uint16_t halfclock, fullclock;
-    uint8_t color;
-    uint8_t status;
-  } _Board;
-
 
   /* convert FEN string to board */
   int BoardSetFromFEN (_Board * b, const char * fen)
   {
-    b->npieces = 0;
-    b->king [WHITE] = b->king [BLACK] = OUTSIDE;
+    npieces = 0;
+    kings [WHITE] = kings [BLACK] = OUTSIDE;
 
     /* Set board from FEN */
     uint8_t * piece = PIECES, square = 0;
@@ -208,15 +220,15 @@
         uint8_t color = (c == 'K') ? WHITE : BLACK;
 
         /* There cannot be multiple kings of same color */
-        if ( b->king [color] != OUTSIDE )
+        if ( kings [color] != OUTSIDE )
           return 0;
 
-        b->king [color] = square;
+        kings [color] = square;
       }
       else
       {
         /* There are a max of 30 chesspieces excluding the two kings*/
-        if ( !((b->npieces)++ < 30) )
+        if ( !((npieces)++ < 30) )
           return 0;
       }
 
@@ -225,14 +237,14 @@
     }
 
     /* Make sure that there are exacly one each of 'k' and 'K' in the FEN; */
-    if (b->king [WHITE] == OUTSIDE || b->king [BLACK] == OUTSIDE)
+    if (kings [WHITE] == OUTSIDE || kings [BLACK] == OUTSIDE)
       return 0;
 
     /* Let's see whose turn is now ('w'/'b') */
     c = *fen++;
     if ( c != 'w' && c != 'b' )
       return 0;
-    b->color = *fen == 'w' ? WHITE : BLACK;
+    color = *fen == 'w' ? WHITE : BLACK;
     if ( (c = *fen++) != ' ' )
       return 0;
 
@@ -297,7 +309,7 @@
     if (*fen++ != ' ')
       return 0;
 
-    /* Halfmove clocks are reset during a capture or a pawn advance & 50 is the lim*/
+    /* Halfmove fullclocks are reset during a capture or a pawn advance & 50 is the lim*/
     b->halfclock = 0;
     c = *fen++;
     do {
@@ -311,23 +323,23 @@
     if (c != ' ')
       return 0;
 
-    /* full clock information */
-    b->fullclock = 0;
+    /* full fullclock information */
+    fullclock = 0;
     c = *fen++;
     do {
       if ( !(isdigit (c)) )
         return 0;
-      b->fullclock = 10*b->fullclock + (uint16_t) (c - '0');
+      fullclock = 10* fullclock + (uint16_t) (c - '0');
       /*
       .. No recorded FIDE game exceeded 300 moves. I don't know the theoretical
       .. limit. I think draw (by 50 moves rule) would have occured before 1000
       .. moves??
       */
-      if ( b->fullclock > 10000 )
+      if ( fullclock > 10000 )
         return 0;
     } while ( (c = *fen++) != '\0' && c != ' ');
     /* min {fullclocks} = 1 */
-    if ( b->fullclock == 0 )
+    if ( fullclock == 0 )
       return 0;
 
     /* FEN is valid */
@@ -365,7 +377,7 @@
     }
 
     /* whose turn */
-    *fen++ = b->color ? 'w' : 'b';
+    *fen++ = color ? 'w' : 'b';
     *fen++ = ' ';
 
     /* castling information */
@@ -394,15 +406,15 @@
     }
     *fen++ = ' ';
 
-    /* half & full clock */
+    /* half & full fullclock */
     uint16_t gameclock[2] =
-      {b->halfclock, b->fullclock};
+      {b->halfclock, fullclock};
 
     for (int i=0; i<2; ++i)
     {
       uint16_t n = gameclock[i], pos = 4;
 
-      /* otherwise: weird clocknumbers */
+      /* otherwise: weird fullclocknumbers */
       assert (n <= (i ? 5000 : 50));
       unsigned char h[5];
       h[pos] = i ? '\0' : ' ';
@@ -454,17 +466,6 @@
                    (PIECE (FROM) == BPAWN && SQUARE_RANK (FROM) == '4' \
                        && (*TO) == (BOARD)->enpassante ) )
 
-  typedef struct
-  {
-    uint8_t square, piece;
-  } _BoardSquare;
-
-  typedef struct
-  {
-    _BoardSquare from, to;
-    uint8_t flags;
-    uint8_t promotion;
-  }_Move;
 
   char * BoardMoveSAN (_Move * m)
   {
@@ -502,6 +503,8 @@
 
   void BoardMove (_Board * b, _Move * move)
   {
+    assert (b != BoardLast);
+    
     uint8_t from = move->from.square,
       to = move->to.square;
     assert (PIECES [from] == move->from.piece);
@@ -510,28 +513,42 @@
     uint8_t piece = PIECES [to] = (move->flags & MOVE_PROMOTION) ?
       move->promotion : move->from.piece;
 
-    if (piece == WROOK)
-    {
-      if (from == h1 && (b->castling & CASTLING_WK))
-        b->castling &= ~CASTLING_WK;
-      if (from == a1 && (b->castling & CASTLING_WQ))
-        b->castling &= ~CASTLING_WQ;
-      return;
-    }
+    if (move->flags & ( MOVE_CAPTURE | MOVE_ENP_CAPTURE ))
+      npieces --; 
 
-    if (piece == BROOK)
+    color = !color;
+
+    fullclock++;
+
+    b[1].enpassante = 
+      (piece == WPAWN && from - to == 16) ? from - 8 :
+      (piece == BPAWN && to - from == 16) ? from + 8 : OUTSIDE;
+    b[1].castling = b[0].castling ^ (CASTLING & move->flags);
+    b[1].halfclock = (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE) ) ? 0 :
+      (piece == WPAWN || piece == BPAWN) ? 0 : b[0].halfclock + 1;
+    b[1].moveLoc = b[0].moveLoc + b[0].legalMoves;
+
+    /*
+    .. Switching off (respective) castling ability when rook moves/atacked.
+    .. An edge case, that you can miss
+    */
+    if (b[1].castling)
     {
-      if (from == h8 && (b->castling & CASTLING_BK))
-        b->castling &= ~CASTLING_BK;
-      if (from == a8 && (b->castling & CASTLING_BQ))
-        b->castling &= ~CASTLING_BQ;
-      return;
+      /* Switching off castling if corner rooks move/captured */
+      if (move->from.square == a8 || move->to.square == a8)
+        b[1].castling &= ~CASTLING_BQ;
+      if (move->from.square == h8 || move->to.square == h8)
+        b[1].castling &= ~CASTLING_BK;
+      if (move->from.square == a1 || move->to.square == a1)
+        b[1].castling &= ~CASTLING_WQ;
+      if (move->from.square == h1 || move->to.square == h1)
+        b[1].castling &= ~CASTLING_WK;
     }
 
     if (piece == WKING)
     {
-      b->king [WHITE] = to;
-      b->castling &= ~( CASTLING_WQ | CASTLING_WK );
+      kings [WHITE] = to;
+      b[1].castling &= ~( CASTLING_WQ | CASTLING_WK );
       if (move->flags & CASTLING_WQ)
       {
         /* rank 1 :  "..KR.xxx"  (x : unknown)*/
@@ -551,8 +568,8 @@
 
     if (piece == BKING)
     {
-      b->king [BLACK] = to;
-      b->castling &= ~( CASTLING_BQ | CASTLING_BK );
+      kings [BLACK] = to;
+      b[1].castling &= ~( CASTLING_BQ | CASTLING_BK );
       if (move->flags & CASTLING_BQ)
       {
         /* rank 8 :  "..kr.xxx"  (x : unknown)*/
@@ -573,7 +590,7 @@
     if (move->flags & MOVE_ENP_CAPTURE)
     {
       b->enpassante = OUTSIDE;
-      PIECES [to + (b->color ? 8 : -8)] = EMPTY;
+      PIECES [to + (piece == WPAWN ? 8 : -8)] = EMPTY;
     }
   }
 
@@ -585,12 +602,18 @@
     uint8_t piece = PIECES [from] = move->from.piece;
     PIECES [to]   = move->to.piece;
 
+    if (move->flags & ( MOVE_CAPTURE | MOVE_ENP_CAPTURE ))
+      npieces ++; 
+
+    color = !color;
+
+    fullclock--;
+
     if (piece == WKING)
     {
-      b->king [WHITE] = from;
+      kings [WHITE] = from;
       if (move->flags & CASTLING_WQ)
       {
-        b->castling |= CASTLING_WQ;
         /* rank 1 :  "R...Kxxx"  (x : unknown)*/
         PIECES [a1] = WROOK;
         PIECES [d1] = EMPTY;
@@ -598,7 +621,6 @@
       }
       if (move->flags & CASTLING_WK)
       {
-        b->castling |= CASTLING_WK;
         /* rank 1 :  "xxxxK..R"  (x : unknown)*/
         PIECES [h1] = WROOK;
         PIECES [f1] = EMPTY;
@@ -609,10 +631,9 @@
 
     if (piece == BKING)
     {
-      b->king [BLACK] = from;
+      kings [BLACK] = from;
       if (move->flags & CASTLING_BQ)
       {
-        b->castling |= CASTLING_BQ;
         /* rank 8 :  "r...kxxx"  (x : unknown)*/
         PIECES [a8] = BROOK;
         PIECES [d8] = EMPTY;
@@ -620,7 +641,6 @@
       }
       if (move->flags & CASTLING_BK)
       {
-        b->castling |= CASTLING_BK;
         /* rank 8 :  "xxxxk..r"  (x : unknown)*/
         PIECES [h8] = BROOK;
         PIECES [f8] = EMPTY;
@@ -632,8 +652,8 @@
     if (move->flags & MOVE_ENP_CAPTURE)
     {
       b->enpassante = to;
-      PIECES [to + (b->color ? 8 : -8)] =
-        b->color ? BPAWN : WPAWN;
+      PIECES [to + (piece == WPAWN ? -8 : 8)] =
+        piece == WPAWN ? BPAWN : WPAWN;
     }
   }
 #endif

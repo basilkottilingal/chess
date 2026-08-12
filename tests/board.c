@@ -39,6 +39,7 @@ int main(){
     "p7/1Q6/K7/8/8/8/8/8 b - - 0 1", //no king
     "8/Q7/8/w7/8/8/8/k6K b - - 0 1", //unknown pice
     "k7/3np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30", // < 8 pieces in a row
+    "k7/4np2/8/7n/8/8/PP6/1R2K2R w KQ - 0 30", // Rook moved & castle shouldn't be available
     "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KqQk - 0 2", //wrong castle order
     "k7/4np2/8/8n/8/8/PP6/R3K2R w KQ - 0 30"  // > 8 pieces in a row
   };

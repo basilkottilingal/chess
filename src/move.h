@@ -233,7 +233,7 @@
   {
     BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
 
-    if (*from != e1)
+    if ( *from != e1)
       return; 
 
     if (b->castling & CASTLING_WK)
@@ -267,7 +267,6 @@
       }
     }
 
-
     /* Queen Side castling */
     if (b->castling & CASTLING_WQ)
     {
@@ -296,7 +295,7 @@
           .promotion   = EMPTY,
           .flags = CASTLING_WQ
         };
-        array_append(moves, &move, sizeof(move));
+        array_append (moves, &move, sizeof(move));
       }
     }
   }
@@ -513,7 +512,6 @@
   {
     if (!moves)
       return GAME_STATUS_ERROR;
-    BoardMakeAvailable (b);
   
     /* Find all moves by rule*/ 
     b->status = GAME_CONTINUE;
@@ -531,18 +529,16 @@
       /* Game over */
       return b->status;
   
-    for (int i=0; i<8; ++i)
-      for(int j=0; j<8; ++j)
+    for (int i=START; i<=END; ++i)
+      for(int j=START; j<=END; ++j)
       {
-        uint8_t * from = &(GAMEBOARD[i][j]);
-        if ( IS_EMPTY(from) )
-          continue;
-        if ( PIECE_COLOR(from) != b->color )
-          /* occuppied by the other color */
+        uint8_t * from = & BOARD [i][j];
+
+        if ( IS_EMPTY (from) || PIECE_COLOR (from) != b->color )
           continue;
 
         /* Generate possible moves with the 'piece' */
-        BoardPieceMoves[PIECE(from)](b, from, moves);
+        BoardPieceMoves [PIECE (from)] (b, from, moves);
       }
     
     /* Removing Invalid Moves */
@@ -597,7 +593,8 @@
     else if ( move->from.piece == BPAWN && 
         (move->to.square - move->from.square == 16) ) 
       b->enpassante = move->from.square + 8;
-    else
+
+    if (move->flags & MOVE_ENP_CAPTURE)
       b->enpassante = OUTSIDE;
     
     if (b->castling)
