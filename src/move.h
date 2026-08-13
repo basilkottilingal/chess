@@ -130,14 +130,13 @@
   */
   Flag BoardIsSquareAttacked (_Board * b, uint8_t *sq, Flag attackingColor)
   {
-    BoardMakeAvailable(b);
     if( !IS_EMPTY(sq) )
       assert ( PIECE_COLOR (sq) != attackingColor );
   
     /* check if the square "sq" is attacked by any pieces of color "color" */
     // fixme : move along the rays, rather than traversing through all 64 squares
-    for (int i=START; i<=END; ++i)
-      uint8_t * from = & BOARD [i][START];
+    for (int i=START; i<=END; ++i) {
+      const uint8_t * from = & BOARD [i][START];
       for (int j=START; j<=END; ++j, ++from)
       {
         /* Replace it with square iterator */
@@ -152,6 +151,7 @@
         if (BoardIsSquareAttackedByPiece [ PIECE (from) ] (from, sq))
           return 1; /* "sq" is attacked */
       }
+    }
   
     /* uint8_t "sq" is safe from any attack */
     return 0;
@@ -161,14 +161,8 @@
   Flag BoardIsKingAttacked (_Board * b, Flag color)
   {
     /* check if the King of color "color" is attacked */
-    uint8_t k = b->king [color];
+    uint8_t k = kings [color];
     return(BoardIsSquareAttacked(b, BOARDSQ (k) , !color));
-  }
-  
-  Flag BoardIsMoveValid (_Board * b, _Move * move)
-  {
-  
-    return valid;
   }
   
   static inline 
@@ -390,17 +384,13 @@
   
     for(int j=0; j<2; j++)
     {
-      /* Diagonal advance of pawn */
+      /* Diagonal advance of pawn : Capture / Enp Capture */
       uint8_t * to = from + rays[j];
       Flag flags = IS_CAPTURE (from,to) ?
-        ( IS_PROMOTION (to) ? (MOVE_CAPTURE|MOVE_PROMOTION) : MOVE_CAPTURE )
-        IS_ENP_CAPTURE (to,b) ? MOVE_ENP_CAPTURE : 0;
+        ( IS_PROMOTION (to) ? (MOVE_CAPTURE|MOVE_PROMOTION) : MOVE_CAPTURE ) :
+        IS_ENP_CAPTURE (to,b) ? MOVE_ENP_CAPTURE : MOVE_NORMAL;
     
-      /*
-      .. Pawn move diagonally only if it's a capture or an "en-passante"
-      .. capture
-      */
-      if(!flags) 
+      if (flags == MOVE_NORMAL)
         continue;
   
       _Move move =
@@ -415,7 +405,7 @@
        
       if (flags & MOVE_PROMOTION)
       {
-        move.promotion = b->color == WHITE ? WROOK : BROOK;
+        move.promotion = color == WHITE ? WROOK : BROOK;
         for(int i=0; i<4; ++i)
         {
           /* 'p' is promoted to 'r','b','n' and 'q' */
@@ -437,7 +427,7 @@
       if (!IS_EMPTY(to))
         break; /* capture, block, outside leads to "break" */
 
-      flags = IS_PROMOTION (to) ? MOVE_PROMOTION : MOVE_NORMAL;
+      uint8_t flags = IS_PROMOTION (to) ? MOVE_PROMOTION : MOVE_NORMAL;
       _Move move =
       {
         .from.piece  = PIECE(from),
@@ -450,7 +440,7 @@
 
       if(flags & MOVE_PROMOTION)
       {
-        move.promotion = b->color == WHITE ? WROOK : BROOK;
+        move.promotion = color == WHITE ? WROOK : BROOK;
         for(int i=0; i<4; ++i)
         {
           /* 'p' is promoted to 'r','b','n' and 'q' */
@@ -464,7 +454,7 @@
       }
   
       /* double advance only for starting pawns */
-      if ( SQUARE_RANK(from) != (b->color ? '2' : '7') )
+      if ( SQUARE_RANK(from) != (color ? '2' : '7') )
         break;  
     }
   }
@@ -501,137 +491,49 @@
   
   Flag BoardAllMoves (_Board * b)
   {
-    if (!moves)
-      return GAME_STATUS_ERROR;
-  
-    /* Find all moves by rule*/ 
-    b->status = GAME_CONTINUE;
+    b->status = (b->halfclock == 100) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES):
+      npieces == 0 ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) : GAME_CONTINUE;
 
-    /* Look for draw */
-    if(b->halfclock == 100) 
-      /* Draw by 50 moves rule. */
-      b->status = (GAME_IS_A_DRAW | GAME_FIFTY_MOVES); 
-    if (!b->npieces) 
-      /* Insufficient pieces */
-      b->status = (GAME_IS_A_DRAW | GAME_INSUFFICIENT); 
-  
-    //moves->len = 0;
-    if(b->status) 
-      /* Game over */
+    if (b->status != GAME_CONTINUE)
+      /* Game is a draw */
       return b->status;
-  
-    for (int i=START; i<=END; ++i)
-      for(int j=START; j<=END; ++j)
+
+    uint8_t onCheck = BoardIsKingAttacked(b, color);
+
+    /* Add all moves (incl invalid moves). They are still not marked */ 
+    for (int i=START; i<=END; ++i) {
+      const uint8_t * from = & BOARD [i][START];
+      for(int j=START; j<=END; ++j, ++from)
       {
-        uint8_t * from = & BOARD [i][j];
-
-        if ( IS_EMPTY (from) || PIECE_COLOR (from) != b->color )
+        if ( IS_EMPTY (from) || PIECE_COLOR (from) != color )
           continue;
-
         /* Generate possible moves with the 'piece' */
-        BoardPieceMoves [PIECE (from)] (b, from, moves);
+        BoardPieceMoves [PIECE (from)] (b, from, &movesall);
       }
+    }
+
+    b->totalMoves = (uint8_t) ((uint16_t) ((movesall.max - movesall.len)
+                      / sizeof (_Move)) - b->moveLoc);
+    _Move * move =  MOVES_AT (b);
+    uint8_t legalMoves = 0;
     
     /* Marking Moves that are invalid && marking moves that create check*/
-    for (int i=0; i<nmoves; ++i, ++move)
+    for (int i=0; i<b->totalMoves; ++i, ++move)
     {
       BoardMove(b, move);
-      if (BoardIsKingAttacked(b, b->color))
-        move->flags = MOVE_INVALID;
-      else if (BoardIsKingAttacked(b, !b->color))
-        move->flags |= MOVE_CHECK;
+      if (BoardIsKingAttacked(b, color))
+        move->flags = MOVE_ILLEGAL;
+      else
+        legalMoves ++;
       BoardUnmove(b, move);
     }
   
     /*See if the Board is over. Bcs no moves available */
-    if(!moves->len)
-    {
-      b->status =  b->check ?
-        (GAME_IS_A_WIN | (!b->color)) :
+    if(!legalMoves)
+      b->status = onCheck ? (GAME_IS_A_WIN | !color) :
         (GAME_IS_A_DRAW | GAME_STALEMATE);
-    } 
  
     return b->status; 
-  }
-  
-  Flag BoardUpdateMetadata (_Board * b, _Move * move)
-  {
-  
-    /* update the halfclock, fullclock */
-    if(!b->color)
-      ++(b->fullclock);
-    b->halfclock = (move->flags & MOVE_CAPTURE) ? 0 :
-      ((move->from.piece == WPAWN || move->from.piece == BPAWN) 
-        ? 0 : (b->halfclock + 1));
-
-    /* change the turn */
-    b->color = !b->color;
-
-    /* Is the board on Check? */
-    b->check = move->flags & MOVE_CHECK;
-
-    /* Set En-Passante square while double pawn advance */
-    if( move->from.piece == WPAWN &&
-        (move->from.square - move->to.square == 16) ) 
-      b->enpassante = move->from.square - 8;
-    else if ( move->from.piece == BPAWN && 
-        (move->to.square - move->from.square == 16) ) 
-      b->enpassante = move->from.square + 8;
-
-    if (move->flags & MOVE_ENP_CAPTURE)
-      b->enpassante = OUTSIDE;
-    
-    if (b->castling)
-    {
-      /* Switching off castling if king move moves */
-      if(move->from.square == 4)
-        b->castling &= ~(MOVE_qCASTLE | MOVE_kCASTLE);
-      else if (move->from.square == 60)
-        b->castling &= ~(MOVE_QCASTLE | MOVE_KCASTLE);
-    
-      /* Switching off castling if corner rooks move/captured */
-      if (move->from.square == 0 || move->to.square == 0)
-        b->castling &= ~MOVE_qCASTLE;
-      if (move->from.square == 7 || move->to.square == 7)
-        b->castling &= ~MOVE_kCASTLE;
-      if (move->from.square == 56 || move->to.square == 56)
-        b->castling &= ~MOVE_QCASTLE;
-      if (move->from.square == 63 || move->to.square == 63)
-        b->castling &= ~MOVE_KCASTLE;
-    }
-  
-    /* Total number of pieces */
-    if(move->flags & MOVE_CAPTURE)
-      --(b->npieces);
-  
-    if (b->status != GAME_METADATA_NOTUPDATED)
-      return GAME_STATUS_ERROR;
-
-    b->status = GAME_STATUS_NOTUPDATED;
-    return 0;
-  }
-  
-  Flag  
-  BoardNext (_Board * b, _Move * move, Array * moves)
-  {
-  
-    if ( !move )
-    {
-      GameError ("BoardNext() : Aborted");
-      return GAME_STATUS_ERROR; 
-    }
-  
-    /* Move the bitboard */
-    BoardMove(b, move);
-
-    /* Update the associated metadata of the board */
-    if ( BoardUpdateMetadata(b, move) == GAME_STATUS_ERROR )
-    {
-      GameError("BoardNext() : Metadata update failed");
-      return GAME_STATUS_ERROR;
-    }
-   
-    return (BoardAllMoves (b, moves));
   }
   
   void BoardStatusPrint (_Board * b)
@@ -672,23 +574,9 @@
           "ERROR: Unkown reason for a draw!! "); 
     }
 
-    fflush(stdout);
-
-    if (WinOrDraw != 1)
-    {
-      fprintf(stderr, "\nERROR: Game 'ended' has to be exclusively draw/win");
-      fflush(stderr);
-    }
-    else
+    if (WinOrDraw == 1)
       return;
 
-    if (f == GAME_METADATA_NOTUPDATED)
-      fprintf(stderr, "\nERROR: Incomplete Move. Metadata/status not updated");
-    else if (f == GAME_STATUS_NOTUPDATED)
-      fprintf(stderr, "\nERROR: Incomplete Move. Status not updated");
-    else
-      fprintf(stderr, "\nERROR: Unknown game status");
-
-    fflush(stderr);
+    fprintf(stderr, "\nERROR: Unknown game status");
   }
 #endif

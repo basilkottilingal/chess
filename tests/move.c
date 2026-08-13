@@ -1,5 +1,14 @@
 #include "../src/move.h"
 
+#define WAIT_CLEAR() do \
+  { continue;\
+    clock_t start_time = clock();\
+    clock_t wait_time = 0.8*CLOCKS_PER_SEC ;\
+    while (clock() - start_time < wait_time) {};\
+    printf("\033[2J");\
+    printf("\033[1;1H");\
+  } while (0)
+
 
 //Run this test script using
 //$ gcc -Winline -o del test-move.c -lm&& ./del
@@ -24,8 +33,7 @@ rn2k1n1/pBp1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6
 */
 
 int main(){
-  _Board * b = Board(NULL);
-  Flag succ =
+  _Board * b =
   //BoardSetFromFEN(b,NULL);
   //BoardSetFromFEN(b,"8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN(b,"8/Q7/8/q7/8/8/8/k6K b - - 0 1");
@@ -40,46 +48,32 @@ int main(){
   //BoardSetFromFEN(b,"r2q2n1/2p1p1kr/3p1p1b/p3B2p/p1PP1Pb1/4KR1P/RP2P3/nN3BN1 w - - 2 22");
   //BoardSetFromFEN(b,"3r1n2/8/1b2k3/6P1/2p3K1/1p6/4p1B1/8 b - - 2 120");
   //BoardSetFromFEN(b,"5n2/4r3/1b2k1P1/8/2p3K1/1p6/4p1B1/8 w - - 1 122");
-  BoardSetFromFEN(b,"B2r1n2/8/1b2k3/6P1/2p3K1/1p1n4/8/8 w - - 2 122");
-  assert(succ);
+  BoardSetFromFEN ("B2r1n2/8/1b2k3/6P1/2p3K1/1p1n4/8/8 w - - 2 122");
+  assert(b != NULL);
 
-  //GamePrintBoard(g, 0);
-  //_GameSquare * from = &(g->board[7][1]);
-  //GameMovesFrom(from, KNIGHT_MOVES, 8, 1, g->moves);
-  //GameAllMoves(g);
-  BoardPrint(b);
-
-  Array moves = {.p = NULL, .len = 0, .max = 0};
-  Flag status = BoardAllMoves(b, &moves);
-  if(status == GAME_CONTINUE) {
-    _Move * move = moves.p;
-    Flag nmoves = (Flag) (moves.len/sizeof(_Move));
-    for(Flag i=0; i<nmoves; ++i, ++move){
-{
-      clock_t start_time = clock();
-      clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 
-      while (clock() - start_time < wait_time) {};
-      printf("\033[2J");       // Clear the screen
-      printf("\033[1;1H");     //Cursor on the left top left
-}
-      BoardPrint(b);
-      BoardMove(b, move);
-{
-      clock_t start_time = clock();
-      clock_t wait_time = 0.8*CLOCKS_PER_SEC ; //sleep time 
-      while (clock() - start_time < wait_time) {};
-      printf("\033[2J");       // Clear the screen
-      printf("\033[1;1H");     //Cursor on the left top left
-}
-      BoardPrint(b);
-      BoardUnmove(b, move);
-      
-    }  
-    free(moves.p);
+  if ( BoardAllMoves (b) != GAME_CONTINUE )
+  {
+    BoardStatusPrint (b);
+    return 0;
   }
-  //unsigned int status = Game(g);
-  BoardStatusPrint(b);
-  BoardDestroy(b);
+
+  fprintf (stdout, "%d", b->totalMoves);
+  _Move * move = MOVES_AT (b);
+  for (uint8_t i = 0; i<b->totalMoves; ++i, ++move)
+  {
+    if (move->flags == MOVE_ILLEGAL)
+      continue;
+
+    WAIT_CLEAR ();
+
+    BoardPrint(b);
+    BoardMove(b, move);
+
+    WAIT_CLEAR ();
+
+    BoardPrint(b);
+    BoardUnmove(b, move);
+  }
 
   return 0;
 }

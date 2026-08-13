@@ -38,7 +38,7 @@
 
   #define START       2
   #define END         9
-  #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START]);
+  #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START])
 
   /* represent a move */
   typedef struct
@@ -65,7 +65,7 @@
     uint8_t enpassante;
     uint8_t castling;
     uint8_t status;
-    uint8_t legalMoves;
+    uint8_t totalMoves; /* including illegal moves */
     uint16_t halfclock;
     uint16_t moveLoc;
     uint64_t zobrist;
@@ -77,8 +77,8 @@
 
   _Board BoardStack [ MAX_STACK_SIZE ];
   const _Board * BoardLast = & BoardStack [MAX_STACK_SIZE - 1];
-  Array moves = {.p = NULL, .max = 0, .len = 0};
-  #define MOVE_AT(b) ( & ((_Move * ) moves.p) [b->moveLoc] )
+  Array movesall = {.p = NULL, .max = 0, .len = 0};
+  #define MOVES_AT(b) ( & ((_Move * ) movesall.p) [b->moveLoc] )
 
   #define NOT_UNUSED(x) (void)(x)
 
@@ -152,16 +152,16 @@
   #define MOVE_CAPTURE      16
   #define MOVE_PROMOTION    32
   #define MOVE_ENP_CAPTURE  64
-  #define MOVE_CHECK       128
-  #define MOVE_INVALID     255
+  #define MOVE_ILLEGAL     128
+  /* #define MOVE_CHECK       128 */
 
   /* convert FEN string to board */
   _Board * BoardSetFromFEN (const char * fen)
   {
     _Board *  b = BoardStack;
-    b->legalMoves = 0;  /* Note : not yet evaluated. */
+    b->totalMoves = 0;  /* Note : not yet evaluated. */
     b->moveLoc = 0;
-    moves.len = 0;
+    movesall.len = 0;
   
     npieces = 0;
     kings [WHITE] = kings [BLACK] = OUTSIDE;
@@ -505,10 +505,12 @@
     assert (PIECES [from] == move->from.piece);
     PIECES [from] = EMPTY;
 
+    #if 0
     if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
       npieces --; 
     color = !color;
     fullclock++;
+    #endif
 
     b[1].enpassante = 
       (piece == WPAWN && from - to == 16) ? from - 8 :
@@ -517,7 +519,7 @@
     b[1].halfclock = 
       ((move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE) ) || piece == WPAWN ||
         piece == BPAWN ) ? 0 : b[0].halfclock + 1;
-    b[1].moveLoc = b[0].moveLoc + b[0].legalMoves;
+    b[1].moveLoc = b[0].moveLoc + b[0].totalMoves;
 
     /*
     .. Switching off (respective) castling ability when rook moves/atacked.
@@ -592,10 +594,12 @@
     uint8_t piece = PIECES [from] = move->from.piece;
     PIECES [to]   = move->to.piece;
 
+    #if 0
     if (move->flags & ( MOVE_CAPTURE | MOVE_ENP_CAPTURE ))
       npieces ++; 
     color = !color;
     fullclock--;
+    #endif
 
     if (piece == WKING)
     {
