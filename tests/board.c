@@ -45,11 +45,11 @@ int main(){
   };
   char fen [FEN_MAXSIZE];
 
-  _Board board, * b = & board;
   for (int i=0; i<sizeof (fens) / sizeof (fens [1]); ++i)
   {
     fprintf(stdout, "%s", fens [i]);
-    if (BoardSetFromFEN (b, fens [i]) == 0) {
+    _Board * b = BoardSetFromFEN (fens [i]);
+    if (b == NULL) {
       fprintf (stdout, "\nwrong fen\n\n");
       continue;
     }

@@ -78,7 +78,7 @@
   _Board BoardStack [ MAX_STACK_SIZE ];
   const _Board * BoardLast = & BoardStack [MAX_STACK_SIZE - 1];
   Array moves = {.p = NULL, .max = 0, .len = 0};
-  #define MOVE_AT(i) ( & ((_Move * ) moves.p) [i] )
+  #define MOVE_AT(b) ( & ((_Move * ) moves.p) [b->moveLoc] )
 
   #define NOT_UNUSED(x) (void)(x)
 
@@ -116,13 +116,13 @@
     };
   const uint8_t CHESSPIECE[50] =
     {
-      'A',     WBISHOP,  'C',     'D',      'E',      'F',      'G',      'H',
-      'I',     'J',       WKING,  'L',      'M',      WKNIGHT,  'O',      WPAWN,
-      WQUEEN,  WROOK,    'S',     'T',      'U',      'V',      'W',      'X',
-      'Y',     'Z',       ' ',    ' ',      ' ',      ' ',      ' ',      ' ',
-      'a',     BBISHOP,   'c',    'd',      'e',      'f',      'g',      'h',
-      'i',     'j',       BKING,  'l',      'm',      BKNIGHT,  'o',      BPAWN,
-      BQUEEN,  BROOK,
+      'A',      WBISHOP,   'C',     'D',   'E',   'F',       'G',   'H',
+      'I',      'J',       WKING,   'L',   'M',   WKNIGHT,   'O',   WPAWN,
+      WQUEEN,   WROOK,     'S',     'T',   'U',   'V',       'W',   'X',
+      'Y',      'Z',       ' ',     ' ',   ' ',   ' ',       ' ',   ' ',
+      'a',      BBISHOP,   'c',     'd',   'e',   'f',       'g',   'h',
+      'i',      'j',       BKING,   'l',   'm',   BKNIGHT,   'o',   BPAWN,
+      BQUEEN,   BROOK,
     };
   #define BoardSquareParse(sq)   (8 * (8 - sq[1] + '0' ) + sq[0] - 'a')
   #define PieceParse(p)          CHESSPIECE [p - 'A']
@@ -140,27 +140,29 @@
   #define SQUARE_RANK(S)  ('0' + 8 - (*S)/8)
   #define PIECE_ASCII(S)  ( ASCII [PIECE (S)] )
 
-
   /*
-  .. warning : don't change this castling order. This is the inverse of the
-  .. order stipulated for castling in standard FEN (i.e K, Q, k, q)
+  .. Identifying the type of move
   */
-  #define CASTLING_BQ        1
-  #define CASTLING_BK        2
-  #define CASTLING_WQ        4
-  #define CASTLING_WK        8
-  #define CASTLING           15
-
+  #define CASTLING          15
   #define MOVE_NORMAL        0
+  #define CASTLING_BQ        1  /* warning : Don't change this castling */
+  #define CASTLING_BK        2  /* .. order. This is the inverse of the */
+  #define CASTLING_WQ        4  /* .. order stipulated for castling in  */
+  #define CASTLING_WK        8  /* .. the standard FEN (i.e K, Q, k, q) */
   #define MOVE_CAPTURE      16
   #define MOVE_PROMOTION    32
   #define MOVE_ENP_CAPTURE  64
   #define MOVE_CHECK       128
-
+  #define MOVE_INVALID     255
 
   /* convert FEN string to board */
-  int BoardSetFromFEN (_Board * b, const char * fen)
+  _Board * BoardSetFromFEN (const char * fen)
   {
+    _Board *  b = BoardStack;
+    b->legalMoves = 0;  /* Note : not yet evaluated. */
+    b->moveLoc = 0;
+    moves.len = 0;
+  
     npieces = 0;
     kings [WHITE] = kings [BLACK] = OUTSIDE;
 
@@ -172,7 +174,7 @@
     {
 
       if ( !(square <= OUTSIDE) )
-        return 0;
+        return NULL;
 
       /* Empty squares */
       if (isdigit (c))
@@ -180,7 +182,7 @@
         int nempty = c - '0';
         /* cannot overfille a row */
         if ( nempty == 0 || nempty + (square % 8) > 8 )
-          return 0;
+          return NULL;
         for (int i=0; i<nempty; ++i)
           *piece++ = EMPTY;
         square += nempty;
@@ -192,7 +194,7 @@
       {
         /* Make sure all squares of this rank are filled */
         if ( !(square%8 == 0 ) )
-          return 0;
+          return NULL;
         continue;
       }
 
@@ -201,7 +203,7 @@
       {
         /* Make sure all squares are filled */
         if ( square != OUTSIDE )
-          return 0;
+          return NULL;
         break;
       }
 
@@ -210,7 +212,7 @@
           c == 'n' || c == 'N' ||  c == 'r' || c == 'R' ||
           c == 'q' || c == 'Q' ||  c == 'k' || c == 'K') )
       {
-        return 0;
+        return NULL;
       }
 
       /* Identify chesspiece ID from (valid) ASCII */
@@ -221,7 +223,7 @@
 
         /* There cannot be multiple kings of same color */
         if ( kings [color] != OUTSIDE )
-          return 0;
+          return NULL;
 
         kings [color] = square;
       }
@@ -229,7 +231,7 @@
       {
         /* There are a max of 30 chesspieces excluding the two kings*/
         if ( !((npieces)++ < 30) )
-          return 0;
+          return NULL;
       }
 
       *piece++ =  PieceParse (c);
@@ -238,15 +240,15 @@
 
     /* Make sure that there are exacly one each of 'k' and 'K' in the FEN; */
     if (kings [WHITE] == OUTSIDE || kings [BLACK] == OUTSIDE)
-      return 0;
+      return NULL;
 
     /* Let's see whose turn is now ('w'/'b') */
     c = *fen++;
     if ( c != 'w' && c != 'b' )
-      return 0;
+      return NULL;
     color = *fen == 'w' ? WHITE : BLACK;
     if ( (c = *fen++) != ' ' )
-      return 0;
+      return NULL;
 
     /* read castling information */
     b->castling = 0;
@@ -260,42 +262,42 @@
         switch (c) {
           case 'K' :
             if ( PIECES [e1] != WKING || PIECES [h1] != WROOK )
-              return 0;
+              return NULL;
             which = CASTLING_WK;
             break;
           case 'Q' :
             if ( PIECES [e1] != WKING || PIECES [a1] != WROOK )
-              return 0;
+              return NULL;
             which = CASTLING_WQ;
             break;
           case 'k' :
             if ( PIECES [e8] != BKING || PIECES [h8] != BROOK )
-              return 0;
+              return NULL;
             which = CASTLING_BK;
             break;
           case 'q' :
             if ( PIECES [e8] != BKING || PIECES [a8] != BROOK )
-              return 0;
+              return NULL;
             which = CASTLING_BQ;
             break;
           default :
             /* expects only K, Q, k or q */
-            return 0;
+            return NULL;
         }
         if ( (2*which-1) & b->castling )
         {
           /*
-          .. bit ordering of castling is done such a way that, any violation of the
-          .. stipulated castling order (KQKq) or any multiplicity of K, Q, k or q
+          .. bit ordering of castling is done such a way that, any violation of
+          .. the stipulated castling order(KQKq) or any multiplicity of K/Q/k/q
           .. will be caught here
           */
-          return 0;
+          return NULL;
         }
         b->castling |= which;
       } while ((c = *fen++) != '\0' && c != ' ');
     }
     if (c != ' ')
-      return 0;
+      return NULL;
 
     /* read if any square is enpassante */
     b->enpassante = OUTSIDE;
@@ -303,32 +305,31 @@
     {
       char d = *fen++;
       if (c > 'h' || c < 'a' || d > '8' || d < '1')
-        return 0;
+        return NULL;
       b->enpassante = (8 * (8 - d + '0' ) + c - 'a');
     }
     if (*fen++ != ' ')
-      return 0;
+      return NULL;
 
-    /* Halfmove fullclocks are reset during a capture or a pawn advance & 50 is the lim*/
     b->halfclock = 0;
     c = *fen++;
     do {
       if ( !(isdigit (c)) )
-        return 0;
+        return NULL;
       b->halfclock = 10*b->halfclock + (uint16_t) (c - '0');
       /* FIDE limits automatic draw @ 150 */
       if ( b->halfclock > /*150*/ 20000 )
-        return 0;
+        return NULL;
     } while ( (c = *fen++) != '\0' && c != ' ');
     if (c != ' ')
-      return 0;
+      return NULL;
 
     /* full fullclock information */
     fullclock = 0;
     c = *fen++;
     do {
       if ( !(isdigit (c)) )
-        return 0;
+        return NULL;
       fullclock = 10* fullclock + (uint16_t) (c - '0');
       /*
       .. No recorded FIDE game exceeded 300 moves. I don't know the theoretical
@@ -336,14 +337,14 @@
       .. moves??
       */
       if ( fullclock > 10000 )
-        return 0;
+        return NULL;
     } while ( (c = *fen++) != '\0' && c != ' ');
     /* min {fullclocks} = 1 */
     if ( fullclock == 0 )
-      return 0;
+      return NULL;
 
     /* FEN is valid */
-    return 1;
+    return b;
   }
 
   /* create fen string for a board */
@@ -449,22 +450,14 @@
 
   /* conditions to check while moving piece from 'FROM' to 'TO' */
 
-  #define IS_NORMAL(FROM,TO)       ( IS_EMPTY (TO) )
-  #define IS_BLOCKED(FROM,TO)      ( IS_PIECE (TO) &&                         \
+  #define IS_NORMAL(FROM,TO)         ( IS_EMPTY (TO) )
+  #define IS_BLOCKED(FROM,TO)        ( IS_PIECE (TO) &&                       \
                                      (PIECE_COLOR (FROM) == PIECE_COLOR (TO)) )
-  #define IS_CAPTURE(FROM,TO)      ( IS_PIECE (TO) &&                         \
+  #define IS_CAPTURE(FROM,TO)        ( IS_PIECE (TO) &&                       \
                                      (PIECE_COLOR (FROM) != PIECE_COLOR (TO)) )
-  #define IS_PROMOTION(FROM,TO)                                               \
-                                   ( (( PIECE (FROM) == WPAWN) &&      \
-                                      (SQUARE_RANK (TO) == '8')) ||           \
-                                     (( PIECE (FROM) == BPAWN) &&      \
-                                       (SQUARE_RANK (TO) == '1')) )
-  /* fixme : rename to IS_EP_CAPTURE */
-  #define IS_ENPASSANTE(FROM,TO,BOARD)                                        \
-                 ( (PIECE (FROM) == WPAWN && SQUARE_RANK (FROM) == '5' \
-                       && (*TO) == (BOARD)->enpassante ) ||                   \
-                   (PIECE (FROM) == BPAWN && SQUARE_RANK (FROM) == '4' \
-                       && (*TO) == (BOARD)->enpassante ) )
+  /* use (both) carefully, assumes moving piece is WPAWN/BPAWN */
+  #define IS_PROMOTION(TO) (SQUARE_RANK (TO) == '8' || SQUARE_RANK (TO) == '1')
+  #define IS_ENP_CAPTURE(TO,BOARD)   ((*TO) == (BOARD)->enpassante)
 
 
   char * BoardMoveSAN (_Move * m)
@@ -478,27 +471,27 @@
   enum GAME_STATUS
   {
     /* Board status */
-    GAME_CONTINUE   = 0,
-    GAME_IS_A_WIN   = 16,
-    GAME_IS_A_DRAW  = 32,
+    GAME_CONTINUE          = 0,
+    GAME_IS_A_WIN          = 16,
+    GAME_IS_A_DRAW         = 32,
 
     /* Encode unknown error*/
-    GAME_STATUS_ERROR = 128,
+    GAME_STATUS_ERROR      = 128,
 
     /* Info on WIN */
-    GAME_WHO_WINS = 1,
-    GAME_IS_WON_BY_TIME = 2,
+    GAME_WHO_WINS          = 1,
+    GAME_IS_WON_BY_TIME    = 2,
     GAME_IS_WON_BY_FORFEIT = 4,
 
     /* Info on draw = (STATS & GAME_DRAW_INFO)*/
-    GAME_DRAW_INFO = 15,
-    GAME_STALEMATE = 0,
-    GAME_INSUFFICIENT = 1,
-    GAME_FIFTY_MOVES = 2,
-    GAME_THREE_FOLD = 3,
-    GAME_WHITE_CANNOT = 4,
-    GAME_BLACK_CANNOT = 5,
-    GAME_AGREES = 6
+    GAME_DRAW_INFO         = 15,
+    GAME_STALEMATE         = 0,
+    GAME_INSUFFICIENT      = 1,
+    GAME_FIFTY_MOVES       = 2,
+    GAME_THREE_FOLD        = 3,
+    GAME_WHITE_CANNOT      = 4,
+    GAME_BLACK_CANNOT      = 5,
+    GAME_AGREES            = 6
   };
 
   void BoardMove (_Board * b, _Move * move)
@@ -507,25 +500,23 @@
     
     uint8_t from = move->from.square,
       to = move->to.square;
-    assert (PIECES [from] == move->from.piece);
-
-    PIECES [from] = EMPTY;
     uint8_t piece = PIECES [to] = (move->flags & MOVE_PROMOTION) ?
       move->promotion : move->from.piece;
+    assert (PIECES [from] == move->from.piece);
+    PIECES [from] = EMPTY;
 
-    if (move->flags & ( MOVE_CAPTURE | MOVE_ENP_CAPTURE ))
+    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
       npieces --; 
-
     color = !color;
-
     fullclock++;
 
     b[1].enpassante = 
       (piece == WPAWN && from - to == 16) ? from - 8 :
       (piece == BPAWN && to - from == 16) ? from + 8 : OUTSIDE;
-    b[1].castling = b[0].castling ^ (CASTLING & move->flags);
-    b[1].halfclock = (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE) ) ? 0 :
-      (piece == WPAWN || piece == BPAWN) ? 0 : b[0].halfclock + 1;
+    b[1].castling = b[0].castling & ~move->flags;
+    b[1].halfclock = 
+      ((move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE) ) || piece == WPAWN ||
+        piece == BPAWN ) ? 0 : b[0].halfclock + 1;
     b[1].moveLoc = b[0].moveLoc + b[0].legalMoves;
 
     /*
@@ -535,20 +526,20 @@
     if (b[1].castling)
     {
       /* Switching off castling if corner rooks move/captured */
-      if (move->from.square == a8 || move->to.square == a8)
+      if (from == a8 || to == a8)
         b[1].castling &= ~CASTLING_BQ;
-      if (move->from.square == h8 || move->to.square == h8)
+      if (from == h8 || to == h8)
         b[1].castling &= ~CASTLING_BK;
-      if (move->from.square == a1 || move->to.square == a1)
+      if (from == a1 || to == a1)
         b[1].castling &= ~CASTLING_WQ;
-      if (move->from.square == h1 || move->to.square == h1)
+      if (from == h1 || to == h1)
         b[1].castling &= ~CASTLING_WK;
     }
 
     if (piece == WKING)
     {
       kings [WHITE] = to;
-      b[1].castling &= ~( CASTLING_WQ | CASTLING_WK );
+      b[1].castling &= ~(CASTLING_WQ | CASTLING_WK);
       if (move->flags & CASTLING_WQ)
       {
         /* rank 1 :  "..KR.xxx"  (x : unknown)*/
@@ -569,7 +560,7 @@
     if (piece == BKING)
     {
       kings [BLACK] = to;
-      b[1].castling &= ~( CASTLING_BQ | CASTLING_BK );
+      b[1].castling &= ~(CASTLING_BQ | CASTLING_BK);
       if (move->flags & CASTLING_BQ)
       {
         /* rank 8 :  "..kr.xxx"  (x : unknown)*/
@@ -589,7 +580,6 @@
 
     if (move->flags & MOVE_ENP_CAPTURE)
     {
-      b->enpassante = OUTSIDE;
       PIECES [to + (piece == WPAWN ? 8 : -8)] = EMPTY;
     }
   }
@@ -604,9 +594,7 @@
 
     if (move->flags & ( MOVE_CAPTURE | MOVE_ENP_CAPTURE ))
       npieces ++; 
-
     color = !color;
-
     fullclock--;
 
     if (piece == WKING)
@@ -651,7 +639,6 @@
 
     if (move->flags & MOVE_ENP_CAPTURE)
     {
-      b->enpassante = to;
       PIECES [to + (piece == WPAWN ? -8 : 8)] =
         piece == WPAWN ? BPAWN : WPAWN;
     }

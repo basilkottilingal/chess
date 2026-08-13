@@ -137,10 +137,10 @@
     /* check if the square "sq" is attacked by any pieces of color "color" */
     // fixme : move along the rays, rather than traversing through all 64 squares
     for (int i=START; i<=END; ++i)
-      for (int j=START; j<=END; ++j)
+      uint8_t * from = & BOARD [i][START];
+      for (int j=START; j<=END; ++j, ++from)
       {
         /* Replace it with square iterator */
-        uint8_t * from = & BOARD [i][j];
         if ( IS_EMPTY (from) ) 
           continue; /* empty */
         if ( from == sq )
@@ -167,12 +167,6 @@
   
   Flag BoardIsMoveValid (_Board * b, _Move * move)
   {
-    BoardMove(b, move);
-    Flag valid = !BoardIsKingAttacked(b, b->color);
-    if (valid)
-      if (BoardIsKingAttacked(b, !b->color))
-        move->flags |= MOVE_CHECK;
-    BoardUnmove(b, move);
   
     return valid;
   }
@@ -398,9 +392,9 @@
     {
       /* Diagonal advance of pawn */
       uint8_t * to = from + rays[j];
-      Flag flags = IS_CAPTURE (from,to) ? 
-        MOVE_CAPTURE : IS_ENPASSANTE (from,to,b) ?
-        MOVE_ENP_CAPTURE : 0;
+      Flag flags = IS_CAPTURE (from,to) ?
+        ( IS_PROMOTION (to) ? (MOVE_CAPTURE|MOVE_PROMOTION) : MOVE_CAPTURE )
+        IS_ENP_CAPTURE (to,b) ? MOVE_ENP_CAPTURE : 0;
     
       /*
       .. Pawn move diagonally only if it's a capture or an "en-passante"
@@ -408,8 +402,6 @@
       */
       if(!flags) 
         continue;
-  
-      flags |= IS_PROMOTION (from, to) ? MOVE_PROMOTION : 0;
   
       _Move move =
       {
@@ -438,15 +430,14 @@
     
     }
 
-    /* FIXME: can be made into :for(int j=0; j<4; ++j) {} */
     for (int j=2; j<4; j++)
     {
       /* vertical advance of pawn */
       unsigned char * to = from + rays[j];
       if (!IS_EMPTY(to))
         break; /* capture, block, outside leads to "break" */
-      Flag flags = MOVE_NORMAL;
-      flags |= IS_PROMOTION (from, to) ? MOVE_PROMOTION : 0;
+
+      flags = IS_PROMOTION (to) ? MOVE_PROMOTION : MOVE_NORMAL;
       _Move move =
       {
         .from.piece  = PIECE(from),
@@ -508,7 +499,7 @@
   .. later removed. 
   */
   
-  Flag BoardAllMoves (_Board * b, Array * moves)
+  Flag BoardAllMoves (_Board * b)
   {
     if (!moves)
       return GAME_STATUS_ERROR;
@@ -524,7 +515,7 @@
       /* Insufficient pieces */
       b->status = (GAME_IS_A_DRAW | GAME_INSUFFICIENT); 
   
-    moves->len = 0;
+    //moves->len = 0;
     if(b->status) 
       /* Game over */
       return b->status;
@@ -541,22 +532,15 @@
         BoardPieceMoves [PIECE (from)] (b, from, moves);
       }
     
-    /* Removing Invalid Moves */
-    size_t smove = sizeof(_Move);
-    int nmoves =  (int) (moves->len / smove);
-    _Move * move = (_Move *) (moves->p);
-    _Move * m = move;
+    /* Marking Moves that are invalid && marking moves that create check*/
     for (int i=0; i<nmoves; ++i, ++move)
     {
-      if(BoardIsMoveValid(b, move))
-      {
-        /* To avoid memcpy to same dest */
-        if(!(m == move))
-          memcpy(m, move, smove);
-        ++m;
-      }
-      else 
-        moves->len -= smove;
+      BoardMove(b, move);
+      if (BoardIsKingAttacked(b, b->color))
+        move->flags = MOVE_INVALID;
+      else if (BoardIsKingAttacked(b, !b->color))
+        move->flags |= MOVE_CHECK;
+      BoardUnmove(b, move);
     }
   
     /*See if the Board is over. Bcs no moves available */
