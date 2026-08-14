@@ -36,6 +36,18 @@
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64}
   };
 
+  const char * RANKFILE [64] =
+  {
+    "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
+    "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
+    "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
+    "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
+    "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
+    "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
+    "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
+    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"
+  };
+
   #define START       2
   #define END         9
   #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START])
@@ -65,9 +77,9 @@
     uint8_t enpassante;
     uint8_t castling;
     uint8_t status;
-    uint8_t totalMoves; /* including illegal moves */
+    uint8_t totalMoves;   /* including illegal moves */
     uint16_t halfclock;
-    uint16_t moveLoc;
+    uint16_t moveLoc;     /* 128 x max {|moves|} won't exceed uint16_MAX */
     uint64_t zobrist;
   } _Board;
 
@@ -153,10 +165,11 @@
   #define MOVE_PROMOTION    32
   #define MOVE_ENP_CAPTURE  64
   #define MOVE_ILLEGAL     128
-  /* #define MOVE_CHECK       128 */
+
+  #define FEN_DEF "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
   /* convert FEN string to board */
-  _Board * BoardSetFromFEN (const char * fen)
+  _Board * BoardSetFromFEN (const char * ufen)
   {
     _Board *  b = BoardStack;
     b->totalMoves = 0;  /* Note : not yet evaluated. */
@@ -169,6 +182,10 @@
     /* Set board from FEN */
     uint8_t * piece = PIECES, square = 0;
     char c;
+
+    /* In case ufen (user specified FEN) is NULL or empty use default FEN */
+    const char * fen = (ufen == NULL || ufen [0] == '\0') ?
+       FEN_DEF : ufen;
  
     while ( (c = *fen++) != '\0' )
     {
@@ -246,7 +263,7 @@
     c = *fen++;
     if ( c != 'w' && c != 'b' )
       return NULL;
-    color = *fen == 'w' ? WHITE : BLACK;
+    color = c == 'w' ? WHITE : BLACK;
     if ( (c = *fen++) != ' ' )
       return NULL;
 
@@ -459,7 +476,6 @@
   #define IS_PROMOTION(TO) (SQUARE_RANK (TO) == '8' || SQUARE_RANK (TO) == '1')
   #define IS_ENP_CAPTURE(TO,BOARD)   ((*TO) == (BOARD)->enpassante)
 
-
   char * BoardMoveSAN (_Move * m)
   {
     /* fixme: Not et impelemented */
@@ -505,13 +521,6 @@
     assert (PIECES [from] == move->from.piece);
     PIECES [from] = EMPTY;
 
-    #if 0
-    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
-      npieces --; 
-    color = !color;
-    fullclock++;
-    #endif
-
     b[1].enpassante = 
       (piece == WPAWN && from - to == 16) ? from - 8 :
       (piece == BPAWN && to - from == 16) ? from + 8 : OUTSIDE;
@@ -519,7 +528,6 @@
     b[1].halfclock = 
       ((move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE) ) || piece == WPAWN ||
         piece == BPAWN ) ? 0 : b[0].halfclock + 1;
-    b[1].moveLoc = b[0].moveLoc + b[0].totalMoves;
 
     /*
     .. Switching off (respective) castling ability when rook moves/atacked.
@@ -530,11 +538,11 @@
       /* Switching off castling if corner rooks move/captured */
       if (from == a8 || to == a8)
         b[1].castling &= ~CASTLING_BQ;
-      if (from == h8 || to == h8)
+      else if (from == h8 || to == h8)
         b[1].castling &= ~CASTLING_BK;
-      if (from == a1 || to == a1)
+      else if (from == a1 || to == a1)
         b[1].castling &= ~CASTLING_WQ;
-      if (from == h1 || to == h1)
+      else if (from == h1 || to == h1)
         b[1].castling &= ~CASTLING_WK;
     }
 
@@ -643,7 +651,7 @@
 
     if (move->flags & MOVE_ENP_CAPTURE)
     {
-      PIECES [to + (piece == WPAWN ? -8 : 8)] =
+      PIECES [to + (piece == WPAWN ? 8 : -8)] =
         piece == WPAWN ? BPAWN : WPAWN;
     }
   }

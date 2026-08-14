@@ -276,6 +276,9 @@
     9686902966627713100ull
   };
 
+  #define rehash(z,v)      z ^= zobrist [v]
+  #define rehash_at(z,p,s) rehash(z, p*12+s)
+
   /*
   .. given a board config, `int probe (_Board * b);` will return
   .. the eval

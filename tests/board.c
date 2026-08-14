@@ -35,9 +35,10 @@ int main(){
     "k7/1Q6/K7/8/8/8/8/8 b - - 0 1",
     "rn1qk1n1/pBp1ppbr/8/4P1p1/3p3p/NP5Q/P1PP1PPP/1RB1K1NR w Kq - 1 2",
     "rnB1k1n1/p1p1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6",
-    /* wrong FEN */
+    /* following are wrong FENs */
+    "k7/1Q6/K7/8/8/8/8/8/8 b - - 0 1", // > 8 rows
     "p7/1Q6/K7/8/8/8/8/8 b - - 0 1", //no king
-    "8/Q7/8/w7/8/8/8/k6K b - - 0 1", //unknown pice
+    "8/Q7/8/w7/8/8/8/k6K b - - 0 1", //unknown piece
     "k7/3np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30", // < 8 pieces in a row
     "k7/4np2/8/7n/8/8/PP6/1R2K2R w KQ - 0 30", // Rook moved & castle shouldn't be available
     "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KqQk - 0 2", //wrong castle order

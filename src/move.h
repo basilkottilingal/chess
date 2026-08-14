@@ -221,7 +221,7 @@
   {
     BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
 
-    if ( *from != e1)
+    if (*from != e1)
       return; 
 
     if (b->castling & CASTLING_WK)
@@ -386,6 +386,9 @@
     {
       /* Diagonal advance of pawn : Capture / Enp Capture */
       uint8_t * to = from + rays[j];
+      if (IS_OUTSIDE (to))
+        continue;
+
       Flag flags = IS_CAPTURE (from,to) ?
         ( IS_PROMOTION (to) ? (MOVE_CAPTURE|MOVE_PROMOTION) : MOVE_CAPTURE ) :
         IS_ENP_CAPTURE (to,b) ? MOVE_ENP_CAPTURE : MOVE_NORMAL;
@@ -498,7 +501,7 @@
       /* Game is a draw */
       return b->status;
 
-    uint8_t onCheck = BoardIsKingAttacked(b, color);
+    uint8_t onCheck = BoardIsKingAttacked (b, color);
 
     /* Add all moves (incl invalid moves). They are still not marked */ 
     for (int i=START; i<=END; ++i) {
@@ -512,13 +515,16 @@
       }
     }
 
-    b->totalMoves = (uint8_t) ((uint16_t) ((movesall.max - movesall.len)
-                      / sizeof (_Move)) - b->moveLoc);
-    _Move * move =  MOVES_AT (b);
-    uint8_t legalMoves = 0;
-    
-    /* Marking Moves that are invalid && marking moves that create check*/
-    for (int i=0; i<b->totalMoves; ++i, ++move)
+    uint16_t legalMoves = 0,
+      totalMoves = (movesall.len/sizeof (_Move)) - b->moveLoc;
+    _Move * move = MOVES_AT (b);
+
+    /*
+    .. Marking Moves that are invalid && marking moves that create check.
+    .. You may order moves using some static board evaluation for 
+    ..  
+    */
+    for (int i=0; i < totalMoves; ++i, ++move)
     {
       BoardMove(b, move);
       if (BoardIsKingAttacked(b, color))
@@ -527,13 +533,35 @@
         legalMoves ++;
       BoardUnmove(b, move);
     }
+
+    assert (totalMoves < UINT8_MAX);
+    b->totalMoves = (uint8_t) totalMoves;
   
     /*See if the Board is over. Bcs no moves available */
     if(!legalMoves)
       b->status = onCheck ? (GAME_IS_A_WIN | !color) :
         (GAME_IS_A_DRAW | GAME_STALEMATE);
- 
+      printf ("\n[legal %u total %u]", legalMoves, totalMoves);
     return b->status; 
+  }
+
+  void GameMove (_Move * move) {
+    _Board * b = BoardStack;
+    BoardMove (b, move);
+    
+    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+      npieces --; 
+    color = !color;
+    fullclock++;
+
+    b [0].moveLoc = 0;
+    b [0] = b [1];
+    movesall.len = 0;
+  }
+
+  void GameUndo () {
+    /* history not implemented */
+    assert (0);
   }
   
   void BoardStatusPrint (_Board * b)
