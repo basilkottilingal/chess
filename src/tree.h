@@ -1,50 +1,63 @@
 #ifndef _CHESS_TREE_H_
 #define _CHESS_TREE_H_
 
+  #include "move.h"
+
+  _Board * BoardRoot (const char * fen)
+  {
+    _Board * r = BoardSetFromFEN (fen);
+    BoardAllMoves (r);
+    return r; 
+  }
+
   int BoardNextLevel (_Board ** y)
   {
-
     _Board * b = * y;
-    /*
-    .. assumes moves are already stored in 
-    .. [b->moveLoc, b->moveLoc + b->totalMoves)
-    */
-    _Move * moves = MOVES_AT (b), move = moves + (b->totalMoves - 1);
-    while (b->totalMoves && move->flag == MOVE_ILLEGAL)
+
+    /* assumes moves are listed */
+    _Move * move = MOVES_AT (b);
+    while (move->flags == MOVE_ILLEGAL && b[0].totalMoves)
     {
-      b->totalMoves --;
-      move --;
+      b [0].moveLoc ++;
+      b [0].totalMoves --;
+      move ++;
     }
 
-    if (!b->totalMoves)  /* Moves exhausted */
+    /* if exhausted moves */
+    if (!b[0].totalMoves)
       return 0;
 
     BoardMove (b, move);
 
-    /*
-    .. global iterators representing board config
-    .. except PIECES [], and other params stored in _Board.
-    */
     if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
       npieces --; 
     color = !color;
     fullclock++;
 
-    b[1].moveLoc = b[0].moveLoc + b[0].totalMoves;
     /* go one level deeper in the tree traversal */
-    (*y)++;
+    b[1].moveLoc = b[0].moveLoc + b[0].totalMoves;
+    b = ++(*y);
+    BoardAllMoves (b);
+
+    return 1;
   }
 
-  void BoardPrevLevel (_Board ** b)
+  void BoardPrevLevel (_Board ** y)
   {
+    _Board * b = --(*y);
+
+    _Move * move = MOVES_AT (b);
+
     if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
       npieces ++; 
     color = !color;
     fullclock--;
 
-    BoardUnmove (*b, move);
+    BoardUnmove (move);
 
-    (*b)--;
+    b [0].moveLoc ++;
+    b [0].totalMoves --;
+    movesall.len = (b[0].moveLoc + b[0].totalMoves) * sizeof (_Move);
   }
 
 #endif

@@ -1,6 +1,8 @@
 #ifndef _CHESS_PROBE_H_
 #define _CHESS_PROBE_H_
 
+  #include "board.h"
+
   /*
   .. This file contain routines that lookup for eval of a given board in the
   .. transposition table (TT), if not found make a tree traversal and evaluate
@@ -280,24 +282,6 @@
   #define rehash_at(z,p,s) rehash(z, p*12+s)
 
   /*
-  .. given a board config, `int probe (_Board * b);` will return
-  .. the eval
-  */ 
-
-  #ifndef CHESS_PROBE_DEPTH
-    #define CHESS_PROBE_DEPTH_DEFAULT 4
-  #endif
-
-  #if 0
-  fixme  
-  #define TABLE_SIZE (1<<16)
-  #ifndef HASH_BLOCKS
-  /* One block = (1<<16) * sizeof(_Hash) = 1MB */
-  #define HASH_BLOCKS 2
-  #endif
-  #endif
-  
-  /*
   .. A 16 bytes struct that hold zobrist hash, evaluated score, best move 
   .. (6 bits each for start & end and 4 bits for promotion {q,r,b,r}), search
   .. depth and flag
@@ -314,7 +298,7 @@
 
   _Entry * probe_hash (_Board * b)
   {
-     
+       
   }
   
   _Hash ** HASH_TABLE = NULL;

@@ -80,7 +80,7 @@ int main(){
 
     WAIT_CLEAR ();
     BoardPrint (b);
-    BoardUnmove (b, move);
+    BoardUnmove (move);
   }
 
   return 0;

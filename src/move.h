@@ -23,31 +23,53 @@
   */
 
   /*
-  .. Rays along which a chesspiece can move
+  .. Rays along which a chesspiece can move. Ray is calculated on a 
+  .. 12x12 board. So for a vector [i][j], equivalent Ray will be
+  .. (unisgned char) (12*i+j).
   */
-  static const char KNIGHT_MOVES[8] = 
+  typedef const char Ray;
+  static Ray KNIGHT_MOVES[8] = 
     { 14, 25, 23, 10, -14, -25, -23, -10 };
-  static const char QUEEN_MOVES[8] =
+  static Ray QUEEN_MOVES[8] =
     { 1, 13, 12, 11, -1, -13, -12, -11 };
-  static const char ROOK_MOVES[4] = 
+  static Ray ROOK_MOVES[4] = 
     { 1, 12, -1, -12 };
-  static const char BISHOP_MOVES[4] = 
+  static Ray BISHOP_MOVES[4] = 
     { 13, 11, -13, -11 };
-  static const char WPAWN_MOVES[4] = 
+  static Ray WPAWN_MOVES[4] = 
     { -11, -13, -12, -24 }; 
-  static const char BPAWN_MOVES[4] = 
-    { 11, 13, 12, 24 };   
+  static Ray BPAWN_MOVES[4] = 
+    { 11, 13, 12, 24 };
+
+  static Ray ATTACK_RAYS [16] = {
+    /* Horizontal Moves */
+    1, -1,
+    /* Vertical Moves */
+    12, -12,
+    /* Diagonal Moves of BPAWNS*/
+    13, 11,
+    /* Diagonal Moves of WPAWNS*/
+    -13, -11,
+    /* knight jumps */
+  };
+  #endif
   
   static inline 
-  Flag BoardIsAttackedByPiece ( uint8_t * from, const char rays[], int nrays,
-    int depth, uint8_t * sq)
+  Flag BoardIsAttackedByPiece
+  (
+    Square from,
+    Ray rays[],
+    int nrays,
+    int depth,
+    Square sq
+  )
   {
     /* 'from' square can be neither empty nor outside the box */
     assert ( IS_PIECE (from) );
   
     for (int i=0; i<nrays; ++i)
     {
-      uint8_t * to = from;
+      Square to = from;
       for (int j=0; j<depth; ++j)
       {
         to += rays[i];
@@ -72,37 +94,37 @@
     return 0; // the square "sq" is safe from an attack
   }
   
-  Flag BoardIsAttackedByBPawn (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByBPawn (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, BPAWN_MOVES, 2, 1, sq));
   }
   
-  Flag BoardIsAttackedByWPawn (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByWPawn (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, WPAWN_MOVES, 2, 1, sq));
   }
   
-  Flag BoardIsAttackedByRook (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByRook (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, ROOK_MOVES, 4, 7, sq));
   }
   
-  Flag BoardIsAttackedByBishop (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByBishop (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, BISHOP_MOVES, 4, 7, sq));
   }
   
-  Flag BoardIsAttackedByKnight (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByKnight (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, KNIGHT_MOVES, 8, 1, sq));
   }
   
-  Flag BoardIsAttackedByQueen (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByQueen (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, QUEEN_MOVES, 8, 7, sq));
   }
   
-  Flag BoardIsAttackedByKing (uint8_t * from, uint8_t * sq)
+  Flag BoardIsAttackedByKing (Square from, Square sq)
   {
     return (BoardIsAttackedByPiece (from, QUEEN_MOVES, 8, 1, sq));
   }
@@ -110,7 +132,7 @@
   /*
   .. function pointer (to see if a square is attacked) for each chesspiece
   */  
-  Flag (*BoardIsSquareAttackedByPiece [12]) (uint8_t *from, uint8_t * to) =
+  Flag (*BoardIsSquareAttackedByPiece [12]) (Square from, Square to) =
     {
       BoardIsAttackedByRook,   BoardIsAttackedByRook,
       BoardIsAttackedByKnight, BoardIsAttackedByKnight,
@@ -128,15 +150,16 @@
   .. (a) to see if a move is valid or not; and
   .. (b) see if a move produces a check.
   */
-  Flag BoardIsSquareAttacked (_Board * b, uint8_t *sq, Flag attackingColor)
+  Flag BoardIsSquareAttacked (_Board * b, Square sq, Flag attackingColor)
   {
     if( !IS_EMPTY(sq) )
       assert ( PIECE_COLOR (sq) != attackingColor );
   
     /* check if the square "sq" is attacked by any pieces of color "color" */
     // fixme : move along the rays, rather than traversing through all 64 squares
-    for (int i=START; i<=END; ++i) {
-      const uint8_t * from = & BOARD [i][START];
+    for (int i=START; i<=END; ++i)
+    {
+      Square from = & BOARD [i][START];
       for (int j=START; j<=END; ++j, ++from)
       {
         /* Replace it with square iterator */
@@ -153,7 +176,7 @@
       }
     }
   
-    /* uint8_t "sq" is safe from any attack */
+    /* "sq" is safe from any attack */
     return 0;
   }
   
@@ -166,8 +189,14 @@
   }
   
   static inline 
-  void BoardMovesFrom( uint8_t * from, const char rays[], int nrays, int depth,
-    Array * moves)
+  void BoardMovesFrom
+  (
+    Square from,
+    Ray rays[],
+    int nrays,
+    int depth,
+    Array * moves
+  )
   {
   
     /* 'from' square can be neither empty nor outside the box */
@@ -175,7 +204,7 @@
   
     for(int i=0; i<nrays; ++i)
     {
-      uint8_t * to = from;
+      Square to = from;
       for(int j=0; j<depth; ++j)
       {
         to += rays[i];
@@ -211,13 +240,13 @@
     }
   }
   
-  void BoardQueenMoves (_Board *b, uint8_t * from, Array * moves)
+  void BoardQueenMoves (_Board *b, Square from, Array * moves)
   {
     NOT_UNUSED(b);
     BoardMovesFrom(from, QUEEN_MOVES, 8, 7, moves); 
   }
 
-  void BoardWKingMoves(_Board *b, uint8_t * from, Array * moves)
+  void BoardWKingMoves(_Board *b, Square from, Array * moves)
   {
     BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
 
@@ -288,7 +317,7 @@
     }
   }
   
-  void BoardBKingMoves(_Board *b, uint8_t * from, Array * moves)
+  void BoardBKingMoves(_Board *b, Square from, Array * moves)
   {
     BoardMovesFrom(from, QUEEN_MOVES, 8, 1, moves);
 
@@ -360,32 +389,37 @@
     }
   }
   
-  void BoardBishopMoves (_Board * b, uint8_t * from, Array *moves)
+  void BoardBishopMoves (_Board * b, Square from, Array *moves)
   {
     NOT_UNUSED (b);
     BoardMovesFrom(from, BISHOP_MOVES, 4, 7, moves); 
   }
   
-  void BoardKnightMoves (_Board * b, uint8_t * from, Array *moves)
+  void BoardKnightMoves (_Board * b, Square from, Array *moves)
   {
     NOT_UNUSED (b);
     BoardMovesFrom(from, KNIGHT_MOVES, 8, 1, moves); 
   }
   
-  void BoardRookMoves (_Board * b, uint8_t * from, Array * moves)
+  void BoardRookMoves (_Board * b, Square from, Array * moves)
   {
     NOT_UNUSED (b);
     BoardMovesFrom(from, ROOK_MOVES, 4, 7, moves); 
   }
   
-  void BoardPawnMoves (_Board * b, uint8_t * from,
-    const char rays[], Array * moves)
+  void BoardPawnMoves
+  (
+    _Board * b,
+    Square from,
+    Ray rays[],
+    Array * moves
+  )
   {
   
     for(int j=0; j<2; j++)
     {
       /* Diagonal advance of pawn : Capture / Enp Capture */
-      uint8_t * to = from + rays[j];
+      Square to = from + rays[j];
       if (IS_OUTSIDE (to))
         continue;
 
@@ -426,7 +460,7 @@
     for (int j=2; j<4; j++)
     {
       /* vertical advance of pawn */
-      unsigned char * to = from + rays[j];
+      Square to = from + rays[j];
       if (!IS_EMPTY(to))
         break; /* capture, block, outside leads to "break" */
 
@@ -462,18 +496,18 @@
     }
   }
   
-  void BoardBPawnMoves (_Board * b, uint8_t * from, Array * moves)
+  void BoardBPawnMoves (_Board * b, Square from, Array * moves)
   {
     BoardPawnMoves(b, from, BPAWN_MOVES, moves);
   }
   
-  void BoardWPawnMoves (_Board * b, uint8_t * from, Array * moves)
+  void BoardWPawnMoves (_Board * b, Square from, Array * moves)
   {
     BoardPawnMoves(b, from, WPAWN_MOVES, moves);
   }
 
   /* function pointers (for move) for each chesspieces */
-  void (*BoardPieceMoves[12]) (_Board *, uint8_t *, Array * ) =
+  void (*BoardPieceMoves[12]) (_Board *, Square, Array * ) =
     {
         BoardRookMoves,   BoardRookMoves,
         BoardKnightMoves, BoardKnightMoves,
@@ -494,8 +528,10 @@
   
   Flag BoardAllMoves (_Board * b)
   {
-    b->status = (b->halfclock == 100) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES):
-      npieces == 0 ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) : GAME_CONTINUE;
+    b->status = 
+      (b->halfclock == 100) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES) :
+      npieces == 0          ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
+                               GAME_CONTINUE;
 
     if (b->status != GAME_CONTINUE)
       /* Game is a draw */
@@ -504,8 +540,9 @@
     uint8_t onCheck = BoardIsKingAttacked (b, color);
 
     /* Add all moves (incl invalid moves). They are still not marked */ 
-    for (int i=START; i<=END; ++i) {
-      const uint8_t * from = & BOARD [i][START];
+    for (int i=START; i<=END; ++i)
+    {
+      Square from = & BOARD [i][START];
       for(int j=START; j<=END; ++j, ++from)
       {
         if ( IS_EMPTY (from) || PIECE_COLOR (from) != color )
@@ -531,21 +568,22 @@
         move->flags = MOVE_ILLEGAL;
       else
         legalMoves ++;
-      BoardUnmove(b, move);
+      BoardUnmove(move);
     }
 
     assert (totalMoves < UINT8_MAX);
     b->totalMoves = (uint8_t) totalMoves;
-  
+
     /*See if the Board is over. Bcs no moves available */
     if(!legalMoves)
       b->status = onCheck ? (GAME_IS_A_WIN | !color) :
         (GAME_IS_A_DRAW | GAME_STALEMATE);
-      printf ("\n[legal %u total %u]", legalMoves, totalMoves);
+
     return b->status; 
   }
 
-  void GameMove (_Move * move) {
+  void GameMove (_Move * move)
+  {
     _Board * b = BoardStack;
     BoardMove (b, move);
     
@@ -559,7 +597,8 @@
     movesall.len = 0;
   }
 
-  void GameUndo () {
+  void GameUndo ()
+  {
     /* history not implemented */
     assert (0);
   }
@@ -567,9 +606,9 @@
   void BoardStatusPrint (_Board * b)
   {
     Flag f = b->status;
-    if (f == GAME_CONTINUE) {
+    if (f == GAME_CONTINUE)
+    {
       fprintf (stdout, " Game Not Over Yet");
-      fflush (stdout);
       return;
     }
 

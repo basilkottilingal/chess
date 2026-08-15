@@ -36,6 +36,8 @@
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64}
   };
 
+  typedef const uint8_t * Square;
+
   const char * RANKFILE [64] =
   {
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
@@ -189,7 +191,7 @@
  
     while ( (c = *fen++) != '\0' )
     {
-
+      /* More than 64 entries */
       if ( !(square <= OUTSIDE) )
         return NULL;
 
@@ -197,7 +199,7 @@
       if (isdigit (c))
       {
         int nempty = c - '0';
-        /* cannot overfille a row */
+        /* cannot overfill a row */
         if ( nempty == 0 || nempty + (square % 8) > 8 )
           return NULL;
         for (int i=0; i<nempty; ++i)
@@ -594,20 +596,13 @@
     }
   }
 
-  void BoardUnmove (_Board * b, _Move * move)
+  void BoardUnmove (_Move * move)
   {
 
     uint8_t from = move->from.square, to = move->to.square;
 
     uint8_t piece = PIECES [from] = move->from.piece;
     PIECES [to]   = move->to.piece;
-
-    #if 0
-    if (move->flags & ( MOVE_CAPTURE | MOVE_ENP_CAPTURE ))
-      npieces ++; 
-    color = !color;
-    fullclock--;
-    #endif
 
     if (piece == WKING)
     {

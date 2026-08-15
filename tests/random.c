@@ -6,7 +6,7 @@
 struct timespec ts =
 {
   .tv_sec = 0,
-  .tv_nsec = 100000000
+  .tv_nsec = 600000000
 };
 #define WAIT_CLEAR() do \
   { \
