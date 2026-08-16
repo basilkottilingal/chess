@@ -35,10 +35,12 @@
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64},
     {64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64}
   };
-
+  #define START       2
+  #define END         9
   typedef const uint8_t * Square;
+  #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START])
 
-  const char * RANKFILE [64] =
+  const char * RANKFILE [65] =
   {
     "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
     "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
@@ -47,52 +49,10 @@
     "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
     "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
     "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
-    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1"
+    "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
+    "xx"
   };
 
-  #define START       2
-  #define END         9
-  #define BOARDSQ(s)  & (BOARD [s/8 + START][ (s%8) + START])
-
-  /* represent a move */
-  typedef struct
-  {
-    struct
-    {
-      uint8_t square;
-      uint8_t piece;
-    } from, to;
-    uint8_t flags;
-    uint8_t promotion;
-  } _Move;
-
-  /* board config (except halfclock, enpassante/castling information) */
-  uint8_t  PIECES [64];
-  uint8_t  kings [2];
-  uint8_t  color;
-  uint8_t  npieces;
-  uint16_t fullclock;
-  
-  /* additional informaion required to uniquley represent the board */
-  typedef struct
-  {
-    uint8_t enpassante;
-    uint8_t castling;
-    uint8_t status;
-    uint8_t totalMoves;   /* including illegal moves */
-    uint16_t halfclock;
-    uint16_t moveLoc;     /* 128 x max {|moves|} won't exceed uint16_MAX */
-    uint64_t zobrist;
-  } _Board;
-
-  #ifndef MAX_STACK_SIZE
-  #define MAX_STACK_SIZE 64
-  #endif
-
-  _Board BoardStack [ MAX_STACK_SIZE ];
-  const _Board * BoardLast = & BoardStack [MAX_STACK_SIZE - 1];
-  Array movesall = {.p = NULL, .max = 0, .len = 0};
-  #define MOVES_AT(b) ( & ((_Move * ) movesall.p) [b->moveLoc] )
 
   #define NOT_UNUSED(x) (void)(x)
 
@@ -112,21 +72,20 @@
   #define BKING      ((5<<1) | BLACK)
   #define WKING      ((5<<1) | WHITE)
   #define EMPTY        12
-  #define INVALID      64
+  #define INVALID      13
 
   #define FEN_MAXSIZE 80
 
   /*
   .. For faster translation b/w chesspiece ID ( [0:11] ) and their ASCII
-  .. repesentations ({r, R, n, N, b, B, q, Q, p, P, k, K, .} where
-  .. '.' represents empty square 
+  .. repesentations ({r, R, n, N, b, B, q, Q, p, P, k, K}
   */
 
-  const char ASCII [13] =
+  const char ASCII [14] =
     { 
       'r', 'R', 'n', 'N', 'b', 'B',
       'q', 'Q', 'p', 'P', 'k', 'K',
-      '.'
+      '.', '?'  /* empty & invalid */
     };
   const uint8_t CHESSPIECE[50] =
     {
@@ -143,6 +102,8 @@
 
   /*
   .. Identifying chess piece & it's info from square pointer 'S'
+  .. Warning : use IS_EMPTY(), etc only if !IS_OUTSIDE(). "INVALID" is
+  .. used to catch the overflow PIECES[OUTSIDE].
   */
   #define OUTSIDE         64
   #define IS_OUTSIDE(S)   ( (*S) == OUTSIDE )
@@ -168,7 +129,48 @@
   #define MOVE_ENP_CAPTURE  64
   #define MOVE_ILLEGAL     128
 
-  #define FEN_DEF "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  /* represent a move */
+  typedef struct
+  {
+    struct
+    {
+      uint8_t square;
+      uint8_t piece;
+    } from, to;
+    uint8_t flags;
+    uint8_t promotion;
+  } _Move;
+
+  /* board config (except halfclock, enpassante/castling information) */
+  uint8_t  PIECES [65] = {INVALID};
+  uint8_t  kings [2];
+  uint8_t  color;
+  uint8_t  npieces;
+  uint16_t fullclock;
+  
+  /* additional informaion required to uniquley represent the board */
+  typedef struct
+  {
+    uint8_t enpassante;
+    uint8_t castling;
+    uint8_t status;
+    uint8_t totalMoves;   /* including illegal moves */
+    uint16_t halfclock;
+    uint16_t moveLoc;     /* 128 x max {|moves []|} won't exceed uint16_MAX */
+    uint64_t zobrist;
+  } _Board;
+
+  #ifndef MAX_STACK_SIZE
+  #define MAX_STACK_SIZE 64
+  #endif
+
+  _Board BoardStack [ MAX_STACK_SIZE ];
+  const _Board * BoardLast = & BoardStack [MAX_STACK_SIZE - 1];
+  Array movesall = {.p = NULL, .max = 0, .len = 0};
+  #define MOVES_AT(b) ( & ((_Move * ) movesall.p) [b->moveLoc] )
+
+  #define FEN_DEFAULT         \
+    "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
   /* convert FEN string to board */
   _Board * BoardSetFromFEN (const char * ufen)
@@ -187,7 +189,7 @@
 
     /* In case ufen (user specified FEN) is NULL or empty use default FEN */
     const char * fen = (ufen == NULL || ufen [0] == '\0') ?
-       FEN_DEF : ufen;
+       FEN_DEFAULT : ufen;
  
     while ( (c = *fen++) != '\0' )
     {

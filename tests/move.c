@@ -39,7 +39,8 @@ rn2k1n1/pBp1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6
 
 int main(){
   _Board * b =
-  BoardSetFromFEN (NULL);
+  //BoardSetFromFEN (NULL);
+  BoardSetFromFEN ("rnbqkbnr/pppppppp/8/8/P7/8/1PPPPPPP/RNBQKBNR b KQkq - 1 2");
   //BoardSetFromFEN ("8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN ("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //BoardSetFromFEN ("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");

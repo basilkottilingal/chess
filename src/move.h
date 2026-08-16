@@ -40,152 +40,77 @@
     { -11, -13, -12, -24 }; 
   static Ray BPAWN_MOVES[4] = 
     { 11, 13, 12, 24 };
-
-  static Ray ATTACK_RAYS [16] = {
-    /* Horizontal Moves */
-    1, -1,
-    /* Vertical Moves */
-    12, -12,
-    /* Diagonal Moves of BPAWNS*/
-    13, 11,
-    /* Diagonal Moves of WPAWNS*/
-    -13, -11,
-    /* knight jumps */
-  };
-  #endif
   
   static inline 
-  Flag BoardIsAttackedByPiece
-  (
-    Square from,
-    Ray rays[],
-    int nrays,
-    int depth,
-    Square sq
-  )
+  Flag BoardIsSquareAttacked (Square sq, Flag attackingColor)
   {
-    /* 'from' square can be neither empty nor outside the box */
-    assert ( IS_PIECE (from) );
   
-    for (int i=0; i<nrays; ++i)
-    {
-      Square to = from;
-      for (int j=0; j<depth; ++j)
-      {
-        to += rays[i];
-        if (IS_OUTSIDE (to)) 
-          break; 
-        if (sq == to)       /* comparing pointers */
-        {
-          /*
-          .. Making sure that the piece occupying "to" is not of the same color
-          .. as the attacking piece
-          */
-          assert (!IS_BLOCKED (from, to));
+    #define ENCODE(P)    ((uint16_t) (1<<(P)))
+    #define ENCODE2(P)   ((uint16_t) (3<<(P)))
+    #define MAXONE       (ENCODE2 (BPAWN) | ENCODE2 (BKING))
+    #define SWITCHOFF(CODE) CODE &= ~MAXONE
+    #define ATTACKED(FROM,CODE) (ENCODE (PIECE(FROM)) & CODE)
 
-          /* yes, the square "sq" is attacked. */
-          return 1;
-        }
-        if (!IS_EMPTY(to))
-          /* blocked by another piece */
-          break;
-      }
-    }
-    return 0; // the square "sq" is safe from an attack
-  }
-  
-  Flag BoardIsAttackedByBPawn (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, BPAWN_MOVES, 2, 1, sq));
-  }
-  
-  Flag BoardIsAttackedByWPawn (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, WPAWN_MOVES, 2, 1, sq));
-  }
-  
-  Flag BoardIsAttackedByRook (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, ROOK_MOVES, 4, 7, sq));
-  }
-  
-  Flag BoardIsAttackedByBishop (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, BISHOP_MOVES, 4, 7, sq));
-  }
-  
-  Flag BoardIsAttackedByKnight (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, KNIGHT_MOVES, 8, 1, sq));
-  }
-  
-  Flag BoardIsAttackedByQueen (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, QUEEN_MOVES, 8, 7, sq));
-  }
-  
-  Flag BoardIsAttackedByKing (Square from, Square sq)
-  {
-    return (BoardIsAttackedByPiece (from, QUEEN_MOVES, 8, 1, sq));
-  }
-
-  /*
-  .. function pointer (to see if a square is attacked) for each chesspiece
-  */  
-  Flag (*BoardIsSquareAttackedByPiece [12]) (Square from, Square to) =
+    static Ray rays [8] =
     {
-      BoardIsAttackedByRook,   BoardIsAttackedByRook,
-      BoardIsAttackedByKnight, BoardIsAttackedByKnight,
-      BoardIsAttackedByBishop, BoardIsAttackedByBishop,
-      BoardIsAttackedByQueen,  BoardIsAttackedByQueen,
-      BoardIsAttackedByBPawn,  BoardIsAttackedByWPawn, 
-      BoardIsAttackedByKing,   BoardIsAttackedByKing 
+      1, -1, 12, -12, 13, 11, -13, -11
     };
-
-  /*
-  .. The function "Flag BoardIsSquareAttacked ( g, sq , color)" check if the
-  .. square "sq" is attacked by any piece of color "color".
-  .. The function "Flag BoardIsKingAttacked (g, color);" is used to see if the
-  .. king of color "color" is under any attack. This function can be used
-  .. (a) to see if a move is valid or not; and
-  .. (b) see if a move produces a check.
-  */
-  Flag BoardIsSquareAttacked (_Board * b, Square sq, Flag attackingColor)
-  {
-    if( !IS_EMPTY(sq) )
-      assert ( PIECE_COLOR (sq) != attackingColor );
-  
-    /* check if the square "sq" is attacked by any pieces of color "color" */
-    // fixme : move along the rays, rather than traversing through all 64 squares
-    for (int i=START; i<=END; ++i)
+    static const uint16_t codes [] =
     {
-      Square from = & BOARD [i][START];
-      for (int j=START; j<=END; ++j, ++from)
-      {
-        /* Replace it with square iterator */
-        if ( IS_EMPTY (from) ) 
-          continue; /* empty */
-        if ( from == sq )
-  	      continue;
-        if ( PIECE_COLOR(from) != attackingColor )
-          continue; /* Occupied by the other color */
-
-        /* Generate possible moves of piece & see if 'piece' can attack 'sq' */
-        if (BoardIsSquareAttackedByPiece [ PIECE (from) ] (from, sq))
-          return 1; /* "sq" is attacked */
-      }
+      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE  (WPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE  (WPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE  (BPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE  (BPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN)
+    };
+  
+    for (int iray=0; iray<8; ++iray)
+    {
+      Ray r = rays [iray];
+      Square from = sq + r;
+      int j=0;
+      /* move along the ray until you are out of the board / hit a piece */
+      while (!IS_OUTSIDE (from) && IS_EMPTY (from))
+        j++, from += r;
+      if (IS_OUTSIDE (from) || PIECE_COLOR (from) != attackingColor)
+        continue;
+      uint16_t code = codes [iray];
+      /*
+      .. abiliy to attack (for kings & pawns) are switched off if the ray has
+      .. moved beyond a square
+      */
+      if (j)
+        SWITCHOFF (code);
+      if (ATTACKED (from, code))
+        /* attacked by PIECES [*from] */
+        return 1;
     }
-  
-    /* "sq" is safe from any attack */
+
+    Ray * r = KNIGHT_MOVES;
+    uint8_t n = BKNIGHT | attackingColor;
+    for (int i=0; i<8; ++i)
+      if (PIECES [sq [*r++]] == n)
+        /* attacked by opponent's knight */
+        return 1;
+
+    /* the square "sq" is safe from an attack */
     return 0;
+  
+    #undef ENCODE
+    #undef ENCODE2
+    #undef MAXONE
+    #undef SWITCHOFF
+    #undef ATTACKED
   }
-  
-  
-  Flag BoardIsKingAttacked (_Board * b, Flag color)
+
+  Flag BoardIsKingAttacked (Flag attackedColor)
   {
     /* check if the King of color "color" is attacked */
-    uint8_t k = kings [color];
-    return(BoardIsSquareAttacked(b, BOARDSQ (k) , !color));
+    uint8_t k = kings [attackedColor];
+    return BoardIsSquareAttacked (BOARDSQ (k) , !attackedColor);
   }
   
   static inline 
@@ -262,7 +187,7 @@
       {
         /* see if king, rook and the 2 squares in b/w are under attack */
         for (int i=0; i<4; ++i)
-          if (BoardIsSquareAttacked (b, from + i, BLACK))
+          if (BoardIsSquareAttacked (from + i, BLACK))
           {
             available = 0;
             break;
@@ -294,7 +219,7 @@
       {
         /* see if king, rook and the 2 squares in b/w are under attack */
         for (int i=-4; i<=0; ++i)
-          if (BoardIsSquareAttacked (b, from + i, BLACK))
+          if (BoardIsSquareAttacked (from + i, BLACK))
           {
             available = 0;
             break;
@@ -333,7 +258,7 @@
       {
         /* see if king, rook and the 2 squares in b/w are under attack */
         for (int i=0; i<4; ++i)
-          if (BoardIsSquareAttacked (b, from + i, WHITE))
+          if (BoardIsSquareAttacked (from + i, WHITE))
           {
             available = 0;
             break;
@@ -366,7 +291,7 @@
       {
         /* see if king, rook and the 2 squares in b/w are under attack */
         for (int i=-4; i<=0; ++i)
-          if (BoardIsSquareAttacked (b, from + i, BLACK))
+          if (BoardIsSquareAttacked (from + i, BLACK))
           {
             available = 0;
             break;
@@ -537,7 +462,7 @@
       /* Game is a draw */
       return b->status;
 
-    uint8_t onCheck = BoardIsKingAttacked (b, color);
+    uint8_t onCheck = BoardIsKingAttacked (color);
 
     /* Add all moves (incl invalid moves). They are still not marked */ 
     for (int i=START; i<=END; ++i)
@@ -564,7 +489,7 @@
     for (int i=0; i < totalMoves; ++i, ++move)
     {
       BoardMove(b, move);
-      if (BoardIsKingAttacked(b, color))
+      if (BoardIsKingAttacked(color))
         move->flags = MOVE_ILLEGAL;
       else
         legalMoves ++;

@@ -42,7 +42,7 @@
     return 1;
   }
 
-  void BoardPrevLevel (_Board ** y)
+  int BoardPrevLevel (_Board ** y)
   {
     _Board * b = --(*y);
 
@@ -58,6 +58,7 @@
     b [0].moveLoc ++;
     b [0].totalMoves --;
     movesall.len = (b[0].moveLoc + b[0].totalMoves) * sizeof (_Move);
+    return 1;
   }
 
 #endif

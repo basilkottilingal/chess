@@ -97,7 +97,7 @@ int main()
     //BoardNextLevel (&b, moves + loc);
     GameMove (moves + loc);
 
-    WAIT_CLEAR ();
+    //WAIT_CLEAR ();
     BoardPrint (b);
   }
 
