@@ -3,11 +3,6 @@
 #include <time.h>
 #include "../src/tree.h"
 
-struct timespec ts =
-{
-  .tv_sec = 0,
-  .tv_nsec = 500000000
-};
 
 #define WAIT_CLEAR() do \
   { \
@@ -76,6 +71,10 @@ int main()
   int depth = DEPTHMAX;
   int traversed [DEPTHMAX] = {0};
 
+  
+  clock_t start, end;
+  start = clock();
+
   assert (depth);
   /* depth first search */
   do {
@@ -87,10 +86,16 @@ int main()
     } while (--depth);
   } while (++depth <= DEPTHMAX && BoardPrevLevel (&b));
 
+  end = clock();
+  double time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+
+  int nodes = 1; /* root node */
   fprintf (stdout, "\ntraversed at each level");
-  for (int i=0; i<DEPTHMAX; ++i)
+  for (int i=0; i<DEPTHMAX; ++i) {
     fprintf (stdout, "\n  %10d  (compare with %10ld)", traversed [i], leaves [i]);
-  fprintf (stdout, "\n");
+    nodes += traversed [i];
+  }
+  fprintf (stdout, "\ntime elapsed %g. nodes traversed %d\n", time_used, nodes);
 
   BoardStatusPrint (b);
   char lastfen [100];

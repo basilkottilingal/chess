@@ -31,7 +31,7 @@
   static Ray KNIGHT_MOVES[8] = 
     { 14, 25, 23, 10, -14, -25, -23, -10 };
   static Ray QUEEN_MOVES[8] =
-    { 1, 13, 12, 11, -1, -13, -12, -11 };
+    { 1, 13, 12, 11, -1, -13, -12, -11 }; /* warning : coupled with codes [] */
   static Ray ROOK_MOVES[4] = 
     { 1, 12, -1, -12 };
   static Ray BISHOP_MOVES[4] = 
@@ -51,25 +51,21 @@
     #define SWITCHOFF(CODE) CODE &= ~MAXONE
     #define ATTACKED(FROM,CODE) (ENCODE (PIECE(FROM)) & CODE)
 
-    static Ray rays [8] =
-    {
-      1, -1, 12, -12, 13, 11, -13, -11
-    };
     static const uint16_t codes [] =
     {
       ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
-      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
-      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE  (WPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
       ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
       ENCODE  (WPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
-      ENCODE  (WPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
       ENCODE  (BPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
+      ENCODE2 (BROOK) | ENCODE2 (BKING) | ENCODE2 (BQUEEN),
       ENCODE  (BPAWN) | ENCODE2 (BBISHOP) | ENCODE2 (BKING) | ENCODE2 (BQUEEN)
     };
   
     for (int iray=0; iray<8; ++iray)
     {
-      Ray r = rays [iray];
+      Ray r = QUEEN_MOVES [iray];
       Square from = sq + r;
       int j=0;
       /* move along the ray until you are out of the board / hit a piece */
@@ -89,10 +85,9 @@
         return 1;
     }
 
-    Ray * r = KNIGHT_MOVES;
-    uint8_t n = BKNIGHT | attackingColor;
-    for (int i=0; i<8; ++i)
-      if (PIECES [sq [*r++]] == n)
+    uint8_t knight = BKNIGHT | attackingColor;
+    for (int iray=0; iray<8; ++iray)
+      if (PIECES [sq [KNIGHT_MOVES [iray]]] == knight)
         /* attacked by opponent's knight */
         return 1;
 
