@@ -2,6 +2,7 @@
 #define _CHESS_BOARD_H_
 
   #include "common.h"
+  #include "probe.h"
 
   #define a8           0
   #define b8           1
@@ -141,7 +142,7 @@
     uint8_t promotion;
   } _Move;
 
-  /* board config (except halfclock, enpassante/castling information) */
+  /* board config (except halfclock, enpassante, castling information) */
   uint8_t  PIECES [65] = {INVALID};
   uint8_t  kings [2];
   uint8_t  color;
@@ -151,10 +152,10 @@
   /* additional informaion required to uniquley represent the board */
   typedef struct
   {
-    uint8_t enpassante;
-    uint8_t castling;
-    uint8_t status;
-    uint8_t totalMoves;   /* including illegal moves */
+    uint8_t  enpassante;
+    uint8_t  castling;
+    uint8_t  status;
+    uint8_t  totalMoves;  /* including illegal moves */
     uint16_t halfclock;
     uint16_t moveLoc;     /* 128 x max {|moves []|} won't exceed uint16_MAX */
     uint64_t zobrist;
@@ -520,6 +521,7 @@
     
     uint8_t from = move->from.square,
       to = move->to.square;
+
     uint8_t piece = PIECES [to] = (move->flags & MOVE_PROMOTION) ?
       move->promotion : move->from.piece;
     assert (PIECES [from] == move->from.piece);

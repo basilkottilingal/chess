@@ -277,11 +277,14 @@
     10783398413131544232ull, 16707911465927891086ull, 4953366548197248896ull,
     9686902966627713100ull
   };
-
-  #define rehash(z,v)      z ^= zobrist [v]
-  #define rehash_at(z,p,s) rehash(z, p*12+s)
+  const uint64_t * ZHCASTLING = & zobrist [64*12];
+  const uint64_t * ZHENP      = & zobrist [64*12 + 16];
+  #define          ZHCOLOR    zobrist [792]
+  #define          ZOB(sq)    zobrist [sq*12 + PIECES[sq]]
 
   /*
+  
+
   .. A 16 bytes struct that hold zobrist hash, evaluated score, best move 
   .. (6 bits each for start & end and 4 bits for promotion {q,r,b,r}), search
   .. depth and flag
@@ -294,57 +297,14 @@
     uint8_t  depth, flag;
   } _Entry;
 
-  _Entry TT [ 1 << 10 ] = {0};  /* 16 MB. fixme : make it user defined*/
+  #define TT_SIZE  (1<<10)
+  #define TT_MOD   (TT_SIZE - 1)
+  _Entry TT [ TT_SIZE ] = {0};
+  #define TT_SEARCH(b) & TT [b->zobrist & TT_MOD]
 
-  _Entry * probe_hash (_Board * b)
+  _Entry * HashLoc(uint64_t z)
   {
-       
-  }
-  
-  _Hash ** HASH_TABLE = NULL;
-  static uint64_t HASH_MASK = 0;
-  Flag HashBlock[8];
-  
-  Flag HashInit ()
-  {
-    uint16_t nb = n = HASH_BLOCKS, r = 0, N = 0;
-    while (n)
-    {
-      if (r)
-        break;
-      r = n & 1;  /* reminder */
-      n = n >> 1; /* n = n/2  */
-      ++N;
-    }
-
-    if ( (!N) || (N>5) || (n && r) )
-    { 
-      GameError("HASH_BLOCKS should be in [1,2,4,8,16]");
-      return GAME_ERROR;
-    }
-  
-    HASH_POOL = Mempool (sizeof(_Hash), 1 + 1024*1024/sizeof(_Hash)); 
-  
-    HashTable = malloc ((N+1)* sizeof(_Hash *));
-    for (int i=0; i <= N; ++i)
-    {
-      _Mem
-      HashTable[i] = (_Hash *)
-    }
-  
-    return GAME_CONTINUE;
-  }
-  
-  
-  uint64_t H_TABLE[64][12], H_CASTLE[16], 
-    H_ENP[8], H_COLOR;
-  
-  static inline 
-  _Hash * Insert(_Board * b, Flag depth, Flag flags) {
-    /* See if board is already stored in hash table 
-    .. with depth >= depth or 
-    .. insert. Return evaluation of board*/
-    if(depth >  
+    return & TT [z & TT_MOD];
   }
   
 #endif
