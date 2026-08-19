@@ -448,6 +448,15 @@
   
   Flag BoardAllMoves (_Board * b)
   {
+    /*
+    .. Update the location in the stack "movesall.p" where you are going to
+    .. storing the moves
+    */
+    b [0].moveLoc = b [-1].moveLoc + b [-1].totalMoves;
+    b [0].totalMoves = 0;
+    movesall.len = b->moveLoc * sizeof (_Move);
+    /* assert (movesall.max >= movesall.len); */
+
     b->status = 
       (b->halfclock == 100) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES) :
       npieces == 0          ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
@@ -472,8 +481,12 @@
       }
     }
 
-    uint16_t legalMoves = 0,
-      totalMoves = (movesall.len/sizeof (_Move)) - b->moveLoc;
+    /*
+    .. fixme : total moves go beyond 255. (Even if you just take all pawns
+    .. promoted to queens)
+    */
+    uint8_t legalMoves = 0, totalMoves =
+      (uint8_t) ((movesall.len/sizeof (_Move)) - b->moveLoc);
     _Move * move = MOVES_AT (b);
 
     /*
@@ -491,26 +504,24 @@
       BoardUnmove(move);
     }
 
-    assert (totalMoves < UINT8_MAX);
-    b->totalMoves = (uint8_t) totalMoves;
 
     /*See if the Board is over. Bcs no moves available */
-    if(!legalMoves)
+    if(!legalMoves) 
       b->status = onCheck ? (GAME_IS_A_WIN | !color) :
         (GAME_IS_A_DRAW | GAME_STALEMATE);
+    else 
+      b->totalMoves = totalMoves;
 
     return b->status; 
   }
 
+  /*
   void GameMove (_Move * move)
   {
+    // fixme : remove this. there is a copy in game-server.h
     _Board * b = BoardStack;
     BoardMove (b, move);
-    
-    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
-      npieces --; 
-    color = !color;
-    fullclock++;
+    FINISH_MOVE (move);
 
     b [0].moveLoc = 0;
     b [0] = b [1];
@@ -519,9 +530,9 @@
 
   void GameUndo ()
   {
-    /* history not implemented */
+     history not implemented
     assert (0);
-  }
+  }*/
   
   void BoardStatusPrint (_Board * b)
   {

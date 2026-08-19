@@ -12,7 +12,9 @@
     z ^= ZHCASTLING [b->castling];
     if (b->enpassante != OUTSIDE)
       z ^= ZHENP [b->enpassante % 8];
+
     b->zobrist = z;
+    memset (TT, -1, sizeof (TT));
   }
 
   void HashReinit (_Board * b, _Move * m)
@@ -108,16 +110,9 @@
 
     BoardMove (b, move);
     HashReinit (b, move);
+    FINISH_MOVE (move);
 
-    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
-      npieces --; 
-    color = !color;
-    fullclock++;
-
-    /* go one level deeper in the tree traversal */
-    b[1].moveLoc = b[0].moveLoc + b[0].totalMoves;
-    b = ++(*y);
-    BoardAllMoves (b);
+    BoardAllMoves (++(*y));
 
     return 1;
   }
@@ -125,19 +120,14 @@
   int BoardPrevLevel (_Board ** y)
   {
     _Board * b = --(*y);
-
     _Move * move = MOVES_AT (b);
 
-    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
-      npieces ++; 
-    color = !color;
-    fullclock--;
-
+    FINISH_UNMOVE (move);
     BoardUnmove (move);
 
     b [0].moveLoc ++;
     b [0].totalMoves --;
-    movesall.len = (b[0].moveLoc + b[0].totalMoves) * sizeof (_Move);
+
     return 1;
   }
 

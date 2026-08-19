@@ -63,7 +63,17 @@ int main()
   	4865609,
   	119060324,
   	3195901860,
-  	84998978956
+  	84998978956,
+    LONG_MIN,  /* unknown */
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
+    LONG_MIN,
   };
 
   _Board * b = BoardRoot (fen);
@@ -76,34 +86,33 @@ int main()
   clock_t start, end;
   start = clock();
 
-  assert (depth);
+  assert (depth && depth <= sizeof (leaves)/sizeof (leaves [0]));
   /* depth first search */
   do {
     do
     {
       if (!BoardNextLevel (&b))
         break;
+      --depth;
 
       /* skip */
       _Entry * e = HashLoc (b->zobrist);
-      if (e->hash == b->zobrist /*&& e->depth > REQD */) {
-        //printf("{%" PRId64 "}\n", b->zobrist);
+      if (e->hash == b->zobrist /*&& e->depth > REQD */)
+      {
         break;
       }
 
-      traversed [LEVEL(depth)] ++;
-    } while (--depth);
-
-    /* new entry to TT or update deth */
-    _Entry * e = HashLoc (b->zobrist);
-    e->depth = depth;
-    e->hash = b->zobrist;
-
-    if (++depth > DEPTHMAX)
-      break;
+      traversed [LEVEL(depth) - 1] ++;
+    } while (depth);
 
     BoardPrevLevel (&b);
-  } while (1);
+
+    /* new entry to TT or update deth */
+    _Entry * e = HashLoc (b[1].zobrist);
+    e->depth = (uint8_t) depth;
+    e->hash = b[1].zobrist;
+
+  } while (++depth <= DEPTHMAX);
 
   end = clock();
   double time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

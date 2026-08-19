@@ -4,10 +4,10 @@
   #include "board.h"
 
   /*
-  .. This file contain routines that lookup for eval of a given board in the
-  .. transposition table (TT), if not found make a tree traversal and evaluate
-  .. (and update the TT in the process)
+  .. this file contains array of const uint64_t numbers used in zobrist
+  .. hashing. see src/tree.h for the hashing routines
   */
+
 
   const uint64_t zobrist [793] =
   {
@@ -277,8 +277,8 @@
     10783398413131544232ull, 16707911465927891086ull, 4953366548197248896ull,
     9686902966627713100ull
   };
-  const uint64_t * ZHCASTLING = & zobrist [64*12];
-  const uint64_t * ZHENP      = & zobrist [64*12 + 16];
+  const uint64_t * const ZHCASTLING = & zobrist [64*12];
+  const uint64_t * const ZHENP      = & zobrist [64*12 + 16];
   #define          ZHCOLOR    zobrist [792]
   #define          ZOB(sq)    zobrist [sq*12 + PIECES[sq]]
 

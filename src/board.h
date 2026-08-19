@@ -2,7 +2,7 @@
 #define _CHESS_BOARD_H_
 
   #include "common.h"
-  #include "probe.h"
+  #include "zobrist.h"
 
   #define a8           0
   #define b8           1
@@ -165,10 +165,25 @@
   #define MAX_STACK_SIZE 64
   #endif
 
-  _Board BoardStack [ MAX_STACK_SIZE ];
-  const _Board * BoardLast = & BoardStack [MAX_STACK_SIZE - 1];
+  _Board BoardMem [MAX_STACK_SIZE+1] = {0};
+  _Board * const BoardStack = & BoardMem [1];
+  _Board * const BoardLast  = & BoardMem [MAX_STACK_SIZE - 1];
   Array movesall = {.p = NULL, .max = 0, .len = 0};
   #define MOVES_AT(b) ( & ((_Move * ) movesall.p) [b->moveLoc] )
+  #define FINISH_MOVE(M) do                             \
+    {                                                   \
+      if (M->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE)) \
+        npieces--;                                      \
+      fullclock++;                                      \
+      color = !color;                                   \
+    } while (0)
+  #define FINISH_UNMOVE(M) do                           \
+    {                                                   \
+      if (M->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE)) \
+        npieces++;                                      \
+      fullclock--;                                      \
+      color = !color;                                   \
+    } while (0)
 
   #define FEN_DEFAULT         \
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -177,9 +192,6 @@
   _Board * BoardSetFromFEN (const char * ufen)
   {
     _Board *  b = BoardStack;
-    b->totalMoves = 0;  /* Note : not yet evaluated. */
-    b->moveLoc = 0;
-    movesall.len = 0;
   
     npieces = 0;
     kings [WHITE] = kings [BLACK] = OUTSIDE;
@@ -595,9 +607,7 @@
     }
 
     if (move->flags & MOVE_ENP_CAPTURE)
-    {
       PIECES [to + (piece == WPAWN ? 8 : -8)] = EMPTY;
-    }
   }
 
   void BoardUnmove (_Move * move)
@@ -649,9 +659,7 @@
     }
 
     if (move->flags & MOVE_ENP_CAPTURE)
-    {
       PIECES [to + (piece == WPAWN ? 8 : -8)] =
         piece == WPAWN ? BPAWN : WPAWN;
-    }
   }
 #endif
