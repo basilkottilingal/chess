@@ -10,7 +10,7 @@ SRC=$(wildcard:*.c);
 
 #compile the main webserver file (wsserver.c);
 server: libws.a libnnue.a $(SRC)
-	gcc -std=c99 -o server wsserver.c -I./nnue -I./wsServer/include -L./nnue -L./wsServer -lnnue -lws -pthread -lm -DDISABLE_VERBOSE
+	gcc -std=c99 -o server game-server.c -I./nnue -I./wsServer/include -L./nnue -L./wsServer -lnnue -lws -pthread -lm -DDISABLE_VERBOSE
 
 clean:
 	rm *.o *.a

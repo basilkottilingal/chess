@@ -49,7 +49,7 @@
     free (a);
   }
   
-  void array_append (Array * a, void * elem, size_t size)
+  void array_append (Array * a, const void * elem, size_t size)
   {
     if (a->len + size >= a->max)
     {
@@ -76,13 +76,11 @@
   Array GameErrorBuffer =
     {.p = NULL, .len = 0, .max = 0};
 
-  void GameError (char * err)
+  void GameError (const char * err)
   {
     Array * b = &GameErrorBuffer;
     Flag n = 0;
-    char * c = err,
-      end[2] =
-        { '\n', '\0' };
+    const char * c = err, end[2] = { '\n', '\0' };
     /* Get the count of char in err*/
     while (n<UINT8_MAX-1 && *c++)
       n++;
