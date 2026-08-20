@@ -95,7 +95,11 @@ int main()
       loc = ++loc % b->totalMoves; 
 
     //BoardNextLevel (&b, moves + loc);
-    GameMove (moves + loc);
+    _Move * m = moves + loc;
+    BoardMove (b, m);
+    FINISH_MOVE (m);
+    b [0] = b [1];
+    BoardAllMoves (b);
 
     //WAIT_CLEAR ();
     BoardPrint (b);

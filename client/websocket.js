@@ -123,25 +123,25 @@ export class Client
   /* display and log any error or warning msg from server */
   error (msg)
   {
-    console.log(msg);
+    console.log (msg);
     this.errorLog.textContent = msg;
     this.errorLog.style.color = "red";
     setTimeout (() => {}, 1000); //wait for ?? s
   }
 
   /* display msg in green color on page */
-  displayGreen(msg)
+  displayGreen (msg)
   {
     console.log (msg);
     this.errorLog.textContent = msg;
     this.errorLog.style.color = "green";
   }
  
-  /* Send a msg to server via socket 
-  ..*/ 
-  encodeSend(type, msg) {
-    console.log("{client to server} "+ type + msg);
-    this.socket.send(type + msg);
+  /* send a msg to the server via socket */
+  encodeSend (type, msg)
+  {
+    console.log ("{client to server} "+ type + msg);
+    this.socket.send (type + msg);
   }
   
   /* 
@@ -156,15 +156,14 @@ export class Client
       this.error("invalid fen! Please enter a valid one");
       return;
     }
-
     /* encode 'f' at the start and send it via socket*/
     let msg = this.encodeSend ('f', fen);
-     
     this.inputfen.value       = "";
-    this.inputfen.disabled    = true;
-    this.submitfen.disabled   = true;
-    this.errorLog.textContent = "";
-
+    /*
+    .. this.inputfen.disabled    = true;
+    .. this.submitfen.disabled   = true;
+    .. this.errorLog.textContent = "";
+    */
     /*
     .. Now wait for a reply. Be it error/success, it will be handled by
     .. socket.onmessage ()
@@ -200,7 +199,7 @@ export class Client
     document.addEventListener ('DOMContentLoaded', () =>
       {
         const button = document.getElementById('undo');
-        button.addEventListener('click', () =>
+        button.addEventListener ('click', () =>
           {
             this.undo();
           });
@@ -208,11 +207,11 @@ export class Client
 
     /* Input field to enter fen */
     let debounceTimer;
-    this.inputfen.addEventListener("input", () =>
+    this.inputfen.addEventListener ("input", () =>
       {
         /* Clear the previous timer */
-        clearTimeout(debounceTimer); 
-        debounceTimer = setTimeout( () =>
+        clearTimeout (debounceTimer); 
+        debounceTimer = setTimeout ( () =>
           {
           }, 500); 
       });
@@ -223,14 +222,14 @@ export class Client
         if (event.key === "Enter")
         {
           //event.preventDefault(); // Prevent form submission
-          this.sendFen();
+          this.sendFen ();
         }
       });
 
     /* Trigger on clicking on button 'submit' */
     this.submitfen.addEventListener("click", () =>
       {
-        this.sendFen();
+        this.sendFen ();
       });
   }  /* end of eventListen () {} */
 

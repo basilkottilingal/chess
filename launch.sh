@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # lauch the server. fixme : works only if port 8080 is available
-./src/server &
+(cd src/ && make server && ./server) &
 SERVER_PID=$!
 
 # open an http server to serve the pages

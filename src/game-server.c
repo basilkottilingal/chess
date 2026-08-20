@@ -29,7 +29,6 @@ static int server_send (ws_cli_conn_t client, const char * msg)
 {
   /*
   .. types of messages send from server to client
-  .. h: handshake
   .. s: start,
   .. S: success,
   .. m: move,
@@ -41,7 +40,7 @@ static int server_send (ws_cli_conn_t client, const char * msg)
   .. w: warning msg
   */
 
-  static char allowed [] = "hsSfmxtgd";
+  static char allowed [] = "sSfmxtgd";
   /* use server_error () for warnings and errors */
   assert (strchr (allowed, msg[0]) != NULL);
   fprintf (stdout, "\n{server >> client : %s}", msg);
@@ -100,41 +99,11 @@ static int board_undo ()
   return 1;
 }
 
-static int game_undo (ws_cli_conn_t client, const char * msg)
-{
-  assert (msg [1] == '\0');
-  int undo = 0;
-  if (board_undo ()) 
-  {
-    undo = 1;
-    if (color == mycolor)
-      board_undo ();
-  }
-  if (!undo) 
-    return
-      server_error (client, "warning : out of history. cannot undo");
-  char fen [100];
-  fen [0] = 'f';
-  BoardFEN (BoardStack, &fen[1]);
-  return server_send (client, fen);
-}
-
 static int game_start (ws_cli_conn_t client, const char * msg)
 {
   /* fixme : 1. not yet implemented, 2. start clock */
   assert (msg [1] == '\0');
   return server_send (client, "S");
-}
-
-static int game_reset (ws_cli_conn_t client, const char * msg)
-{
-  /* 'r' for restart */
-  assert (msg [1] == '\0');
-  while (board_undo ()) {};
-  char fen [100];
-  fen [0] = 'f';
-  BoardFEN (BoardStack, &fen[1]);
-  return server_send (client, fen);
 }
 
 static void game_print ()
@@ -143,6 +112,58 @@ static void game_print ()
   BoardFEN (BoardStack, fen);
   fprintf (stdout, "\n%s\n", fen);
   BoardPrint (BoardStack);
+}
+
+static int server_send_fen (ws_cli_conn_t client)
+{
+  char fen [100]; fen [0] = 'f';
+  BoardFEN (BoardStack, &fen[1]);
+  return server_send (client, fen);
+}
+
+static int game_undo (ws_cli_conn_t client, const char * msg)
+{
+  assert (msg [1] == '\0');
+  int undo = 0;
+  if (board_undo ())
+  {
+    if (color == mycolor)
+      board_undo ();
+  }
+  else
+    return
+      server_error (client, "warning : out of history. cannot undo");
+  
+  return server_send_fen (client);
+}
+
+static int game_reset (ws_cli_conn_t client, const char * msg)
+{
+  assert (msg [1] == '\0');
+  while (board_undo ()) {};
+  return server_send_fen (client);
+}
+
+static int game_set (ws_cli_conn_t client, const char * msg)
+{
+  _Board * b = BoardSetFromFEN (msg+1);
+  if (b == NULL)
+    return server_error (client, "error : wrong fen");
+  BoardAllMoves (b);
+  history.len = 0;
+  game_print ();
+  return server_send_fen (client);
+}
+
+static int game_engine (ws_cli_conn_t client, const char * msg)
+{
+  char c = msg [1];
+  if (c != 'w' && c != 'b')
+    return server_error (client, "error : player should be 'w' or 'b'");
+  mycolor = c == 'w' ? WHITE : BLACK;
+  assert (msg [2] == '\0');
+  /* fixme : engine  */
+  return server_send (client, "S");
 }
 
 static int game_status (ws_cli_conn_t client)
@@ -182,32 +203,6 @@ static int game_status (ws_cli_conn_t client)
     return 1;
   }
   return 0;
-}
-
-static int game_set (ws_cli_conn_t client, const char * msg)
-{
-  /* 'r' for restart */
-  _Board * b = BoardSetFromFEN (msg+1);
-  if (b == NULL)
-    return 0;
-  BoardAllMoves (b);
-  history.len = 0;
-  game_print ();
-  char fen [100];
-  fen [0] = 'f';
-  BoardFEN (BoardStack, &fen[1]);
-  return server_send (client, fen);
-}
-
-static int game_engine (ws_cli_conn_t client, const char * msg)
-{
-  char c = msg [1];
-  if (c != 'w' && c != 'b')
-    return server_error (client, "error : player should be 'w' or 'b'");
-  mycolor = c == 'w' ? WHITE : BLACK;
-  assert (msg [2] == '\0');
-  /* fixme : engine  */
-  return server_send (client, "S");
 }
 
 static int game_move (_Move * move)
@@ -328,6 +323,8 @@ int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)
   .. or error/warnign messsages 
 */
   
+static int game_running = 0;
+static ws_cli_conn_t game_client = (ws_cli_conn_t) UINT64_MAX;
     
 int server_interpret (
   ws_cli_conn_t client,
@@ -336,7 +333,6 @@ int server_interpret (
   int type
 )
 {
-  printf ("\n{client >> server : %s}", msg);
   /*
   .. types of recv messages are
   .. r: restart,
@@ -348,6 +344,12 @@ int server_interpret (
   .. d: debug flag (fixme)
   */
 
+  if (type == WS_FR_OP_BIN)
+    return server_error (client, "error : binary msg not expected");
+  printf ("\n{client >> server : %s }", msg);
+  if (game_client != client)
+    return
+      server_error (client, "error : game running in another tab. refresh");
   char cmd = (char) msg[0];
   if (cmd == 'm')
     return game_client_moved (client, msg, size);
@@ -374,15 +376,21 @@ int server_interpret (
  * in order to send messages and retrieve informations about the
  * client.
  */
+
 void onopen (ws_cli_conn_t client)
 {
-	char *cli, *port;
-	cli  = ws_getaddress (client);
-	port = ws_getport (client);
+  char *cli, *port;
+  cli  = ws_getaddress (client);
+  port = ws_getport (client);
 
-	printf ("connection opened, addr: %s, port: %s\n", cli, port);
-  /* fixme : make a handshake */
-  game_set (client, "f"); /* default fen */
+  printf ("connection opened, addr: %s, port: %s\n", cli, port);
+
+  if (game_running)
+    server_send_fen (client);
+  else  if (game_set (client, "f" /* default fen */))
+    game_running = 1;
+
+  game_client = client;
 }
 
 /**
@@ -393,12 +401,14 @@ void onopen (ws_cli_conn_t client)
  * client.
  */
 
-void onclose(ws_cli_conn_t client)
+void onclose (ws_cli_conn_t client)
 {
-	char *cli;
-	cli = ws_getaddress(client);
+  char *cli;
+  cli = ws_getaddress(client);
 
-	printf("connection closed, addr: %s\n", cli);
+  printf("connection closed, addr: %s\n", cli);
+  if (game_client == client)
+    game_client = (ws_cli_conn_t) UINT64_MAX;
 }
 
 /**
@@ -417,37 +427,30 @@ void onclose(ws_cli_conn_t client)
  */
 void onmessage (
   ws_cli_conn_t client,
-	const unsigned char *msg,
+  const unsigned char *msg,
   uint64_t size,
   int type
 )
 {
-	char *cli;
-	cli = ws_getaddress(client);
-
-  if (type == WS_FR_OP_BIN)
-  {
-    server_error (client, "error : binary msg not expected");
-    return;
-  }
-
+  char *cli;
+  cli = ws_getaddress(client);
   server_interpret (client, msg, size, type);
 
-	/**
-	 * Mimicks the same frame type received and re-send it again
-	 *
-	 * Please note that we could just use a ws_sendframe_txt()
-	 * or ws_sendframe_bin() here, but we're just being safe
-	 * and re-sending the very same frame type and content
-	 * again.
-	 *
-	 * Alternative functions:
-	 *   ws_sendframe()
-	 *   ws_sendframe_txt()
-	 *   ws_sendframe_txt_bcast()
-	 *   ws_sendframe_bin()
-	 *   ws_sendframe_bin_bcast()
-	 */
+  /**
+   * Mimicks the same frame type received and re-send it again
+   *
+   * Please note that we could just use a ws_sendframe_txt()
+   * or ws_sendframe_bin() here, but we're just being safe
+   * and re-sending the very same frame type and content
+   * again.
+   *
+   * Alternative functions:
+   *   ws_sendframe()
+   *   ws_sendframe_txt()
+   *   ws_sendframe_txt_bcast()
+   *   ws_sendframe_bin()
+   *   ws_sendframe_bin_bcast()
+   */
 }
 
 #ifndef PORT_START
@@ -464,8 +467,8 @@ int is_port_available (int port)
     return 0;
   struct sockaddr_in addr;
   addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  addr.sin_port = htons(port);
+  addr.sin_addr.s_addr = htonl (INADDR_ANY);
+  addr.sin_port = htons (port);
 
   int result = bind (sock, (struct sockaddr*) & addr, sizeof(addr));
   close(sock);
@@ -497,32 +500,32 @@ int main ( void /* fixme : may pass address & port */ )
     available = 1;
     fprintf(stdout, "server listening to 127.0.0.1:%d\n", port); 
   
-  	ws_socket ( &(struct ws_server)
+    ws_socket ( &(struct ws_server)
       {
-	      /*
-		     * Bind host:
-		     * localhost -> localhost/127.0.0.1
-		     * 0.0.0.0   -> global IPv4
-		     * ::        -> global IPv4+IPv6 (DualStack)
-		     */
-  		  .host          = "0.0.0.0",
-	   	  .port          = port,
-		    .thread_loop   = 0,
-		    .timeout_ms    = 1000,
-  		  .evs.onopen    = & onopen,
-	  	  .evs.onclose   = & onclose,
-		    .evs.onmessage = & onmessage
-	    } );
+        /*
+         * Bind host:
+         * localhost -> localhost/127.0.0.1
+         * 0.0.0.0   -> global IPv4
+         * ::        -> global IPv4+IPv6 (DualStack)
+         */
+        .host          = "0.0.0.0",
+        .port          = port,
+        .thread_loop   = 0,
+        .timeout_ms    = 1000,
+        .evs.onopen    = & onopen,
+        .evs.onclose   = & onclose,
+        .evs.onmessage = & onmessage
+      } );
   }
   
   if (!available)  
     fprintf(stderr, "error: no port between %d and %d are available\n",
       PORT_START, PORT_END);
 
-	/*
-	 * If you want to execute code past ws_socket(), set
-	 * .thread_loop to '1'.
-	 */
+  /*
+   * If you want to execute code past ws_socket(), set
+   * .thread_loop to '1'.
+   */
 
-	return 0;
+  return 0;
 }

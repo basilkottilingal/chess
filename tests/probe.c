@@ -56,14 +56,14 @@ int main()
 
   /* nodes at ech level. NOTE : only for default FEN */
   static const long leaves [] = {
-  	20,
-  	400,
-  	8902,
-  	197281,
-  	4865609,
-  	119060324,
-  	3195901860,
-  	84998978956,
+    20,
+    400,
+    8902,
+    197281,
+    4865609,
+    119060324,
+    3195901860,
+    84998978956,
     LONG_MIN,  /* unknown */
     LONG_MIN,
     LONG_MIN,
