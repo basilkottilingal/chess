@@ -504,9 +504,9 @@
   enum GAME_STATUS
   {
     /* Board status */
-    GAME_CONTINUE          = 0,
     GAME_IS_A_WIN          = 16,
     GAME_IS_A_DRAW         = 32,
+    GAME_CONTINUE          = 64,
 
     /* Encode unknown error*/
     GAME_STATUS_ERROR      = 128,
@@ -524,8 +524,11 @@
     GAME_THREE_FOLD        = 3,
     GAME_WHITE_CANNOT      = 4,
     GAME_BLACK_CANNOT      = 5,
-    GAME_AGREES            = 6
+    GAME_AGREES            = 6,
+
   };
+
+  #define GAME_CONTINUES(s) ((s) & GAME_CONTINUE)
 
   void BoardMove (_Board * b, _Move * move)
   {

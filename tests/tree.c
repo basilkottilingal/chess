@@ -66,7 +66,7 @@ int main()
   };
 
   _Board * b = BoardRoot (fen);
-  #define DEPTHMAX 5
+  #define DEPTHMAX 4
   #define LEVEL(d) (DEPTHMAX - d)
   int depth = DEPTHMAX;
   int traversed [DEPTHMAX] = {0};
@@ -84,7 +84,13 @@ int main()
         break;
       traversed [LEVEL(depth)] ++;
     } while (--depth);
-  } while (++depth <= DEPTHMAX && BoardPrevLevel (&b));
+
+    if (++depth > DEPTHMAX)
+      break;
+
+    BoardPrevLevel (&b);
+  } while (1);
+   //while (++depth <= DEPTHMAX && BoardPrevLevel (&b));
 
   end = clock();
   double time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -100,7 +106,8 @@ int main()
   BoardStatusPrint (b);
   char lastfen [100];
   BoardFEN (b, lastfen);
-  printf ("\n\n %s\n", lastfen);
+  BoardPrint (b);
+  printf ("\n %s\n", lastfen);
 
   return 0;
 }

@@ -177,7 +177,7 @@ static int game_status (ws_cli_conn_t client, const char * msg)
   uint8_t f = BoardStack[0].status;
   char reply [100];
   reply [0] = 'g';
-  if (f == GAME_CONTINUE)
+  if (GAME_CONTINUES (f))
     return 0;
   char * status = reply + 1;
   if (f & GAME_IS_A_WIN)
@@ -312,10 +312,7 @@ int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)
     )
       continue;
     game_move (move);
-    if (game_status (client, "g"))
-      return 1;
-    server_send (client, "S");
-    return 1;
+    return server_send (client, "S");
   }
 
   server_error (client, "error : server cannot find client's move");

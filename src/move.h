@@ -475,25 +475,6 @@
     return b->status; 
   }
 
-  /*
-  void GameMove (_Move * move)
-  {
-    // fixme : remove this. there is a copy in game-server.h
-    _Board * b = BoardStack;
-    BoardMove (b, move);
-    FINISH_MOVE (move);
-
-    b [0].moveLoc = 0;
-    b [0] = b [1];
-    movesall.len = 0;
-  }
-
-  void GameUndo ()
-  {
-     history not implemented
-    assert (0);
-  }*/
-  
   void BoardStatusPrint (_Board * b)
   {
     Flag f = b->status;

@@ -5,19 +5,19 @@
 
   static int32_t piece_mobility (Square sq, Ray rays [], int nrays, int depth)
   {
-    assert (IS_PIECE (from));
+    assert (IS_PIECE (sq));
     int32_t n = 0;
     /* 'from' square can be neither empty nor outside the box */
     for (int i=0; i<nrays; ++i)
     {
-      Square to = from + rays [i];
+      Square to = sq + rays [i];
       for (int j=0; j<depth; ++j, to += rays [i])
       {
         /*
         .. cannot move along the ray, will end up outside board or hit a piece of
         .. the same color
         */
-        if (IS_OUTSIDE (to) || IS_BLOCKED (from, to))
+        if (IS_OUTSIDE (to) || IS_BLOCKED (sq, to))
           break;
         n++;
       }
@@ -48,7 +48,7 @@
     /* a naive board eval */
     for (char r = '8'; r >= '1'; --r)
     {
-      Square sq = & BOARD [r - '8' + START][START];
+      Square sq = & BOARD ['8'- r + START][START];
       for (char f = 'a'; f <= 'h'; ++f, ++sq)
       {
         switch (PIECES [*sq])
@@ -64,7 +64,7 @@
             {
               if (PIECES [*s] == BPAWN)
                 doubled = 1;
-              if (PIECES [s[1]] == WPAWN || PIECE [s[-1]] == WPAWN)
+              if (PIECES [s[1]] == WPAWN || PIECES [s[-1]] == WPAWN)
                 passed = 0;
             }
             if (passed)
@@ -74,14 +74,14 @@
             if (doubled)
               mg += 8, eg += 10;
             /* connected pawn bonus */
-            if (PIECES [s[1]] == BPAWN)
+            if (PIECES [sq[1]] == BPAWN)
               mg -= 1, eg -= 3;
-            if (PIECES [s[-1]] == BPAWN)
+            if (PIECES [sq[-1]] == BPAWN)
               mg -= 1, eg -= 3;
             /* connected + supported */ 
-            if (PIECES [s[-13]] == BPAWN)
+            if (PIECES [sq[-13]] == BPAWN)
               mg -= 1, eg -= 3;
-            if (PIECES [s[-11]] == BPAWN)
+            if (PIECES [sq[-11]] == BPAWN)
               mg -= 1, eg -= 3;
             break;
 
@@ -93,7 +93,7 @@
             {
               if (PIECES [*s] == WPAWN)
                 doubled = 1;
-              if (PIECES [s[1]] == BPAWN || PIECE [s[-1]] == BPAWN)
+              if (PIECES [s[1]] == BPAWN || PIECES [s[-1]] == BPAWN)
                 passed = 0;
             }
             if (passed)
@@ -104,14 +104,14 @@
             if (doubled)
               mg -= 8, eg -= 10;
             /* connected pawn bonus */
-            if (PIECES [s[1]] == WPAWN)
+            if (PIECES [sq[1]] == WPAWN)
               mg += 1, eg += 3;
-            if (PIECES [s[-1]] == WPAWN)
+            if (PIECES [sq[-1]] == WPAWN)
               mg += 1, eg += 3;
             /* connected + supported */ 
-            if (PIECES [s[13]] == WPAWN)
+            if (PIECES [sq[13]] == WPAWN)
               mg += 1, eg += 3;
-            if (PIECES [s[11]] == WPAWN)
+            if (PIECES [sq[11]] == WPAWN)
               mg += 1, eg += 3;
             break;
 
@@ -134,14 +134,14 @@
           case BROOK :
             val += 2;
             score -= 500;
-            score -= pst [*sq];
+            score -= psq [*sq];
             mg -= 2*piece_mobility (sq, ROOK_MOVES, 4, 7);
             break;
 
           case WROOK :
             val += 2;
             score += 500;
-            score += pst [*sq];
+            score += psq [*sq];
             mg += 2*piece_mobility (sq, ROOK_MOVES, 4, 7);
             break;
 
@@ -200,73 +200,6 @@
   }
 
   
-  Flag BoardAllMovesOrdered (_Board * b)
-  {
-    /*
-    .. Update the location in the stack "movesall.p" where you are going to
-    .. storing the moves
-    */
-    b [0].moveLoc = b [-1].moveLoc + b [-1].totalMoves;
-    b [0].totalMoves = 0;
-    movesall.len = b->moveLoc * sizeof (_Move);
-    /* assert (movesall.max >= movesall.len); */
-
-    b->status = 
-      (b->halfclock == 100) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES) :
-      npieces == 0          ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
-                               GAME_CONTINUE;
-
-    if (b->status != GAME_CONTINUE)
-      /* Game is a draw */
-      return b->status;
-
-    uint8_t onCheck = BoardIsKingAttacked (color);
-
-    /* Add all moves (incl invalid moves). They are still not marked */ 
-    for (int i=START; i<=END; ++i)
-    {
-      Square from = & BOARD [i][START];
-      for(int j=START; j<=END; ++j, ++from)
-      {
-        if ( IS_EMPTY (from) || PIECE_COLOR (from) != color )
-          continue;
-        /* Generate possible moves with the 'piece' */
-        BoardPieceMoves [PIECE (from)] (b, from, &movesall);
-      }
-    }
-
-    /*
-    .. fixme : total moves go beyond 255. (Even if you just take all pawns
-    .. promoted to queens)
-    */
-    uint8_t legalMoves = 0, totalMoves =
-      (uint8_t) ((movesall.len/sizeof (_Move)) - b->moveLoc);
-    _Move * move = MOVES_AT (b);
-
-    /*
-    .. Marking Moves that are invalid && marking moves that create check.
-    .. You may order moves using some static board evaluation for 
-    ..  
-    */
-    for (int i=0; i < totalMoves; ++i, ++move)
-    {
-      BoardMove(b, move);
-      if (BoardIsKingAttacked(color))
-        move->flags = MOVE_ILLEGAL;
-      else
-        legalMoves ++;
-      BoardUnmove(move);
-    }
-
-    /*See if the Board is over. Bcs no moves available */
-    if(!legalMoves) 
-      b->status = onCheck ? (GAME_IS_A_WIN | !color) :
-        (GAME_IS_A_DRAW | GAME_STALEMATE);
-    else 
-      b->totalMoves = totalMoves;
-
-    return b->status; 
-  }
 
   #if 0
   int16_t TreeEval (_Board * b)
