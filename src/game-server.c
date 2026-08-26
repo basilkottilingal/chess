@@ -67,13 +67,14 @@ void server_handshake (ws_cli_conn_t client, const char * msg)
   server_send (client, "hVersion-1.0");
 }
 
-static inline
-void server_msg_unknown (ws_cli_conn_t client, const char * msg)
+static
+int server_msg_unknown (ws_cli_conn_t client, const char * msg)
 {
   char buff [200];
   snprintf (buff, sizeof (buff),
     "error: unknown command from client. \n msg : %s", msg); 
   server_error (client, buff);
+  return 0;
 }
 
 static uint8_t mycolor = BLACK;  /* by default client takes WHITE */
@@ -146,11 +147,15 @@ static int game_reset (ws_cli_conn_t client, const char * msg)
 
 static int game_set (ws_cli_conn_t client, const char * msg)
 {
+  history.len = 0;
   _Board * b = BoardSetFromFEN (msg+1);
   if (b == NULL)
+  {
+    BoardSetFromFEN ("");
+    BoardAllMoves (b);
     return server_error (client, "error : wrong fen");
+  }
   BoardAllMoves (b);
-  history.len = 0;
   game_print ();
   return server_send_fen (client);
 }
@@ -166,15 +171,15 @@ static int game_engine (ws_cli_conn_t client, const char * msg)
   return server_send (client, "S");
 }
 
-static int game_status (ws_cli_conn_t client)
+static int game_status (ws_cli_conn_t client, const char * msg)
 {
-
+  assert (msg [1] == '\0');
   uint8_t f = BoardStack[0].status;
-  if(f ==  GAME_CONTINUE)
+  char reply [100];
+  reply [0] = 'g';
+  if (f == GAME_CONTINUE)
     return 0;
-  char msg [100];
-  msg [0] = 'g';
-  char * status = msg + 1;
+  char * status = reply + 1;
   if (f & GAME_IS_A_WIN)
   {
     sprintf (status, "%s wins by %s", 
@@ -182,13 +187,13 @@ static int game_status (ws_cli_conn_t client)
       (f & GAME_IS_WON_BY_TIME) ? "time" : 
       (f & GAME_IS_WON_BY_FORFEIT) ? "opponent's forfeit" :
       "checkmate");
-    server_send (client, msg);
+    server_send (client, reply);
     return 1;
   }
   if (f & GAME_IS_A_DRAW)
   {
     Flag info = f & GAME_DRAW_INFO;
-    sprintf(status, "Draw : %s",
+    sprintf(status, "draw : %s",
       (info == GAME_STALEMATE)  ? "Stalemate" :
       (info == GAME_INSUFFICIENT)  ? "Insufficient Material" :
       (info == GAME_FIFTY_MOVES)  ? "Fifty moves rule" :
@@ -199,7 +204,7 @@ static int game_status (ws_cli_conn_t client)
         "White ran of time and Black cannot win" :
       (info == GAME_AGREES)  ? "Players agree" :
         "ERROR: Unkown reason for a draw!! "); 
-    server_send (client, msg);
+    server_send (client, reply);
     return 1;
   }
   return 0;
@@ -208,7 +213,8 @@ static int game_status (ws_cli_conn_t client)
 static int game_move (_Move * move)
 {
   _Board * b = BoardStack;
-  array_append (&history, & (_History) {.b = *b, .m = *move}, sizeof (_History));
+  array_append (&history, & (_History)
+    {.b = *b, .m = *move}, sizeof (_History));
   BoardMove (b, move);
   FINISH_MOVE (move);
   b [0] = b [1];
@@ -236,7 +242,7 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
     return server_error (client, "error : it is not server's turn!");
     
   if (BoardStack [0].status != GAME_CONTINUE)
-    return server_error(client, "warning : game over! (fixme)");
+    return server_error (client, "warning : game over! (fixme)");
 
   /* fixme : make the move suggested by engine*/
   _Move * moves = MOVES_AT (BoardStack);
@@ -259,16 +265,15 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
       RANKFILE [move.from.square][1],
       RANKFILE [move.to.square][0],
       RANKFILE [move.to.square][1],
-      (move.flags & MOVE_PROMOTION) ? ASCII [move.promotion & ~ (uint8_t) 1] : '\0',
+      (move.flags & MOVE_PROMOTION) ?
+        ASCII [move.promotion & ~ (uint8_t) 1] : '\0',
       '\0'
     };
     game_move (& move);
-    if (game_status (client))
-      return 1;
     return server_send (client, reply); 
   }
 
-  assert (0); /* couldn't find a legal move even though flag == GAME_CONTINUE?? */
+  assert (0); /* couldn't find a legal move ?? */
   return 0;
 }
 
@@ -282,8 +287,8 @@ int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)
   assert (color != mycolor);
   const char * m = msg + 1;
   uint8_t
-    from = 8 * (8 - m[1] + '0' ) + m[0] - 'a',
-    to   = 8 * (8 - m[3] + '0' ) + m[2] - 'a';
+    from = 8 * (8 - m[1] + '0') + m[0] - 'a',
+    to   = 8 * (8 - m[3] + '0') + m[2] - 'a';
   assert (from < OUTSIDE && to < OUTSIDE);
 
   uint8_t prom =
@@ -307,7 +312,7 @@ int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)
     )
       continue;
     game_move (move);
-    if (game_status (client))
+    if (game_status (client, "g"))
       return 1;
     server_send (client, "S");
     return 1;
@@ -317,14 +322,17 @@ int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)
   return 0;
 }
 
-/**
-  main server function, that decodes the message ..
-  .. friom client and send back appropriate responses ..
-  .. or error/warnign messsages 
-*/
-  
+/*
+.. global variables (a) to see if a game is running, (b) which client
+.. is actively communicating with this server
+*/ 
 static int game_running = 0;
 static ws_cli_conn_t game_client = (ws_cli_conn_t) UINT64_MAX;
+
+/*
+.. main server function, that decodes the message friom the client and
+.. send back appropriate responses or error/warnign messages 
+*/
     
 int server_interpret (
   ws_cli_conn_t client,
@@ -341,15 +349,17 @@ int server_interpret (
   .. u: undo,
   .. M: make a move
   .. m: update clien't move
+  .. g: game status 
   .. d: debug flag (fixme)
   */
 
   if (type == WS_FR_OP_BIN)
     return server_error (client, "error : binary msg not expected");
-  printf ("\n{client >> server : %s }", msg);
-  if (game_client != client)
-    return
-      server_error (client, "error : game running in another tab. refresh");
+  printf ("\n{client >> server : %s}", msg);
+  if (client != game_client)
+    return server_error (
+      client, "error : game running in another tab. refresh this page"
+    );
   char cmd = (char) msg[0];
   if (cmd == 'm')
     return game_client_moved (client, msg, size);
@@ -365,8 +375,9 @@ int server_interpret (
     return game_engine (client, msg);
   if (cmd == 'u') 
     return game_undo (client, msg);
-  server_msg_unknown (client, msg);
-  return 0;
+  if (cmd == 'g') 
+    return game_status (client, msg);
+  return server_msg_unknown (client, msg);
 }
 
 /**

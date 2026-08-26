@@ -360,6 +360,7 @@ export class Client
             if (allMoves.length === 0)
             {
               this.displayGreen ("game over");
+              this.socket.send ("g"); /* wait for exact game result */ 
               resolve ("over");
               return;
             }
@@ -417,6 +418,7 @@ export class Client
                   /* Finish the move on the board */
                   await this.boardInterface.playerMove (_move_, true);
                   /* Reflect the move in chess.js */
+                  this.displayGreen (this.boardInterface.chess.fen ());
                 }
                 else
                 {

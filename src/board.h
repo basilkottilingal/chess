@@ -450,7 +450,7 @@
       uint16_t n = gameclock[i], pos = 4;
 
       /* otherwise: weird fullclocknumbers */
-      assert (n <= (i ? 5000 : 50));
+      assert (n <= (i ? 5000 : 150));
       unsigned char h[5];
       h[pos] = i ? '\0' : ' ';
       while (pos)

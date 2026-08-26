@@ -27,6 +27,7 @@
   .. 12x12 board. So for a vector [i][j], equivalent Ray will be
   .. (unisgned char) (12*i+j).
   */
+
   typedef const char Ray;
   static Ray KNIGHT_MOVES[8] = 
     { 14, 25, 23, 10, -14, -25, -23, -10 };
@@ -173,25 +174,16 @@
     if (*from != e1)
       return; 
 
-    if (b->castling & CASTLING_WK)
+    if (
+      (b->castling & CASTLING_WK)                  &&
+      PIECES [f1] == EMPTY                         &&
+      PIECES [g1] == EMPTY                         &&
+      BoardIsSquareAttacked (from, BLACK) == 0     &&  /* e1 is safe*/
+      BoardIsSquareAttacked (from + 1, BLACK) == 0 &&  /* f1 */
+      BoardIsSquareAttacked (from + 2, BLACK) == 0     /* g1 */
+    )
     {
-      Flag available = 1;
-      if (PIECES [f1] != EMPTY || PIECES [g1] != EMPTY)
-        available = 0;
-      if (available)
-      {
-        /* see if king, rook and the 2 squares in b/w are under attack */
-        for (int i=0; i<4; ++i)
-          if (BoardIsSquareAttacked (from + i, BLACK))
-          {
-            available = 0;
-            break;
-          }
-      }
-      
-      if(available)
-      {
-        _Move move =
+      _Move move = (_Move)
         {
           .from.piece  = WKING,
           .from.square = e1,
@@ -200,30 +192,20 @@
           .promotion   = EMPTY,
           .flags = CASTLING_WK
         };
-        array_append(moves, &move, sizeof(move));
-      }
+      array_append (moves, &move, sizeof (_Move));
     }
 
-    /* Queen Side castling */
-    if (b->castling & CASTLING_WQ)
+    if (
+      (b->castling & CASTLING_WQ)                  &&
+      PIECES [b1] == EMPTY                         &&
+      PIECES [c1] == EMPTY                         &&
+      PIECES [d1] == EMPTY                         &&
+      BoardIsSquareAttacked (from, BLACK) == 0     &&  /* e1 is safe*/
+      BoardIsSquareAttacked (from - 1, BLACK) == 0 &&  /* d1 */
+      BoardIsSquareAttacked (from - 2, BLACK) == 0     /* c1 */
+    )
     {
-      Flag available = 1;
-      if (PIECES [b1] != EMPTY || PIECES [c1] != EMPTY || PIECES [d1] != EMPTY)
-        available = 0;
-      if (available)
-      {
-        /* see if king, rook and the 2 squares in b/w are under attack */
-        for (int i=-4; i<=0; ++i)
-          if (BoardIsSquareAttacked (from + i, BLACK))
-          {
-            available = 0;
-            break;
-          }
-      }
-      
-      if(available)
-      {
-        _Move move =
+      _Move move = (_Move)
         {
           .from.piece  = WKING,
           .from.square = e1,
@@ -232,8 +214,7 @@
           .promotion   = EMPTY,
           .flags = CASTLING_WQ
         };
-        array_append (moves, &move, sizeof(move));
-      }
+      array_append (moves, &move, sizeof (_Move));
     }
   }
   
@@ -244,25 +225,16 @@
     if (*from != e8)
       return; 
 
-    if (b->castling & CASTLING_BK)
+    if (
+      (b->castling & CASTLING_BK)                  &&
+      PIECES [f8] == EMPTY                         &&
+      PIECES [g8] == EMPTY                         &&
+      BoardIsSquareAttacked (from, WHITE) == 0     &&  /* e8 is safe*/
+      BoardIsSquareAttacked (from + 1, WHITE) == 0 &&  /* f8 */
+      BoardIsSquareAttacked (from + 2, WHITE) == 0     /* g8 */
+    )
     {
-      Flag available = 1;
-      if (PIECES [f8] != EMPTY || PIECES [g8] != EMPTY)
-        available = 0;
-      if (available)
-      {
-        /* see if king, rook and the 2 squares in b/w are under attack */
-        for (int i=0; i<4; ++i)
-          if (BoardIsSquareAttacked (from + i, WHITE))
-          {
-            available = 0;
-            break;
-          }
-      }
-      
-      if(available)
-      {
-        _Move move =
+      _Move move =
         {
           .from.piece  = BKING,
           .from.square = e8,
@@ -271,31 +243,20 @@
           .promotion   = EMPTY,
           .flags = CASTLING_BK
         };
-        array_append(moves, &move, sizeof(move));
-      }
+      array_append(moves, &move, sizeof(move));
     }
 
-
-    /* Queen Side castling */
-    if (b->castling & CASTLING_BQ)
+    if (
+      (b->castling & CASTLING_BQ)                  &&
+      PIECES [b8] == EMPTY                         &&
+      PIECES [c8] == EMPTY                         &&
+      PIECES [d8] == EMPTY                         &&
+      BoardIsSquareAttacked (from, WHITE) == 0     &&  /* e8 is safe*/
+      BoardIsSquareAttacked (from - 1, WHITE) == 0 &&  /* d8 */
+      BoardIsSquareAttacked (from - 2, WHITE) == 0     /* c8 */
+    )
     {
-      Flag available = 1;
-      if (PIECES [b8] != EMPTY || PIECES [c8] != EMPTY || PIECES [d8] != EMPTY)
-        available = 0;
-      if (available)
-      {
-        /* see if king, rook and the 2 squares in b/w are under attack */
-        for (int i=-4; i<=0; ++i)
-          if (BoardIsSquareAttacked (from + i, BLACK))
-          {
-            available = 0;
-            break;
-          }
-      }
-      
-      if(available)
-      {
-        _Move move =
+      _Move move =
         {
           .from.piece  = BKING,
           .from.square = e8,
@@ -304,8 +265,7 @@
           .promotion   = EMPTY,
           .flags = CASTLING_BQ
         };
-        array_append(moves, &move, sizeof(move));
-      }
+      array_append(moves, &move, sizeof(move));
     }
   }
   

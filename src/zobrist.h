@@ -277,34 +277,4 @@
     10783398413131544232ull, 16707911465927891086ull, 4953366548197248896ull,
     9686902966627713100ull
   };
-  const uint64_t * const ZHCASTLING = & zobrist [64*12];
-  const uint64_t * const ZHENP      = & zobrist [64*12 + 16];
-  #define          ZHCOLOR    zobrist [792]
-  #define          ZOB(sq)    zobrist [sq*12 + PIECES[sq]]
-
-  /*
-  
-
-  .. A 16 bytes struct that hold zobrist hash, evaluated score, best move 
-  .. (6 bits each for start & end and 4 bits for promotion {q,r,b,r}), search
-  .. depth and flag
-  */
-  typedef struct
-  {
-    uint64_t hash; 
-    int32_t  score;
-    uint16_t best;
-    uint8_t  depth, flag;
-  } _Entry;
-
-  #define TT_SIZE  (1<<10)
-  #define TT_MOD   (TT_SIZE - 1)
-  _Entry TT [ TT_SIZE ] = {0};
-  #define TT_SEARCH(b) & TT [b->zobrist & TT_MOD]
-
-  _Entry * HashLoc(uint64_t z)
-  {
-    return & TT [z & TT_MOD];
-  }
-  
 #endif

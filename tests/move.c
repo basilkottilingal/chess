@@ -39,11 +39,13 @@ rn2k1n1/pBp1pp1r/4Q2b/1q2P1p1/7p/NP1p1N2/PBPP1PPP/1R1K3R w q - 2 6
 
 int main(){
   _Board * b =
-  //BoardSetFromFEN (NULL);
-  BoardSetFromFEN ("rnbqkbnr/pppppppp/8/8/P7/8/1PPPPPPP/RNBQKBNR b KQkq - 1 2");
+  BoardSetFromFEN (NULL);
+  //BoardSetFromFEN ("rnbqkbnr/pppppppp/8/8/P7/8/1PPPPPPP/RNBQKBNR b KQkq - 1 2");
   //BoardSetFromFEN ("8/P7/8/8/8/8/8/k6K w - - 0 1");
   //BoardSetFromFEN ("8/Q7/8/q7/8/8/8/k6K b - - 0 1");
   //BoardSetFromFEN ("k7/4np2/8/7n/8/8/PP6/R3K2R w KQ - 0 30");
+  //BoardSetFromFEN ("k7/4np2/8/7n/8/8/PP5r/R3K2R w KQ - 0 30");
+  //BoardSetFromFEN ("k7/4np2/8/7n/8/8/PP4r1/R3K2R w KQ - 0 30");
   //BoardSetFromFEN ("r1bqkbnr/pppp1ppp/2n5/4p3/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2");
   //BoardSetFromFEN ("rnbqkbnr/1pp1pppp/8/p2pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3");
   //BoardSetFromFEN ("8/k7/8/K7/8/8/8/8 b - - 0 1");
@@ -57,6 +59,7 @@ int main(){
   //BoardSetFromFEN ("B2r1n2/8/1b2k3/6P1/2p3K1/1p1n4/8/8 w - - 2 122");
   //BoardSetFromFEN ("8/k6P/8/K7/8/8/6p1/8 b - - 0 1");
   //BoardSetFromFEN ("8/r1k4P/R7/K7/8/8/6p1/8 w - - 0 1");
+  //BoardSetFromFEN ("1qr5/3k2rp/n7/1K6/8/5p2/2qbr3/1n2n2b w - - 22 325");
   assert(b != NULL);
 
   WAIT_CLEAR ();
