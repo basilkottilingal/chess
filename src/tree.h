@@ -229,7 +229,10 @@
     return 1;
   }
 
-  /* can avoid this, by using recursive functions */
+  /*
+  .. since we avoid recursive functions for tree searching, we need
+  .. to store reduction variables like score, alpha, beta, etc 
+  */
   typedef struct
   {
     int16_t  bestScore;
@@ -237,6 +240,14 @@
     uint64_t stats;
   } Probe;
   Probe ProbePlies [ MAX_STACK_SIZE ];
+
+  _Move bestMoves[6][6];
+  #define reduce(depth) do {                                  \
+    bestMoves [depth][depth] =                                \
+      ((_Move * ) movesall.p)[ProbePlies [depth].bestMoveAt];\
+    for (unsigned d = depth-1; d; d--)                        \
+      bestMoves [depth][d] = bestMoves [depth-1][d];          \
+  }while (0)
 
   /* best move */
   _Move * BoardProbe (const unsigned depthmax)
@@ -247,12 +258,9 @@
     _Board * b = BoardStack;
     int16_t score;
     unsigned depth = depthmax;
-    ProbePlies [depth] = (Probe)
-      {
-        .bestMoveAt = UNKNOWN_BEST_MOVE_AT,
-        .bestScore  = INT16_MIN
-      };
     memset (ProbePlies, 0, sizeof (ProbePlies));
+    ProbePlies [depth].bestMoveAt = UNKNOWN_BEST_MOVE_AT;
+    ProbePlies [depth].bestScore  = INT16_MIN;
 
     do {
       do
@@ -292,6 +300,7 @@
       {
         ProbePlies [depth].bestScore  = score;
         ProbePlies [depth].bestMoveAt = b->moveLoc;
+reduce (depth);
       }
       b->moveLoc ++;
       b->totalMoves --;

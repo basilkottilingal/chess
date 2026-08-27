@@ -247,7 +247,8 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
   /* fixme : make the move suggested by engine*/
   _Move * moves = MOVES_AT (BoardStack);
 
-  /* fixme : as of now, using a random move generator */
+  #if 0
+  /* random move generator */
   srand ((unsigned) time (NULL));
   int nm = (int) BoardStack [0].totalMoves, n = nm, r = rand () % nm;
   while (n--)
@@ -258,23 +259,23 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
       continue;
     }
     _Move move = moves [r];
-    const char reply [] =
+  }
+  #endif
+
+  _Move * move = BoardProbe (2u);
+  const char reply [] =
     { 
       'm',  
-      RANKFILE [move.from.square][0],
-      RANKFILE [move.from.square][1],
-      RANKFILE [move.to.square][0],
-      RANKFILE [move.to.square][1],
-      (move.flags & MOVE_PROMOTION) ?
-        ASCII [move.promotion & ~ (uint8_t) 1] : '\0',
+      RANKFILE [move->from.square][0],
+      RANKFILE [move->from.square][1],
+      RANKFILE [move->to.square][0],
+      RANKFILE [move->to.square][1],
+      (move->flags & MOVE_PROMOTION) ?
+        ASCII [move->promotion & ~ (uint8_t) 1] : '\0',
       '\0'
     };
-    game_move (& move);
-    return server_send (client, reply); 
-  }
-
-  assert (0); /* couldn't find a legal move ?? */
-  return 0;
+  game_move (move);
+  return server_send (client, reply); 
 }
 
 int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)

@@ -87,7 +87,6 @@ int main()
 
     if (++depth > DEPTHMAX)
       break;
-
     BoardPrevLevel (&b);
   } while (1);
    //while (++depth <= DEPTHMAX && BoardPrevLevel (&b));
