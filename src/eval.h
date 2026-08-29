@@ -199,41 +199,5 @@
     return color == WHITE ? score : -score;
   }
 
-  
-
-  #if 0
-  int16_t TreeEval (_Board * b)
-  {
-    do {
-      do
-      {
-        if (!BoardNextLevel (&b))
-          break;
-        --depth;
-
-        /* skip */
-        _Entry * e = HashLoc (b->zobrist);
-        if (e->hash == b->zobrist /*&& e->depth > REQD */)
-        {
-          break;
-        }
-
-        traversed [LEVEL(depth) - 1] ++;
-      } while (depth);
-
-      /*
-      .. reduction
-      */
-
-      BoardPrevLevel (&b);
-
-      /* new entry to TT or update deth */
-      _Entry * e = HashLoc (b[1].zobrist);
-      e->depth = (uint8_t) depth;
-      e->hash = b[1].zobrist;
-
-    } while (++depth <= DEPTHMAX);
-  }
-  #endif
 
 #endif

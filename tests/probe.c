@@ -77,7 +77,7 @@ int main()
   };
 
   _Board * b = BoardRoot (fen);
-  #define DEPTHMAX 5
+  #define DEPTHMAX 4
   #define LEVEL(d) (DEPTHMAX - d)
   int depth = DEPTHMAX;
   int traversed [DEPTHMAX] = {0};
@@ -98,13 +98,13 @@ int main()
       /* skip */
       _Entry * e = HashLoc (b->zobrist);
       if (e->hash == b->zobrist /*&& e->depth > REQD */)
-      {
         break;
-      }
-
       traversed [LEVEL(depth) - 1] ++;
+
     } while (depth);
 
+    if (++depth > DEPTHMAX)
+      break;
     BoardPrevLevel (&b);
 
     /* new entry to TT or update deth */
@@ -112,7 +112,7 @@ int main()
     e->depth = (uint8_t) depth;
     e->hash = b[1].zobrist;
 
-  } while (++depth <= DEPTHMAX);
+  } while (1);
 
   end = clock();
   double time_used = ((double) (end - start)) / CLOCKS_PER_SEC;

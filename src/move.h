@@ -2,6 +2,194 @@
 #define _CHESS_MOVE_H_
 
   #include "board.h"
+  #include "zobrist.h"
+
+  Array movesall = {.p = NULL, .max = 0, .len = 0};
+  #define MOVES_AT(b) ( & ((_Move * ) movesall.p) [b->moveLoc] )
+
+  /* conditions to check while moving piece from 'FROM' to 'TO' */
+
+  #define IS_NORMAL(FROM,TO)         ( IS_EMPTY (TO) )
+  #define IS_BLOCKED(FROM,TO)        ( IS_PIECE (TO) &&                       \
+                                     (PIECE_COLOR (FROM) == PIECE_COLOR (TO)) )
+  #define IS_CAPTURE(FROM,TO)        ( IS_PIECE (TO) &&                       \
+                                     (PIECE_COLOR (FROM) != PIECE_COLOR (TO)) )
+  /* use (both) carefully, assumes moving piece is WPAWN/BPAWN */
+  #define IS_PROMOTION(TO) (SQUARE_RANK (TO) == '8' || SQUARE_RANK (TO) == '1')
+  #define IS_ENP_CAPTURE(TO,BOARD)   ((*TO) == (BOARD)->enpassante)
+
+  char * BoardMoveSAN (_Move * m)
+  {
+    /* fixme: Not et impelemented */
+    assert (0);
+    NOT_UNUSED (m);
+    return "\0";
+  }
+
+  enum GAME_STATUS
+  {
+    /* Board status */
+    GAME_IS_A_WIN          = 16,
+    GAME_IS_A_DRAW         = 32,
+    GAME_CONTINUE          = 64,
+
+    /* Encode unknown error*/
+    GAME_STATUS_ERROR      = 128,
+
+    /* Info on WIN */
+    GAME_WHO_WINS          = 1,
+    GAME_IS_WON_BY_TIME    = 2,
+    GAME_IS_WON_BY_FORFEIT = 4,
+
+    /* Info on draw = (STATS & GAME_DRAW_INFO)*/
+    GAME_DRAW_INFO         = 15,
+    GAME_STALEMATE         = 0,
+    GAME_INSUFFICIENT      = 1,
+    GAME_FIFTY_MOVES       = 2,
+    GAME_THREE_FOLD        = 3,
+    GAME_WHITE_CANNOT      = 4,
+    GAME_BLACK_CANNOT      = 5,
+    GAME_AGREES            = 6,
+
+  };
+
+  #define GAME_CONTINUES(s) ((s) & GAME_CONTINUE)
+
+  void BoardMove (_Board * b, _Move * move)
+  {
+    assert (b != BoardLast);
+    
+    uint8_t from = move->from.square,
+      to = move->to.square;
+
+    uint8_t piece = PIECES [to] = (move->flags & MOVE_PROMOTION) ?
+      move->promotion : move->from.piece;
+    assert (PIECES [from] == move->from.piece);
+    PIECES [from] = EMPTY;
+
+    b[1].enpassante = 
+      (piece == WPAWN && from - to == 16) ? from - 8 :
+      (piece == BPAWN && to - from == 16) ? from + 8 : OUTSIDE;
+    b[1].castling = b[0].castling & ~move->flags;
+    b[1].halfclock = 
+      ((move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE) ) || piece == WPAWN ||
+        piece == BPAWN ) ? 0 : b[0].halfclock + 1;
+
+    /*
+    .. Switching off (respective) castling ability when rook moves/atacked.
+    .. An edge case, that you can miss
+    */
+    if (b[1].castling)
+    {
+      /* Switching off castling if corner rooks move/captured */
+      if (from == a8 || to == a8)
+        b[1].castling &= ~CASTLING_BQ;
+      else if (from == h8 || to == h8)
+        b[1].castling &= ~CASTLING_BK;
+      else if (from == a1 || to == a1)
+        b[1].castling &= ~CASTLING_WQ;
+      else if (from == h1 || to == h1)
+        b[1].castling &= ~CASTLING_WK;
+    }
+
+    if (piece == WKING)
+    {
+      kings [WHITE] = to;
+      b[1].castling &= ~(CASTLING_WQ | CASTLING_WK);
+      if (move->flags & CASTLING_WQ)
+      {
+        /* rank 1 :  "..KR.xxx"  (x : unknown)*/
+        PIECES [a1] = EMPTY;
+        PIECES [d1] = WROOK;
+        return;
+      }
+      if (move->flags & CASTLING_WK)
+      {
+        /* rank 1 :  "xxxx.RK."  (x : unknown)*/
+        PIECES [h1] = EMPTY;
+        PIECES [f1] = WROOK;
+        return;
+      }
+      return;
+    }
+
+    if (piece == BKING)
+    {
+      kings [BLACK] = to;
+      b[1].castling &= ~(CASTLING_BQ | CASTLING_BK);
+      if (move->flags & CASTLING_BQ)
+      {
+        /* rank 8 :  "..kr.xxx"  (x : unknown)*/
+        PIECES [a8] = EMPTY;
+        PIECES [d8] = BROOK;
+        return;
+      }
+      if (move->flags & CASTLING_BK)
+      {
+        /* rank 8 :  "xxxx.rk."  (x : unknown)*/
+        PIECES [h8] = EMPTY;
+        PIECES [f8] = BROOK;
+        return;
+      }
+      return;
+    }
+
+    if (move->flags & MOVE_ENP_CAPTURE)
+      PIECES [to + (piece == WPAWN ? 8 : -8)] = EMPTY;
+  }
+
+  void BoardUnmove (_Move * move)
+  {
+
+    uint8_t from = move->from.square, to = move->to.square;
+
+    uint8_t piece = PIECES [from] = move->from.piece;
+    PIECES [to]   = move->to.piece;
+
+    if (piece == WKING)
+    {
+      kings [WHITE] = from;
+      if (move->flags & CASTLING_WQ)
+      {
+        /* rank 1 :  "R...Kxxx"  (x : unknown)*/
+        PIECES [a1] = WROOK;
+        PIECES [d1] = EMPTY;
+        return;
+      }
+      if (move->flags & CASTLING_WK)
+      {
+        /* rank 1 :  "xxxxK..R"  (x : unknown)*/
+        PIECES [h1] = WROOK;
+        PIECES [f1] = EMPTY;
+        return;
+      }
+      return;
+    }
+
+    if (piece == BKING)
+    {
+      kings [BLACK] = from;
+      if (move->flags & CASTLING_BQ)
+      {
+        /* rank 8 :  "r...kxxx"  (x : unknown)*/
+        PIECES [a8] = BROOK;
+        PIECES [d8] = EMPTY;
+        return;
+      }
+      if (move->flags & CASTLING_BK)
+      {
+        /* rank 8 :  "xxxxk..r"  (x : unknown)*/
+        PIECES [h8] = BROOK;
+        PIECES [f8] = EMPTY;
+        return;
+      }
+      return;
+    }
+
+    if (move->flags & MOVE_ENP_CAPTURE)
+      PIECES [to + (piece == WPAWN ? 8 : -8)] =
+        piece == WPAWN ? BPAWN : WPAWN;
+  }
   
   /* 
   TODO:     
@@ -518,4 +706,78 @@
 
     fprintf(stderr, "\nERROR: Unknown game status");
   }
+
+  _Board * BoardRoot (const char * fen)
+  {
+    _Board * r = BoardSetFromFEN (fen);
+    if (BoardSetFromFEN (fen) == NULL)
+      return NULL;
+    HashInit (r);
+    BoardAllMoves (r);
+    return r; 
+  }
+
+  uint8_t BoardRoll (_Board * b, _Move * move)
+  {
+    /*
+    .. similar to BoardMove (_Board, _Move), BoardRoll (_Board, _Move) 
+    .. apply the move on the board (b[0] -> b[1]), and additionally
+    .. (i) calculate the hash of b[1],
+    .. (ii) update color, clock, npieces
+    .. (iii) make the list of the moves for b[1] config
+    */
+    BoardMove (b, move);
+    HashReinit  (b, move);
+    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+      npieces--;
+    fullclock++;
+    color = !color;
+    return BoardAllMoves (b+1);
+  }
+
+  void BoardUnroll (_Move * move)
+  {
+    BoardUnmove (move);
+    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+      npieces++;
+    fullclock--;
+    color = !color;
+  }
+
+  typedef struct { _Board b; _Move m; } _History;
+  Array history = {.p = NULL, .max = 0, .len = 0};
+  
+  int BoardGameRoll (_Move * move)
+  {
+
+    _Board * b = BoardStack;
+    _History h = (_History) {.b = *b, .m = *move};
+    array_append (&history, &h, sizeof (_History));
+      
+    BoardMove (b, move);
+    HashReinit  (b, move);
+    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+      npieces--;
+    fullclock++;
+    color = !color;
+  
+    b [0] = b [1];
+  
+    BoardAllMoves (b);
+    return 1;
+  }
+  
+  int BoardGameUnroll () 
+  {
+    if (!history.len) 
+      return 0;
+    _History h = ((_History *) history.p)
+      [ (history.len -= sizeof (_History)) / sizeof (_History) ];
+    _Move * move = & h.m;
+    BoardUnroll (move);
+    BoardStack [0] = h.b; 
+    BoardAllMoves (BoardStack);
+    return 1;
+  }
+
 #endif

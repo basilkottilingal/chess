@@ -97,7 +97,10 @@ int main()
     //BoardNextLevel (&b, moves + loc);
     _Move * m = moves + loc;
     BoardMove (b, m);
-    FINISH_MOVE (m);
+    if (m->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+      npieces--;
+    fullclock++;
+    color = !color;
     b [0] = b [1];
     BoardAllMoves (b);
 

@@ -42,6 +42,18 @@
   z-index: 1; 
 }
 
+.from-to-highlight {
+    position: relative;
+}
+
+.from-to-highlight::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 0, 0.1);
+    pointer-events: none;
+}
+
 /* Related to pawn promotion 
 Example: 
 r1bqkbnr/pP1ppppp/8/2n5/2P5/B1N5/P1QPPPPP/2KR1BNR b kq - 6 10 

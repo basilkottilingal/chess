@@ -12,6 +12,10 @@ export class ChessBoard
   constructor ()
   {
     this.chess = new Chess();
+    this.lastMove = {
+      from: null,
+      to: null
+    };
   }
 
   pieceImage(chesspiece)
@@ -332,6 +336,20 @@ export class ChessBoard
     }); /* end of Promise ( (resolve) => {} ) */
   }
 
+  highlightMove (move)
+  {
+    if (this.lastMove.from)
+      this.lastMove.from.classList.remove('from-to-highlight');
+    if (this.lastMove.to)
+      this.lastMove.to.classList.remove('from-to-highlight');
+    let to = document.getElementById (move.to);
+    let from = document.getElementById (move.from);
+    to.classList.add('from-to-highlight');
+    from.classList.add('from-to-highlight');
+    this.lastMove.from = from;
+    this.lastMove.to = to;
+  }
+
   startMove (move)
   {
     /* move piece from 'from' to 'to' square*/
@@ -402,6 +420,7 @@ export class ChessBoard
       if (move)
       {
         let isProm = move.flags.includes ('p');
+        this.highlightMove (move);
         if (isServer ? true : isProm ? false : true)
         {
           //console.log('Piece Moved');

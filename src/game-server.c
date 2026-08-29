@@ -79,26 +79,6 @@ int server_msg_unknown (ws_cli_conn_t client, const char * msg)
 
 static uint8_t mycolor = BLACK;  /* by default client takes WHITE */
 
-static Array history = {.p = NULL, .len = 0, .max = 0};
-typedef struct
-{
-  _Board b;
-  _Move m;
-} _History;
-
-static int board_undo () 
-{
-  if (!history.len) 
-    return 0;
-  _History h = ((_History *) history.p)
-    [ (history.len -= sizeof (_History)) / sizeof (_History) ];
-  _Move * move = & h.m;
-  FINISH_UNMOVE (move);
-  BoardUnmove (move);
-  BoardStack [0] = h.b; 
-  BoardAllMoves (BoardStack);
-  return 1;
-}
 
 static int game_start (ws_cli_conn_t client, const char * msg)
 {
@@ -126,10 +106,10 @@ static int game_undo (ws_cli_conn_t client, const char * msg)
 {
   assert (msg [1] == '\0');
   int undo = 0;
-  if (board_undo ())
+  if (BoardGameUnroll ())
   {
     if (color == mycolor)
-      board_undo ();
+      BoardGameUnroll ();
   }
   else
     return
@@ -141,7 +121,7 @@ static int game_undo (ws_cli_conn_t client, const char * msg)
 static int game_reset (ws_cli_conn_t client, const char * msg)
 {
   assert (msg [1] == '\0');
-  while (board_undo ()) {};
+  while (BoardGameUnroll ()) {};
   return server_send_fen (client);
 }
 
@@ -149,13 +129,11 @@ static int game_set (ws_cli_conn_t client, const char * msg)
 {
   history.len = 0;
   _Board * b = BoardSetFromFEN (msg+1);
-  if (b == NULL)
+  if (BoardRoot (msg + 1) == NULL)
   {
-    BoardSetFromFEN ("");
-    BoardAllMoves (b);
+    assert (BoardRoot ("") != NULL);
     return server_error (client, "error : wrong fen");
   }
-  BoardAllMoves (b);
   game_print ();
   return server_send_fen (client);
 }
@@ -210,19 +188,6 @@ static int game_status (ws_cli_conn_t client, const char * msg)
   return 0;
 }
 
-static int game_move (_Move * move)
-{
-  _Board * b = BoardStack;
-  array_append (&history, & (_History)
-    {.b = *b, .m = *move}, sizeof (_History));
-  BoardMove (b, move);
-  FINISH_MOVE (move);
-  b [0] = b [1];
-  BoardAllMoves (b);
-  game_print ();
-  return 1;
-}
-
 int game_end (ws_cli_conn_t client)
 {
   Array * a [2] = {& history, & movesall};
@@ -262,7 +227,7 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
   }
   #endif
 
-  _Move * move = BoardProbe (2u);
+  _Move * move = BoardProbe (3u);
   const char reply [] =
     { 
       'm',  
@@ -274,7 +239,8 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
         ASCII [move->promotion & ~ (uint8_t) 1] : '\0',
       '\0'
     };
-  game_move (move);
+  BoardGameRoll (move);
+  game_print ();
   return server_send (client, reply); 
 }
 
@@ -312,7 +278,8 @@ int game_client_moved (ws_cli_conn_t client, const char * msg, uint64_t size)
       (prom != EMPTY && prom != move->promotion)
     )
       continue;
-    game_move (move);
+    BoardGameRoll (move);
+    game_print ();
     return server_send (client, "S");
   }
 
