@@ -45,13 +45,13 @@
       }
 
       _Move * move = & moves [n];
-      uint8_t status = BoardRoll (b, move);
+      uint8_t status = BoardRoll (b++, move);
 
       /* this move is picked as the resulting board is a terminal node */
       if ( !GAME_CONTINUES (status) )
       {
         *score = (status & GAME_IS_A_DRAW) ? 0 :
-          (status & GAME_WHO_WINS) == WHITE ? 10000 : -10000; 
+          (status & GAME_WHO_WINS) == color ? 10000 : -10000; 
         SWAP (n);
         return 1;
       }
@@ -59,7 +59,7 @@
       /* look in the transposition table */
 
       /* use some sort of evaluation for this board. */
-      eval = BoardEval (b+1);
+      eval = BoardEval (b);
 
       if (eval < bestScore) /* fixme */
       {
@@ -68,7 +68,7 @@
       }
 
       /* undo the move */
-      BoardUnroll (move);
+      BoardUnroll (b--);
 
     }
 
@@ -77,6 +77,8 @@
 
     *score = bestScore;
     SWAP (bestAt);
+
+    #undef SWAP
 
     _Move * move = & moves [start];
     BoardRoll (b, move);
@@ -97,10 +99,9 @@
 
   int BoardPrevLevel (_Board ** y)
   {
-    _Board * b = --(*y);
-    _Move * move = MOVES_AT (b);
-
-    BoardUnroll (move);
+    _Board * b = (*y)--;
+    //BoardUnroll (MOVES_AT (b));
+    BoardUnroll (b--);
 
     b [0].moveLoc ++;
     b [0].totalMoves --;
@@ -116,6 +117,7 @@
   typedef struct
   {
     int16_t  bestScore;
+    int16_t  alpha, beta;
     uint16_t bestMoveAt;
     uint64_t stats;
   } Probe;
@@ -182,10 +184,13 @@
       */
 
       /* pop (one ply and go to the sibling (next move) of the parent) */
-      score = -ply->bestScore;
       if (depth == depthmax)
         break;
-      b--, ply++, depth ++;
+
+      score = -ply->bestScore;
+      BoardUnroll (b--);
+      /*b--, */
+      ply++, depth ++;
 
       /* reduction of parent nodes alpha/beta from min{} / max{} of children */
       if (score > ply->bestScore)
@@ -198,7 +203,7 @@
       }
 
       /* unroll the board as you popped one ply */
-      BoardUnroll (MOVES_AT (b));
+      //BoardUnroll (MOVES_AT (b));
 
       /*
       .. adjust [moveLoc, moveLoc+totalMoves) of the parent ply. It will help 

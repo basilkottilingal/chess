@@ -151,6 +151,8 @@
   /* additional informaion required to uniquley represent the board */
   typedef struct
   {
+    /* fixme : use a compressed format (16 bit) for move */
+    _Move    move;
     uint8_t  enpassante;
     uint8_t  castling;
     uint8_t  status;
@@ -463,6 +465,13 @@
     for (int j=0; j<8; ++j)
       fprintf (stdout, " %c", 'a'+j);
     fprintf (stdout, "\n");
+  }
+
+  void MovePrint (_Move * move)
+  {
+    printf ( "from : {sq : %s, piece : %c}\nto : {sq : %s, piece : %c}\n",
+      RANKFILE [move->from.square], ASCII [move->from.piece],
+      RANKFILE [move->to.square], ASCII [move->to.piece]);
   }
 
 #endif

@@ -4,8 +4,67 @@
   #include "board.h"
   #include "zobrist.h"
 
+  Array history  = {.p = NULL, .max = 0, .len = 0};
   Array movesall = {.p = NULL, .max = 0, .len = 0};
   #define MOVES_AT(b) ( & ((_Move * ) movesall.p) [b->moveLoc] )
+
+  int three_fold (_Board * b)
+  {
+    /* see if this board has repeated more than once in the game's history */
+    
+    uint64_t z = b->zobrist;
+
+    /* first look in the board stack (which are part of the move sequence in
+    .. the tree search) */
+
+    int clck = (int) b->halfclock - 4;
+    if (clck < 2)
+      return 0;
+    b -= 2;
+    int nply   = (int) (b - BoardStack) - 2;
+    int isodd  = clck & 1;
+    int nfound = 0;
+    int once   = 1;
+
+    do
+    {
+      while (nply > 0)
+      {
+        if (b->zobrist == z && nfound++ == 1)
+          return 1;
+
+        b    -= 2,
+        clck -= 2,
+        nply -= 2;
+
+        if (clck < 2)
+          return 0;
+      }
+
+      if (!once--)
+        return 0;
+
+      /* since you haven't reached "halfclock = 0" yet, you have to look
+      .. in the gameboards stored in history */
+
+      if ( !(nply = (int) (history.len / sizeof (_Board)) ) )
+        /*
+        .. warning : incomplete history. This may happen if you restart with
+        .. an FEN whose 50 moves clock is > 0
+        */
+        return 0;
+
+      b = & ((_Board *) history.p) [nply - 1];
+      assert ( (clck = b->halfclock) >= 2 );
+      if ( (clck & 2) != isodd )
+      {
+        nply--; b--; clck --;
+      }
+
+    } while (1);
+
+    return 0;
+  }
 
   /* conditions to check while moving piece from 'FROM' to 'TO' */
 
@@ -67,6 +126,7 @@
     assert (PIECES [from] == move->from.piece);
     PIECES [from] = EMPTY;
 
+    b[1].move = *move;
     b[1].enpassante = 
       (piece == WPAWN && from - to == 16) ? from - 8 :
       (piece == BPAWN && to - from == 16) ? from + 8 : OUTSIDE;
@@ -138,25 +198,26 @@
       PIECES [to + (piece == WPAWN ? 8 : -8)] = EMPTY;
   }
 
-  void BoardUnmove (_Move * move)
+  void BoardUnmove (_Board * b)
   {
 
-    uint8_t from = move->from.square, to = move->to.square;
+    _Move move = b->move;
+    uint8_t from = move.from.square, to = move.to.square;
 
-    uint8_t piece = PIECES [from] = move->from.piece;
-    PIECES [to]   = move->to.piece;
+    uint8_t piece = PIECES [from] = move.from.piece;
+    PIECES [to]   = move.to.piece;
 
     if (piece == WKING)
     {
       kings [WHITE] = from;
-      if (move->flags & CASTLING_WQ)
+      if (move.flags & CASTLING_WQ)
       {
         /* rank 1 :  "R...Kxxx"  (x : unknown)*/
         PIECES [a1] = WROOK;
         PIECES [d1] = EMPTY;
         return;
       }
-      if (move->flags & CASTLING_WK)
+      if (move.flags & CASTLING_WK)
       {
         /* rank 1 :  "xxxxK..R"  (x : unknown)*/
         PIECES [h1] = WROOK;
@@ -169,14 +230,14 @@
     if (piece == BKING)
     {
       kings [BLACK] = from;
-      if (move->flags & CASTLING_BQ)
+      if (move.flags & CASTLING_BQ)
       {
         /* rank 8 :  "r...kxxx"  (x : unknown)*/
         PIECES [a8] = BROOK;
         PIECES [d8] = EMPTY;
         return;
       }
-      if (move->flags & CASTLING_BK)
+      if (move.flags & CASTLING_BK)
       {
         /* rank 8 :  "xxxxk..r"  (x : unknown)*/
         PIECES [h8] = BROOK;
@@ -186,7 +247,7 @@
       return;
     }
 
-    if (move->flags & MOVE_ENP_CAPTURE)
+    if (move.flags & MOVE_ENP_CAPTURE)
       PIECES [to + (piece == WPAWN ? 8 : -8)] =
         piece == WPAWN ? BPAWN : WPAWN;
   }
@@ -606,9 +667,10 @@
     /* assert (movesall.max >= movesall.len); */
 
     b->status = 
-      (b->halfclock == 100) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES) :
-      npieces == 0          ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
-                               GAME_CONTINUE;
+      (b->halfclock > 99) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES)  :
+      npieces == 0        ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
+      /*three_fold (b)      ? (GAME_IS_A_DRAW | GAME_THREE_FOLD)   : */
+                             GAME_CONTINUE;
 
     if (b->status != GAME_CONTINUE)
       /* Game is a draw */
@@ -644,12 +706,12 @@
     */
     for (int i=0; i < totalMoves; ++i, ++move)
     {
-      BoardMove(b, move);
+      BoardMove (b++, move);
       if (BoardIsKingAttacked(color))
         move->flags = MOVE_ILLEGAL;
       else
         legalMoves ++;
-      BoardUnmove(move);
+      BoardUnmove(b--);
     }
 
 
@@ -735,24 +797,20 @@
     return BoardAllMoves (b+1);
   }
 
-  void BoardUnroll (_Move * move)
+  void BoardUnroll (_Board * b)
   {
-    BoardUnmove (move);
-    if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+    BoardUnmove (b);
+    if (b->move.flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
       npieces++;
     fullclock--;
     color = !color;
   }
-
-  typedef struct { _Board b; _Move m; } _History;
-  Array history = {.p = NULL, .max = 0, .len = 0};
   
   int BoardGameRoll (_Move * move)
   {
 
     _Board * b = BoardStack;
-    _History h = (_History) {.b = *b, .m = *move};
-    array_append (&history, &h, sizeof (_History));
+    array_append (&history, b, sizeof (_Board));
       
     BoardMove (b, move);
     HashReinit  (b, move);
@@ -771,12 +829,14 @@
   {
     if (!history.len) 
       return 0;
-    _History h = ((_History *) history.p)
-      [ (history.len -= sizeof (_History)) / sizeof (_History) ];
-    _Move * move = & h.m;
-    BoardUnroll (move);
-    BoardStack [0] = h.b; 
-    BoardAllMoves (BoardStack);
+
+    _Board * b = BoardStack;
+
+    BoardUnroll (b);
+    *b = ((_Board *) history.p)
+      [ (history.len -= sizeof (_Board)) / sizeof (_Board) ];
+    BoardAllMoves (b);
+
     return 1;
   }
 
