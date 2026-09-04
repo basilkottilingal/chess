@@ -87,7 +87,7 @@ int main()
     163, 710, 284, 556, 118, 866, 377, 624
   };
 
-  while ( BoardAllMoves (b) == GAME_CONTINUE )
+  while (GAME_CONTINUES (BoardAllMoves (b)) )
   {
     _Move * moves = MOVES_AT (b);
     loc = (loc + randomvec [ b->totalMoves ]) % b->totalMoves;

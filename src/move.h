@@ -87,13 +87,13 @@
 
   enum GAME_STATUS
   {
-    /* Board status */
-    GAME_IS_A_WIN          = 16,
-    GAME_IS_A_DRAW         = 32,
-    GAME_CONTINUE          = 64,
+    /* Encode unknown error */
+    GAME_STATUS_ERROR      = 0,
 
-    /* Encode unknown error*/
-    GAME_STATUS_ERROR      = 128,
+    /* Board status */
+    GAME_IS_A_WIN          = 8,
+    GAME_IS_A_DRAW         = 16,
+    GAME_CONTINUE          = 32,
 
     /* Info on WIN */
     GAME_WHO_WINS          = 1,
@@ -101,7 +101,7 @@
     GAME_IS_WON_BY_FORFEIT = 4,
 
     /* Info on draw = (STATS & GAME_DRAW_INFO)*/
-    GAME_DRAW_INFO         = 15,
+    GAME_DRAW_INFO         = 7,
     GAME_STALEMATE         = 0,
     GAME_INSUFFICIENT      = 1,
     GAME_FIFTY_MOVES       = 2,
@@ -109,6 +109,9 @@
     GAME_WHITE_CANNOT      = 4,
     GAME_BLACK_CANNOT      = 5,
     GAME_AGREES            = 6,
+
+    /* check */
+    GAME_ON_CHECK          = 64,
 
   };
 

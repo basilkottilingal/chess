@@ -139,6 +139,7 @@
     } from, to;
     uint8_t flags;
     uint8_t promotion;
+    int16_t score;
   } _Move;
 
   /* board config (except halfclock, enpassante, castling information) */

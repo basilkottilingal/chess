@@ -4,110 +4,122 @@
   #include "move.h"
   #include "eval.h"
 
-  int BoardPickMove (_Board * b, int16_t * score)
+  #define STATUS_UNKNOWN   0
+  #define FOUND_A_MOVE(b)  (b->status = GAME_CONTINUE)
+
+  /* replace this with quiescence search */
+  int16_t quiescence (_Board * b)
   {
-    /*
-    .. pick "best" move among the remaining moves.
-    .. preference : terminal node > TT look up > argmin{eval(move)}
-    */
-
-    #define SWAP(at)  do            \
-      {                             \
-        temp = moves [start];       \
-        moves [start] = moves [at]; \
-        moves [at] = temp;          \
-      } while (0)
-
-    int16_t bestAt = -1, bestScore = INT16_MAX, eval;
-
-    /* assumes moves are listed in the "movesall" array */
-    _Move * moves = MOVES_AT (b), temp;
-    uint8_t n = b[0].totalMoves, start = 0;
-    while (n-- > start)
+    _Move * move = MOVES_AT (b);
+    for (int i=0; i<b->totalMoves; ++i)
     {
-
-      if (moves[n].flags == MOVE_ILLEGAL)
+      BoardMove (b++, move);
+      if (!BoardIsKingAttacked (color))
       {
-        /* stack illegal moves at the beginning of the array */
-        SWAP (n);
-
-        start ++;
-        n ++;
-
-        /*
-        .. adjust [moveLoc, moveLoc+totalMoves) so that you don't have to
-        .. traverse this (illegal) move again
-        */
-        b [0].moveLoc ++;
-        b [0].totalMoves --;
-
-        continue;
+        BoardUnmove (b--);
+        return BoardEval (b);
       }
+      BoardUnmove (b--);
+    }
+    return BoardIsKingAttacked (color)   ?
+      ( INT16_MIN + 1 )  /* lost */      :
+      0                  /* stalemate */ ;
+  }
 
-      _Move * move = & moves [n];
-      uint8_t status = BoardRoll (b++, move);
+  int moves_all (_Board * b)
+  {
+    /* the move that resulted this board, is an illegal move */
+    assert ( !BoardIsKingAttacked (!color) );
 
-      /* this move is picked as the resulting board is a terminal node */
-      if ( !GAME_CONTINUES (status) )
+    /*
+    .. Update the location in the stack "movesall.p" where you are going to
+    .. storing the moves
+    */
+    b [0].moveLoc    = b [-1].moveLoc + b [-1].totalMoves;
+    b [0].totalMoves = 0;
+    movesall.len     = b->moveLoc * sizeof (_Move);
+    /* assert (movesall.max >= movesall.len); */
+
+    b->status = 
+      (b->halfclock > 99) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES)  :
+      npieces == 0        ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
+      /*three_fold (b)    ? (GAME_IS_A_DRAW | GAME_THREE_FOLD)   : */
+                            STATUS_UNKNOWN;
+
+    if (b->status & GAME_IS_A_DRAW)
+      /* Game is a draw */
+      return b->status;
+
+    /* Add all move.coms (incl invalid moves). They are still not marked */ 
+    for (int i=START; i<=END; ++i)
+    {
+      Square from = & BOARD [i][START];
+      for(int j=START; j<=END; ++j, ++from)
       {
-        *score = (status & GAME_IS_A_DRAW) ? 0 :
-          (status & GAME_WHO_WINS) == color ? 10000 : -10000; 
-        SWAP (n);
-        return 1;
+        if ( IS_EMPTY (from) || PIECE_COLOR (from) != color )
+          continue;
+        /* Generate possible moves with the 'piece' */
+        BoardPieceMoves [PIECE (from)] (b, from, &movesall);
       }
-
-      /* look in the transposition table */
-
-      /* use some sort of evaluation for this board. */
-      eval = BoardEval (b);
-
-      if (eval < bestScore) /* fixme */
-      {
-        bestScore = eval;
-        bestAt = n;         
-      }
-
-      /* undo the move */
-      BoardUnroll (b--);
-
     }
 
-    if (bestAt == -1)
+    b->totalMoves = 
+      (uint8_t) ((movesall.len/sizeof (_Move)) - b->moveLoc);
+
+    return b->status;
+
+  }
+
+  _Board * board_root (const char * fen)
+  {
+    _Board * r = BoardSetFromFEN (fen);
+    if (r == NULL || BoardIsKingAttacked (!color))
+    {
+      BoardStack->status = GAME_STATUS_ERROR;
+      return NULL;
+    }
+    r [-1].status = GAME_CONTINUE;
+    HashInit (r);
+    moves_all (r);
+    return r; 
+  }
+
+  int pick_a_move (_Board * b, int16_t * score)
+  {
+    if (!b->totalMoves)
       return 0;
 
-    *score = bestScore;
-    SWAP (bestAt);
+    _Move * move = MOVES_AT (b);
+    
+    for (uint8_t i = 0; i < b->totalMoves; ++i)
+    {
+      BoardMove (b, move);
+      if (!BoardIsKingAttacked (color))
+      {
+        FOUND_A_MOVE (b);
+        
+        HashReinit  (b, move);
+        if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
+          npieces--;
+        fullclock++;
+        color = !color;
+        moves_all (++b);
 
-    #undef SWAP
+        return 1; 
+      }
+      BoardUnmove (move);
+      move ++, b->moveLoc ++;
+    }
 
-    _Move * move = & moves [start];
-    BoardRoll (b, move);
+    b->status = BoardIsKingAttacked (color) ?
+      ( (b->status == STATUS_UNKNOWN) ? (GAME_IS_A_DRAW | GAME_STALEMATE) : 
+        (GAME_CONTINUE | GAME_ON_CHECK) ) :
+      ( (b->status == STATUS_UNKNONW) ? (GAME_IS_A_WIN  | !color) : 
+        GAME_CONTINUE ) ;
 
-    return 1;
+    return 0;
   }
-
-  int BoardNextLevel (_Board ** y)
-  {
-    _Board * b = *y;
-    int16_t score;
-    if ( !BoardPickMove (b, &score) )
-      return 0;
-    (*y)++;
-    return 1;
-    /* note that board is already moved and b+1 is update */
-  }
-
-  int BoardPrevLevel (_Board ** y)
-  {
-    _Board * b = (*y)--;
-    //BoardUnroll (MOVES_AT (b));
-    BoardUnroll (b--);
-
-    b [0].moveLoc ++;
-    b [0].totalMoves --;
-
-    return 1;
-  }
+    
 
   /*
   .. since we avoid recursive functions for tree searching, we need to
@@ -162,7 +174,7 @@
       /* push (until you hit the limit or TT hit or leaf node or beta cutoff)*/
       do
       {
-        if ( !BoardPickMove (b, & score) )
+        if ( !pick_a_move (b) )
           break;
 
         b++, ply--, depth--;
@@ -188,7 +200,6 @@
 
       score = -ply->bestScore;
       BoardUnroll (b--);
-      /*b--, */
       ply++, depth ++;
 
       /* reduction of parent nodes alpha/beta from min{} / max{} of children */
@@ -200,9 +211,6 @@
         bestmove (depth);
         #endif
       }
-
-      /* unroll the board as you popped one ply */
-      //BoardUnroll (MOVES_AT (b));
 
       /*
       .. adjust [moveLoc, moveLoc+totalMoves) of the parent ply. It will help 
