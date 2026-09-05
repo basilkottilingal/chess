@@ -22,7 +22,7 @@
   non compilable line. not yet implemented in _WIN32
 #endif
 
-#include "tree.h"
+#include "_tree.h"
 #include <ws.h>
 
 static int server_send (ws_cli_conn_t client, const char * msg)
@@ -227,7 +227,9 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
   }
   #endif
 
-  _Move * move = BoardProbe (3u);
+  _Move * move = BoardProbe (4u);
+  if (move == NULL)
+    return server_error (client, "error : can't make a move. game over");
   const char reply [] =
     { 
       'm',  

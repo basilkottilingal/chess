@@ -731,29 +731,36 @@
   void BoardStatusPrint (_Board * b)
   {
     Flag f = b->status;
-    if (f == GAME_CONTINUE)
+    Flag WinOrDrawOrContinue = 0;
+    char status [100];
+
+    if (f == GAME_STATUS_ERROR)
     {
-      fprintf (stdout, " Game Not Over Yet");
+      fprintf (stderr, "warning : status not updated.\n");
       return;
     }
 
-    Flag WinOrDraw = 0;
+    if (f & GAME_CONTINUE)
+    {
+      ++WinOrDrawOrContinue;
+      sprintf (status, "game not over yet");
+    }
 
     if (f & GAME_IS_A_WIN)
     {
-      ++WinOrDraw;
-      fprintf (stdout, "\n %s wins by %s", 
-        f & GAME_WHO_WINS ? "White" : "Black",
-        (f & GAME_IS_WON_BY_TIME) ? "time" : 
+      ++WinOrDrawOrContinue;
+      sprintf (status, "%s wins by %s", 
+        (f & GAME_WHO_WINS) == WHITE ? "white" : "black",
+        (f & GAME_IS_WON_BY_TIME)    ? "time" : 
         (f & GAME_IS_WON_BY_FORFEIT) ? "opponent's forfeit" :
         "checkmate");
     }
 
     if (f & GAME_IS_A_DRAW)
     {
-      ++WinOrDraw;
+      ++WinOrDrawOrContinue;
       Flag info = f & GAME_DRAW_INFO;
-      fprintf(stdout, "\n Draw : %s",
+      sprintf (status, "\n Draw : %s",
         (info == GAME_STALEMATE)     ? "Stalemate" :
         (info == GAME_INSUFFICIENT)  ? "Insufficient Material" :
         (info == GAME_FIFTY_MOVES)   ? "Fifty moves rule" :
@@ -766,10 +773,13 @@
           "ERROR: Unkown reason for a draw!! "); 
     }
 
-    if (WinOrDraw == 1)
+    if (WinOrDrawOrContinue == 1)
+    {
+      fprintf (stdout, "%s\n", status);
       return;
+    }
 
-    fprintf(stderr, "\nERROR: Unknown game status");
+    fprintf(stderr, "error : unknown game status\n");
   }
 
   _Board * BoardRoot (const char * fen)

@@ -4,26 +4,38 @@
   #include "move.h"
   #include "eval.h"
 
-  #define STATUS_UNKNOWN   0
-  #define FOUND_A_MOVE(b)  (b->status = GAME_CONTINUE)
+  #define NO_LEGAL_MOVES       0
+  #define FOUND_A_MOVE(b)    ( (b)->status = GAME_CONTINUE )
+
+  #define EVAL_DRAW            0
+  #define EVAL_LOST(depth)   ( INT16_MIN + 256 - depth)
+  #define EVAL_MIN             INT16_MIN
 
   /* replace this with quiescence search */
-  int16_t quiescence (_Board * b)
+  int16_t quiescence (_Board * b, int depth)
   {
+    assert (depth <= 0);
+
+    if (b->status & GAME_IS_A_DRAW)
+      return EVAL_DRAW;
+    else
+      assert (b->status == NO_LEGAL_MOVES);
+
     _Move * move = MOVES_AT (b);
-    for (int i=0; i<b->totalMoves; ++i)
+    for (int i=0; i<b->totalMoves; ++i, move++)
     {
       BoardMove (b++, move);
-      if (!BoardIsKingAttacked (color))
+      /* there is a legal move */
+      if ( !BoardIsKingAttacked (color) )
       {
         BoardUnmove (b--);
         return BoardEval (b);
       }
       BoardUnmove (b--);
     }
-    return BoardIsKingAttacked (color)   ?
-      ( INT16_MIN + 1 )  /* lost */      :
-      0                  /* stalemate */ ;
+
+    /* lost or stalemate in case of no legal move */
+    return BoardIsKingAttacked (color) ? EVAL_LOST (depth) : EVAL_DRAW;
   }
 
   int moves_all (_Board * b)
@@ -44,7 +56,7 @@
       (b->halfclock > 99) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES)  :
       npieces == 0        ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
       /*three_fold (b)    ? (GAME_IS_A_DRAW | GAME_THREE_FOLD)   : */
-                            STATUS_UNKNOWN;
+                            NO_LEGAL_MOVES;
 
     if (b->status & GAME_IS_A_DRAW)
       /* Game is a draw */
@@ -84,38 +96,53 @@
     return r; 
   }
 
-  int pick_a_move (_Board * b, int16_t * score)
+  static inline
+  int pick_a_move (_Board * b)
   {
     if (!b->totalMoves)
       return 0;
 
     _Move * move = MOVES_AT (b);
-    
-    for (uint8_t i = 0; i < b->totalMoves; ++i)
+
+    uint8_t n = b->totalMoves;
+    while (n--)
     {
-      BoardMove (b, move);
+      /*
+      .. adjust [moveLoc, moveLoc+totalMoves) so that this move is no more
+      .. available
+      */
+      b->totalMoves --;
+      b->moveLoc ++;
+
+      BoardMove (b++, move);
       if (!BoardIsKingAttacked (color))
       {
-        FOUND_A_MOVE (b);
+        FOUND_A_MOVE (b-1);
         
-        HashReinit  (b, move);
+        HashReinit  (b-1, move);
         if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
           npieces--;
         fullclock++;
         color = !color;
-        moves_all (++b);
+        moves_all (b);
 
         return 1; 
       }
-      BoardUnmove (move);
-      move ++, b->moveLoc ++;
+      BoardUnmove (b--);
+
+      move ++;
+
     }
 
-    b->status = BoardIsKingAttacked (color) ?
-      ( (b->status == STATUS_UNKNOWN) ? (GAME_IS_A_DRAW | GAME_STALEMATE) : 
-        (GAME_CONTINUE | GAME_ON_CHECK) ) :
-      ( (b->status == STATUS_UNKNONW) ? (GAME_IS_A_WIN  | !color) : 
-        GAME_CONTINUE ) ;
+    b->status =
+      BoardIsKingAttacked (color) ?                    /* on check       */
+        b->status == NO_LEGAL_MOVES ?                  /* no legal moves */
+          (GAME_IS_A_WIN  | !color) :                  /* game lost      */
+          (GAME_CONTINUE  | GAME_ON_CHECK) :           /* game continues */
+                                                       /* not on check   */
+        b->status == NO_LEGAL_MOVES ?                  /* no legal moves */
+          (GAME_IS_A_DRAW | GAME_STALEMATE) :          /* stalemate      */
+          GAME_CONTINUE ;                              /* game continues */
 
     return 0;
   }
@@ -152,15 +179,12 @@
   {
     assert (depthmax < MAX_STACK_SIZE);
 
-    #define UNKNOWN_BEST_MOVE_AT  UINT16_MAX
     _Board * b = BoardStack;
-    unsigned depth = depthmax;
+    int depth = (int) depthmax;
     memset (ProbePlies, 0, sizeof (ProbePlies));
-    Probe
-      * const max = & ProbePlies [depthmax],
-      * const min = ProbePlies,
-      * ply = max;
-    int16_t score;
+    Probe * ply = & ProbePlies [depthmax],
+      * const max = ply,
+      * const min = ProbePlies;
 
     ply->bestMoveAt = UINT16_MAX;
     ply->bestScore  = INT16_MIN;
@@ -175,17 +199,20 @@
       do
       {
         if ( !pick_a_move (b) )
+        {
+          if ( b->status & GAME_CONTINUE )
+            assert (ply->bestScore > EVAL_MIN);
+          else
+            ply->bestScore =
+              (b->status & GAME_IS_A_WIN) ? EVAL_LOST (depth) : EVAL_DRAW;
           break;
+        }
 
         b++, ply--, depth--;
 
         ply->stats ++;
+        ply->bestScore  = depth > 0 ? EVAL_MIN : quiescence (b, depth);
         ply->bestMoveAt = UINT16_MAX;
-        ply->bestScore  =
-          !GAME_CONTINUES (b->status) ? score :  /* Leaf node. game ended  */
-          depth ? INT16_MIN :                    /* Do an iterative search */
-                                                 /* fixme : add TT lookup  */
-          score;                                 /* At max search depth.   */
                                                  /* fixme : use NNUE/SEE   */
       } while (depth);
 
@@ -198,31 +225,32 @@
       if (depth == depthmax)
         break;
 
-      score = -ply->bestScore;
+      int16_t score = -ply->bestScore;
       BoardUnroll (b--);
       ply++, depth ++;
-
+ 
       /* reduction of parent nodes alpha/beta from min{} / max{} of children */
       if (score > ply->bestScore)
       {
         ply->bestScore  = score;
-        ply->bestMoveAt = b->moveLoc;
+        ply->bestMoveAt = b->moveLoc - 1;
+
         #ifdef _CHESS_DEBUG_
         bestmove (depth);
         #endif
       }
 
-      /*
-      .. adjust [moveLoc, moveLoc+totalMoves) of the parent ply. It will help 
-      .. "BoardPickMove ()" to produce the next preferred move
-      */
-      b->moveLoc ++;
-      b->totalMoves --;
-
     } while (1);
 
     assert (depth == depthmax && ply == max);
-    assert (ply->bestMoveAt != UNKNOWN_BEST_MOVE_AT);
+
+    if (ply->bestMoveAt == UINT16_MAX)
+    {
+      assert (b->status & (GAME_IS_A_DRAW | GAME_IS_A_WIN));
+      fprintf (stderr, "warning : game over. can't probe.");
+      BoardStatusPrint (b);
+      return NULL;
+    }
 
     return & ((_Move * ) movesall.p) [ply->bestMoveAt];
   }
