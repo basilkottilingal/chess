@@ -8,10 +8,18 @@
   #define FOUND_A_MOVE(b)    ( (b)->status = GAME_CONTINUE )
 
   #define EVAL_DRAW            0
-  #define EVAL_LOST(depth)   ( INT16_MIN + 256 - depth)
-  #define EVAL_MIN             INT16_MIN
+  #define EVAL_LOST(depth)   ( INT16_MIN + 256 - depth )
+  #define EVAL_MIN           ( INT16_MIN + 1 )
 
-  /* replace this with quiescence search */
+  /* associated with TT entry score */
+  enum
+  {
+    UPPERBOUND = 1,
+    EXACT,
+    LOWERBOUND,
+  }; 
+
+  /* replace this with quiescence search. fixme : use NNUE/SEE   */
   int16_t quiescence (_Board * b, int depth)
   {
     assert (depth <= 0);
@@ -21,6 +29,8 @@
     else
       assert (b->status == NO_LEGAL_MOVES);
 
+    int onCheck = BoardIsKingAttacked (color);
+
     _Move * move = MOVES_AT (b);
     for (int i=0; i<b->totalMoves; ++i, move++)
     {
@@ -29,13 +39,20 @@
       if ( !BoardIsKingAttacked (color) )
       {
         BoardUnmove (b--);
+        b->status = GAME_CONTINUE | (onCheck ? GAME_ON_CHECK : 0);
         return BoardEval (b);
       }
       BoardUnmove (b--);
     }
 
     /* lost or stalemate in case of no legal move */
-    return BoardIsKingAttacked (color) ? EVAL_LOST (depth) : EVAL_DRAW;
+    if (onCheck)
+    {
+      b->status = GAME_IS_A_WIN | !color;
+      return EVAL_LOST (depth);
+    }
+    b->status = GAME_IS_A_DRAW | GAME_STALEMATE;
+    return EVAL_DRAW;
   }
 
   int moves_all (_Board * b)
@@ -159,22 +176,130 @@
     int16_t  alpha, beta;
     uint16_t bestMoveAt;
     uint64_t stats;
+    _Entry * entry;
   } Probe;
   Probe ProbePlies [ MAX_STACK_SIZE ];
 
   #ifdef _CHESS_DEBUG_
     _Move bestMoves[MAX_STACK_SIZE][MAX_STACK_SIZE];
 
-    #define bestmove(depth) do                                       \
+    #define bestmove(depth)                                          \
+      do                                                             \
       {                                                              \
         bestMoves [depth][depth] =                                   \
-          ((_Move * ) movesall.p)[ply->bestMoveAt];    \
+          ((_Move * ) movesall.p)[ply->bestMoveAt];                  \
         for (unsigned d = depth-1; d; d--)                           \
           bestMoves [depth][d] = bestMoves [depth-1][d];             \
       } while (0)
   #endif
 
-  /* best move */
+  /* find best move using alpha-beta pruning */
+  _Move * BoardProbeAlphaBeta (const unsigned depthmax)
+  {
+    assert (depthmax < MAX_STACK_SIZE);
+
+    _Board * b = BoardStack;
+    int depth = (int) depthmax;
+    memset (ProbePlies, 0, sizeof (ProbePlies));
+    Probe * ply = & ProbePlies [depthmax],
+      * const max = ply;
+
+    ply->bestMoveAt = UINT16_MAX;
+    ply->bestScore  = EVAL_MIN;
+    ply->alpha      = EVAL_MIN;
+    ply->beta       = -EVAL_MIN;
+
+    /*
+    .. stack equivalent of recursive search routine for searching the best
+    .. sequence of moves rooted about "b"
+    */
+    do {
+
+      /* push (until you hit the limit or TT hit or leaf node or beta cutoff)*/
+      do
+      {
+        if ( !pick_a_move (b) )
+        {
+          if ( b->status & GAME_CONTINUE )
+            assert (ply->bestScore > EVAL_MIN);
+          else
+            ply->bestScore =
+              (b->status & GAME_IS_A_WIN) ? EVAL_LOST (depth) : EVAL_DRAW;
+          break;
+        }
+
+        /* push */
+        b++, ply--, depth--;
+
+        ply->stats ++;
+
+        /* inherit alpha-beta bound from parent*/
+        ply->alpha = - (ply+1)->beta,
+        ply->beta  = - (ply+1)->alpha;
+
+        /* do the TT look up */
+        #if 0
+        _Entry * e = HashLoc (b->zobrist);
+        ply->bestScore  =
+          depth == 0 ? quiescence (b, depth) :
+          e->hash != b->zobrist ? EVAL_MIN   :
+          e->flag   
+        break;
+        #endif
+
+        ply->bestScore  = depth > 0 ? EVAL_MIN : quiescence (b, depth);
+        ply->bestMoveAt = UINT16_MAX;
+
+      } while (depth);
+          
+
+      /*
+      .. add to TT, if current search rooted with this node is better than
+      .. the existing TT entry
+      */
+
+      if (depth == depthmax)
+        break;
+
+      /* pop */
+
+      int16_t score = -ply->bestScore;
+      BoardUnroll (b--);
+      ply++, depth ++;
+ 
+      /* reduction of parent node's bestScore from max{-bestScore(child)} */
+      if (score > ply->bestScore)
+      {
+        ply->bestScore  = score;
+        ply->bestMoveAt = b->moveLoc - 1;
+
+        if (score > ply->alpha)
+          ply->alpha = score;
+
+        #ifdef _CHESS_DEBUG_
+        bestmove (depth);
+        #endif
+      }
+
+      /* fail-soft beta cutoff : discard rest of the child nodes */
+      if (score > ply->beta)
+        b->totalMoves = 0;
+
+    } while (1);
+
+    assert (depth == depthmax && ply == max);
+
+    if (ply->bestMoveAt == UINT16_MAX)
+    {
+      assert (b->status & (GAME_IS_A_DRAW | GAME_IS_A_WIN));
+      fprintf (stderr, "warning : game over. can't probe.");
+      BoardStatusPrint (b);
+      return NULL;
+    }
+
+    return & ((_Move * ) movesall.p) [ply->bestMoveAt];
+  }
+
   _Move * BoardProbe (const unsigned depthmax)
   {
     assert (depthmax < MAX_STACK_SIZE);
@@ -183,11 +308,10 @@
     int depth = (int) depthmax;
     memset (ProbePlies, 0, sizeof (ProbePlies));
     Probe * ply = & ProbePlies [depthmax],
-      * const max = ply,
-      * const min = ProbePlies;
+      * const max = ply;
 
     ply->bestMoveAt = UINT16_MAX;
-    ply->bestScore  = INT16_MIN;
+    ply->bestScore  = EVAL_MIN;
 
     /*
     .. stack equivalent of recursive search routine for searching the best
@@ -211,15 +335,11 @@
         b++, ply--, depth--;
 
         ply->stats ++;
+
         ply->bestScore  = depth > 0 ? EVAL_MIN : quiescence (b, depth);
         ply->bestMoveAt = UINT16_MAX;
                                                  /* fixme : use NNUE/SEE   */
       } while (depth);
-
-      /*
-      .. add to TT, if current search rooted with this node is better than
-      .. the existing TT entry
-      */
 
       /* pop (one ply and go to the sibling (next move) of the parent) */
       if (depth == depthmax)
@@ -229,7 +349,7 @@
       BoardUnroll (b--);
       ply++, depth ++;
  
-      /* reduction of parent nodes alpha/beta from min{} / max{} of children */
+      /* reduction */
       if (score > ply->bestScore)
       {
         ply->bestScore  = score;

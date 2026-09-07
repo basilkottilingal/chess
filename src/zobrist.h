@@ -290,10 +290,12 @@
   */
   typedef struct
   {
-    uint64_t hash; 
-    int32_t  score;
-    uint16_t best;
-    uint8_t  depth, flag;
+    uint64_t   hash; 
+    int16_t    score;
+    uint16_t   best;
+    uint8_t    depth;
+    uint8_t    status;
+    uint8_t    info;
   } _Entry;
 
   /* transposition table for lookup */

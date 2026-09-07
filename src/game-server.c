@@ -227,7 +227,7 @@ int game_server_move (ws_cli_conn_t client, const char * msg)
   }
   #endif
 
-  _Move * move = BoardProbe (4u);
+  _Move * move = BoardProbeAlphaBeta (5u);
   if (move == NULL)
     return server_error (client, "error : can't make a move. game over");
   const char reply [] =
