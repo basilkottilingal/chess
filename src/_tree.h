@@ -5,7 +5,7 @@
   #include "eval.h"
 
   #define NO_LEGAL_MOVES       0
-  #define FOUND_A_MOVE(b)    ( (b)->status = GAME_CONTINUE )
+  #define A_LEGAL_MOVE(b)    ( (b)->status |= GAME_CONTINUE )
 
   #define EVAL_DRAW            0
   #define EVAL_LOST(depth)   ( INT16_MIN + 256 - depth )
@@ -26,10 +26,6 @@
 
     if (b->status & GAME_IS_A_DRAW)
       return EVAL_DRAW;
-    else
-      assert (b->status == NO_LEGAL_MOVES);
-
-    int onCheck = BoardIsKingAttacked (color);
 
     _Move * move = MOVES_AT (b);
     for (int i=0; i<b->totalMoves; ++i, move++)
@@ -39,14 +35,14 @@
       if ( !BoardIsKingAttacked (color) )
       {
         BoardUnmove (b--);
-        b->status = GAME_CONTINUE | (onCheck ? GAME_ON_CHECK : 0);
+        A_LEGAL_MOVE (b);
         return BoardEval (b);
       }
       BoardUnmove (b--);
     }
 
     /* lost or stalemate in case of no legal move */
-    if (onCheck)
+    if (b->status & GAME_ON_CHECK)
     {
       b->status = GAME_IS_A_WIN | !color;
       return EVAL_LOST (depth);
@@ -67,16 +63,16 @@
     b [0].moveLoc    = b [-1].moveLoc + b [-1].totalMoves;
     b [0].totalMoves = 0;
     movesall.len     = b->moveLoc * sizeof (_Move);
-    /* assert (movesall.max >= movesall.len); */
 
     b->status = 
       (b->halfclock > 99) ? (GAME_IS_A_DRAW | GAME_FIFTY_MOVES)  :
       npieces == 0        ? (GAME_IS_A_DRAW | GAME_INSUFFICIENT) :
-      /*three_fold (b)    ? (GAME_IS_A_DRAW | GAME_THREE_FOLD)   : */
-                            NO_LEGAL_MOVES;
+      three_fold (b)      ? (GAME_IS_A_DRAW | GAME_THREE_FOLD)   : 
+      BoardIsKingAttacked (color) ?
+                            (NO_LEGAL_MOVES | GAME_ON_CHECK)     :
+                             NO_LEGAL_MOVES ;
 
     if (b->status & GAME_IS_A_DRAW)
-      /* Game is a draw */
       return b->status;
 
     /* Add all move.coms (incl invalid moves). They are still not marked */ 
@@ -134,7 +130,7 @@
       BoardMove (b++, move);
       if (!BoardIsKingAttacked (color))
       {
-        FOUND_A_MOVE (b-1);
+        A_LEGAL_MOVE (b-1);
         
         HashReinit  (b-1, move);
         if (move->flags & (MOVE_CAPTURE | MOVE_ENP_CAPTURE))
@@ -151,15 +147,11 @@
 
     }
 
-    b->status =
-      BoardIsKingAttacked (color) ?                    /* on check       */
-        b->status == NO_LEGAL_MOVES ?                  /* no legal moves */
-          (GAME_IS_A_WIN  | !color) :                  /* game lost      */
-          (GAME_CONTINUE  | GAME_ON_CHECK) :           /* game continues */
-                                                       /* not on check   */
-        b->status == NO_LEGAL_MOVES ?                  /* no legal moves */
-          (GAME_IS_A_DRAW | GAME_STALEMATE) :          /* stalemate      */
-          GAME_CONTINUE ;                              /* game continues */
+    if ( ! (b->status & GAME_CONTINUE) )
+      b->status =
+        (b->status & GAME_ON_CHECK) ?
+          (GAME_IS_A_WIN  | !color) :
+          (GAME_IS_A_DRAW | GAME_STALEMATE);
 
     return 0;
   }

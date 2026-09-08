@@ -10,6 +10,12 @@
 
   int three_fold (_Board * b)
   {
+    return 0; /* fixme */
+  }
+
+  #if 0
+  int three_fold (_Board * b)
+  {
     /* see if this board has repeated more than once in the game's history */
     
     uint64_t z = b->zobrist;
@@ -65,6 +71,7 @@
 
     return 0;
   }
+  #endif
 
   /* conditions to check while moving piece from 'FROM' to 'TO' */
 
