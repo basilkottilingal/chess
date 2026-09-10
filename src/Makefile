@@ -9,8 +9,11 @@ libnnue.a:
 SRC=$(wildcard:*.c);
 
 #compile the main webserver file (wsserver.c);
-server: libws.a libnnue.a $(SRC)
+server: libws.a libnnue.a game-server.c
 	gcc -std=c99 -o server game-server.c -I./nnue -I./wsServer/include -L./nnue -L./wsServer -lnnue -lws -pthread -lm -DDISABLE_VERBOSE
+
+port: port-availability.c
+	gcc -std=c99 -o port port-availability.c
 
 clean:
 	rm *.o *.a

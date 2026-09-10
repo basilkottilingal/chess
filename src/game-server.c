@@ -431,14 +431,7 @@ void onmessage (
    */
 }
 
-#ifndef PORT_START
-#define PORT_START 8080
-#endif
-#ifndef PORT_END
-#define PORT_END 8090
-#endif
-
-int is_port_available (int port) 
+int is_port_available (uint32_t port) 
 {
   int sock = socket (AF_INET, SOCK_STREAM, 0);
   if (sock < 0)
@@ -449,7 +442,7 @@ int is_port_available (int port)
   addr.sin_port = htons (port);
 
   int result = bind (sock, (struct sockaddr*) & addr, sizeof(addr));
-  close(sock);
+  close (sock);
   return result == 0;
 }
 
@@ -460,50 +453,48 @@ int is_port_available (int port)
  * unless if invoked from a different thread.
  */
 
-int main ( void /* fixme : may pass address & port */ )
+int main (int argc, char * argv[])
 {
 
-  /*
-   *  See if 8080 is free in shell
-   *  $  sudo lsof -i :8080
-   *  $  netstat -tuln | grep 8080
-   */
-
-  int available = 0;
-  for (uint32_t port = PORT_START; port <= PORT_END; ++port) 
+  uint32_t port = 8080;
+  if (argc > 1)
   {
-    if( !is_port_available(port) )
-      continue;
-    
-    available = 1;
-    fprintf(stdout, "server listening to 127.0.0.1:%d\n", port); 
-  
-    ws_socket ( &(struct ws_server)
-      {
-        /*
-         * Bind host:
-         * localhost -> localhost/127.0.0.1
-         * 0.0.0.0   -> global IPv4
-         * ::        -> global IPv4+IPv6 (DualStack)
-         */
-        .host          = "0.0.0.0",
-        .port          = port,
-        .thread_loop   = 0,
-        .timeout_ms    = 1000,
-        .evs.onopen    = & onopen,
-        .evs.onclose   = & onclose,
-        .evs.onmessage = & onmessage
-      } );
+    const char * wsport = argv [1], * str;
+    if ( (str = strchr (wsport, ':')) == NULL ||
+         (str = strchr (str+1, ':')) == NULL )
+    {
+      fprintf (stdout, "wrong wsserver link");
+      exit (-1); 
+    }
+    port = 0;
+    while (*++str != '\0')
+    {
+      assert (*str >= '0' || *str <= '9');
+      port = port * 10 + (*str - '0');
+    }
   }
-  
-  if (!available)  
-    fprintf(stderr, "error: no port between %d and %d are available\n",
-      PORT_START, PORT_END);
+  if ( port < 1024 || ! is_port_available (port) )
+  {
+    fprintf (stderr, "port %u not available\n", port);
+    exit (-1);
+  }
 
-  /*
-   * If you want to execute code past ws_socket(), set
-   * .thread_loop to '1'.
-   */
+  ws_socket ( &(struct ws_server)
+    {
+      /*
+       * Bind host:
+       * localhost -> localhost/127.0.0.1
+       * 0.0.0.0   -> global IPv4
+       * ::        -> global IPv4+IPv6 (DualStack)
+       */
+      .host          = "0.0.0.0",
+      .port          = port,
+      .thread_loop   = 0,
+      .timeout_ms    = 1000,
+      .evs.onopen    = & onopen,
+      .evs.onclose   = & onclose,
+      .evs.onmessage = & onmessage
+    } );
 
   return 0;
 }

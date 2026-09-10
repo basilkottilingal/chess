@@ -53,22 +53,21 @@
     "xx"
   };
 
-
   #define NOT_UNUSED(x) (void)(x)
 
   #define COLOR        1
   #define BLACK        0
   #define WHITE        1
-  #define BROOK      ((0<<1) | BLACK)
-  #define WROOK      ((0<<1) | WHITE)
+  #define BPAWN      ((0<<1) | BLACK)
+  #define WPAWN      ((0<<1) | WHITE)
   #define BKNIGHT    ((1<<1) | BLACK)
   #define WKNIGHT    ((1<<1) | WHITE)
   #define BBISHOP    ((2<<1) | BLACK)
   #define WBISHOP    ((2<<1) | WHITE)
-  #define BQUEEN     ((3<<1) | BLACK)
-  #define WQUEEN     ((3<<1) | WHITE)
-  #define BPAWN      ((4<<1) | BLACK)
-  #define WPAWN      ((4<<1) | WHITE)
+  #define BROOK      ((3<<1) | BLACK)
+  #define WROOK      ((3<<1) | WHITE)
+  #define BQUEEN     ((4<<1) | BLACK)
+  #define WQUEEN     ((4<<1) | WHITE)
   #define BKING      ((5<<1) | BLACK)
   #define WKING      ((5<<1) | WHITE)
   #define EMPTY        12
@@ -83,8 +82,8 @@
 
   const char ASCII [14] =
     { 
-      'r', 'R', 'n', 'N', 'b', 'B',
-      'q', 'Q', 'p', 'P', 'k', 'K',
+      'p', 'P', 'n', 'N', 'b', 'B',
+      'r', 'R', 'q', 'Q', 'k', 'K',
       '.', '?'  /* empty & invalid */
     };
   const uint8_t CHESSPIECE[50] =

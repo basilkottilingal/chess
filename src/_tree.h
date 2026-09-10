@@ -75,6 +75,7 @@
     if (b->status & GAME_IS_A_DRAW)
       return b->status;
 
+    Array * moves = &movesall; 
     /* Add all move.coms (incl invalid moves). They are still not marked */ 
     for (int i=START; i<=END; ++i)
     {
@@ -84,7 +85,34 @@
         if ( IS_EMPTY (from) || PIECE_COLOR (from) != color )
           continue;
         /* Generate possible moves with the 'piece' */
-        BoardPieceMoves [PIECE (from)] (b, from, &movesall);
+        switch ( PIECES [*from] )
+        {
+          case BPAWN :
+            BoardPawnMoves (b, from, BPAWN_MOVES, moves);
+            break; 
+          case WPAWN :
+            BoardPawnMoves (b, from, WPAWN_MOVES, moves);
+            break;
+          case BKNIGHT : case WKNIGHT :
+            BoardMovesFrom (from, KNIGHT_MOVES, 8, 1, moves);
+            break;
+          case BBISHOP : case WBISHOP :
+            BoardMovesFrom (from, BISHOP_MOVES, 4, 7, moves);
+            break; 
+          case BROOK : case WROOK :
+            BoardMovesFrom (from, ROOK_MOVES, 4, 7, moves);
+            break; 
+          case BQUEEN : case WQUEEN : 
+            BoardMovesFrom (from, QUEEN_MOVES, 8, 7, moves);
+            break;
+          case BKING :
+            BoardBKingMoves (b, from, moves);
+            break; 
+          case WKING :
+            BoardWKingMoves (b, from, moves);
+            break;
+          default : assert (0);
+        }
       }
     }
 
@@ -291,6 +319,12 @@
 
     return & ((_Move * ) movesall.p) [ply->bestMoveAt];
   }
+
+  /*
+  .. following Probe function traverse through all the nodes and
+  .. should only be used for shallow searches and testing tree
+  .. traversal and verifying nodes traversed
+  */
 
   _Move * BoardProbe (const unsigned depthmax)
   {

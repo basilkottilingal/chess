@@ -26,10 +26,9 @@ export class Client
     this.onceConnected = 0;
 
     /*
-    .. fixme : This file should be have some mechanism to change port. 
-    .. maybe communicate with src/.server
+    .. WS_PORT is read from config.js
     */
-    this.socket = new WebSocket ("ws://localhost:8080");
+    this.socket = new WebSocket (WS_PORT ?? "ws://127.0.0.1:8080");
 
     /* Ensures binary data (if any. not preferred ) is received as ArrayBuffer */
     this.socket.binaryType = "arraybuffer"; 

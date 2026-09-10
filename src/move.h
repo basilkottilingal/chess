@@ -420,11 +420,6 @@
     }
   }
   
-  void BoardQueenMoves (_Board *b, Square from, Array * moves)
-  {
-    NOT_UNUSED(b);
-    BoardMovesFrom(from, QUEEN_MOVES, 8, 7, moves); 
-  }
 
   void BoardWKingMoves(_Board *b, Square from, Array * moves)
   {
@@ -528,23 +523,6 @@
     }
   }
   
-  void BoardBishopMoves (_Board * b, Square from, Array *moves)
-  {
-    NOT_UNUSED (b);
-    BoardMovesFrom(from, BISHOP_MOVES, 4, 7, moves); 
-  }
-  
-  void BoardKnightMoves (_Board * b, Square from, Array *moves)
-  {
-    NOT_UNUSED (b);
-    BoardMovesFrom(from, KNIGHT_MOVES, 8, 1, moves); 
-  }
-  
-  void BoardRookMoves (_Board * b, Square from, Array * moves)
-  {
-    NOT_UNUSED (b);
-    BoardMovesFrom(from, ROOK_MOVES, 4, 7, moves); 
-  }
   
   void BoardPawnMoves
   (
@@ -581,12 +559,12 @@
        
       if (flags & MOVE_PROMOTION)
       {
-        move.promotion = color == WHITE ? WROOK : BROOK;
+        move.promotion = color == WHITE ? WQUEEN : BQUEEN;
         for(int i=0; i<4; ++i)
         {
           /* 'p' is promoted to 'r','b','n' and 'q' */
           array_append (moves, &move, sizeof(move));
-          move.promotion += 2;
+          move.promotion -= 2;
         }
       }
       else /* if (flag == MOVE_CAPTURE | MOVE_ENP_CAPTURE)) */
@@ -616,12 +594,12 @@
 
       if(flags & MOVE_PROMOTION)
       {
-        move.promotion = color == WHITE ? WROOK : BROOK;
+        move.promotion = color == WHITE ? WQUEEN : BQUEEN;
         for(int i=0; i<4; ++i)
         {
           /* 'p' is promoted to 'r','b','n' and 'q' */
           array_append (moves, &move, sizeof(move));
-          move.promotion += 2;
+          move.promotion -= 2;
         }
       }
       else /* if (flag == MOVE_NORMAL) */
@@ -634,27 +612,6 @@
         break;  
     }
   }
-  
-  void BoardBPawnMoves (_Board * b, Square from, Array * moves)
-  {
-    BoardPawnMoves(b, from, BPAWN_MOVES, moves);
-  }
-  
-  void BoardWPawnMoves (_Board * b, Square from, Array * moves)
-  {
-    BoardPawnMoves(b, from, WPAWN_MOVES, moves);
-  }
-
-  /* function pointers (for move) for each chesspieces */
-  void (*BoardPieceMoves[12]) (_Board *, Square, Array * ) =
-    {
-        BoardRookMoves,   BoardRookMoves,
-        BoardKnightMoves, BoardKnightMoves,
-        BoardBishopMoves, BoardBishopMoves,
-        BoardQueenMoves,  BoardQueenMoves,
-        BoardBPawnMoves,  BoardWPawnMoves, 
-        BoardBKingMoves,  BoardWKingMoves
-    };
   
   /*
   .. Functions that generate moves for each pieces. Each Function pointers
@@ -687,6 +644,7 @@
       return b->status;
 
     uint8_t onCheck = BoardIsKingAttacked (color);
+    Array * moves = & movesall; 
 
     /* Add all moves (incl invalid moves). They are still not marked */ 
     for (int i=START; i<=END; ++i)
@@ -697,7 +655,34 @@
         if ( IS_EMPTY (from) || PIECE_COLOR (from) != color )
           continue;
         /* Generate possible moves with the 'piece' */
-        BoardPieceMoves [PIECE (from)] (b, from, &movesall);
+        switch ( PIECES [*from] )
+        {
+          case BPAWN :
+            BoardPawnMoves (b, from, BPAWN_MOVES, moves);
+            break; 
+          case WPAWN :
+            BoardPawnMoves (b, from, WPAWN_MOVES, moves);
+            break;
+          case BKNIGHT : case WKNIGHT :
+            BoardMovesFrom (from, KNIGHT_MOVES, 8, 1, moves);
+            break;
+          case BBISHOP : case WBISHOP :
+            BoardMovesFrom (from, BISHOP_MOVES, 4, 7, moves);
+            break; 
+          case BROOK : case WROOK :
+            BoardMovesFrom (from, ROOK_MOVES, 4, 7, moves);
+            break; 
+          case BQUEEN : case WQUEEN : 
+            BoardMovesFrom (from, QUEEN_MOVES, 8, 7, moves);
+            break;
+          case BKING :
+            BoardBKingMoves (b, from, moves);
+            break; 
+          case WKING :
+            BoardWKingMoves (b, from, moves);
+            break;
+          default : assert (0);
+        }
       }
     }
 
